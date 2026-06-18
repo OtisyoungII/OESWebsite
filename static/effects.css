@@ -1,0 +1,159 @@
+/* ============================
+   OES Interactive Effects
+============================ */
+
+/* Product Cards */
+
+.card{
+
+    position:relative;
+
+    overflow:hidden;
+
+    cursor:pointer;
+
+}
+
+/* Blue Glow */
+
+.card::after{
+
+    content:"";
+
+    position:absolute;
+
+    inset:0;
+
+    background:
+        radial-gradient(circle at center,
+        rgba(57,189,248,.18),
+        transparent 65%);
+
+    opacity:0;
+
+    transition:.35s;
+
+    pointer-events:none;
+
+}
+
+.card:hover::after{
+
+    opacity:1;
+
+}
+
+.card:hover{
+
+    transform:translateY(-10px);
+
+}
+
+/* ============================
+   Sonic Coin Explosion
+============================ */
+
+.coin{
+
+    position:absolute;
+
+    font-size:30px;
+
+    z-index:30;
+
+    pointer-events:none;
+
+    animation:coinBurst .9s ease-out forwards;
+
+}
+
+@keyframes coinBurst{
+
+    0%{
+
+        opacity:1;
+
+        transform:
+            translate(0,0)
+            scale(.3)
+            rotate(0deg);
+
+    }
+
+    100%{
+
+        opacity:0;
+
+        transform:
+            translate(var(--x),var(--y))
+            scale(1.7)
+            rotate(720deg);
+
+    }
+
+}
+
+/* ============================
+   ChaseInGreen Money Rain
+============================ */
+
+.money-active::before,
+.money-active::after{
+
+    content:"💵";
+
+    position:absolute;
+
+    top:-40px;
+
+    font-size:34px;
+
+    animation:moneyFall 2s linear infinite;
+
+    pointer-events:none;
+
+}
+
+.money-active::before{
+
+    left:25%;
+
+}
+
+.money-active::after{
+
+    left:70%;
+
+    animation-delay:.5s;
+
+}
+
+@keyframes moneyFall{
+
+    0%{
+
+        opacity:0;
+
+        transform:
+            translateY(-30px)
+            rotate(0deg);
+
+    }
+
+    15%{
+
+        opacity:1;
+
+    }
+
+    100%{
+
+        opacity:0;
+
+        transform:
+            translateY(420px)
+            rotate(360deg);
+
+    }
+
+}

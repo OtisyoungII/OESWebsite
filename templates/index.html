@@ -1,25 +1,173 @@
 <!DOCTYPE html>
-<html>
-<head>
-  <title>Otis Execution Systems</title>
-  <link rel="stylesheet" href="/static/style.css">
-</head>
-<body>
-  <nav>
-    <h2>OES</h2>
-    <a href="/">Home</a>
-    <a href="/chaseingreen">ChaseINGreen</a>
-    <a href="/lottovate">Lottovate</a>
-    <a href="/contact">Contact</a>
-  </nav>
+<html lang="en">
 
-  <section class="hero">
-    <h1>Otis Execution Systems</h1>
-    <p>AI-powered software for trading, prediction tools, education, and execution.</p>
-    <div>
-      <a class="btn" href="/chaseingreen">Explore ChaseINGreen</a>
-      <a class="btn secondary" href="/lottovate">Explore Lottovate</a>
+<head>
+
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Otis Execution Systems</title>
+
+    <link rel="stylesheet"
+          href="{{ url_for('static', filename='style.css') }}">
+
+    <link rel="stylesheet"
+          href="{{ url_for('static', filename='effects.css') }}">
+
+</head>
+
+<body>
+
+<header>
+
+    <div class="logo">
+        OES
     </div>
-  </section>
+
+    <nav>
+
+        <a href="#">Home</a>
+        <a href="#apps">Apps</a>
+        <a href="#about">About</a>
+        <a href="#contact">Contact</a>
+
+    </nav>
+
+</header>
+
+
+<section class="hero">
+
+    <div class="hero-text">
+
+        <h1>
+            Building the Future of AI Software
+        </h1>
+
+        <p>
+
+            Otis Execution Systems develops intelligent applications
+            that empower traders, investors, and everyday users through
+            artificial intelligence, automation, and beautiful software.
+
+        </p>
+
+        <div class="buttons">
+
+            <a href="#apps" class="btn">
+                Explore Our Apps
+            </a>
+
+            <a href="#about" class="btn secondary">
+                Learn More
+            </a>
+
+        </div>
+
+    </div>
+
+</section>
+
+
+
+<section id="apps" class="apps">
+
+    <h2>
+        Our Products
+    </h2>
+
+    <div class="cards">
+
+        <div class="card chase-card">
+
+            <h3>📈 ChaseInGreen</h3>
+
+            <p>
+
+                AI-powered trading intelligence designed to help traders
+                make smarter decisions with advanced analytics,
+                prediction tools, automation, and portfolio management.
+
+            </p>
+
+        </div>
+
+
+        <div class="card lottovate-card">
+
+            <h3>🎲 Lottovate</h3>
+
+            <p>
+
+                Intelligent lottery prediction software using historical
+                analysis, machine learning, and pattern recognition.
+
+            </p>
+
+        </div>
+
+    </div>
+
+</section>
+
+
+
+<section id="about" class="about">
+
+    <h2>
+        About OES
+    </h2>
+
+    <p>
+
+        Otis Execution Systems was founded with one goal:
+        build software that genuinely improves people's lives.
+
+        From AI-powered trading tools to predictive analytics,
+        we are creating products that combine innovation,
+        beautiful design, and practical usefulness.
+
+    </p>
+
+</section>
+
+
+
+<section id="contact" class="contact">
+
+    <h2>
+        Contact
+    </h2>
+
+    <p>
+        Interested in partnering with us or learning more?
+    </p>
+
+    <p>
+
+        Contact us at
+
+        <strong>
+
+            info@otisexecutionsystems.com
+
+        </strong>
+
+    </p>
+
+</section>
+
+
+
+<footer>
+
+    © 2026 Otis Execution Systems LLC
+
+</footer>
+
+
+<script src="{{ url_for('static', filename='app.js') }}"></script>
+
 </body>
+
 </html>
