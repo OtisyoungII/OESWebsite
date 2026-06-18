@@ -1,0 +1,21 @@
+# Virtual Environment
+.venv/
+venv/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# macOS
+.DS_Store
+
+# PyCharm
+.idea/
+
+# Backup files
+*.bak
+
+# Environment variables
+.env
