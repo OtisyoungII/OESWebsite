@@ -1,174 +1,143 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
-
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
     <title>Otis Execution Systems</title>
 
-    <link rel="stylesheet"
-          href="{{ url_for('static', filename='style.css') }}">
-
-    <link rel="stylesheet"
-          href="{{ url_for('static', filename='effects.css') }}">
-
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 
 <body>
 
-<header>
+<div class="cursor-glow"></div>
+<canvas id="particleCanvas"></canvas>
 
-    <div class="logo">
-    <img src="{{ url_for('static', filename='oes-logo.svg') }}" alt="OES Logo">
-    <span>OES</span>
-</div>
+<header class="nav">
+    <div class="brand">
+        <div class="brand-orb">OES</div>
+        <span>Otis Execution Systems</span>
+    </div>
 
     <nav>
-
-        <a href="#">Home</a>
+        <a href="#home">Home</a>
         <a href="#apps">Apps</a>
         <a href="#about">About</a>
         <a href="#contact">Contact</a>
-
     </nav>
-
 </header>
 
-
-<section class="hero">
-
-    <div class="hero-text">
+<section id="home" class="hero">
+    <div class="hero-content">
+        <p class="eyebrow">AI • Trading • Prediction • Automation</p>
 
         <h1>
-            Building the Future of AI Software
+            Building software that feels alive.
         </h1>
 
-        <p>
-
-            Otis Execution Systems develops intelligent applications
-            that empower traders, investors, and everyday users through
-            artificial intelligence, automation, and beautiful software.
-
+        <p class="hero-copy">
+            Otis Execution Systems creates AI-powered applications for trading intelligence,
+            lottery analytics, education, automation, and real-world execution.
         </p>
 
-        <div class="buttons">
-
-            <a href="#apps" class="btn">
-                Explore Our Apps
-            </a>
-
-            <a href="#about" class="btn secondary">
-                Learn More
-            </a>
-
+        <div class="hero-actions">
+            <a href="#apps" class="btn primary">Explore OES Apps</a>
+            <a href="#contact" class="btn ghost">Contact OES</a>
         </div>
-
     </div>
 
+    <div class="hero-orbit">
+        <div class="orbit-ring ring-one"></div>
+        <div class="orbit-ring ring-two"></div>
+        <div class="orbit-core">
+            <span>OES</span>
+        </div>
+    </div>
 </section>
 
-
-
-<section id="apps" class="apps">
-
-    <h2>
-        Our Products
-    </h2>
-
-    <div class="cards">
-
-        <div class="card chase-card">
-
-            <h3>📈 ChaseInGreen</h3>
-
-            <p>
-
-                AI-powered trading intelligence designed to help traders
-                make smarter decisions with advanced analytics,
-                prediction tools, automation, and portfolio management.
-
-            </p>
-
-        </div>
-
-
-        <div class="card lottovate-card">
-
-            <h3>🎲 Lottovate</h3>
-
-            <p>
-
-                Intelligent lottery prediction software using historical
-                analysis, machine learning, and pattern recognition.
-
-            </p>
-
-        </div>
-
+<section id="apps" class="apps-section">
+    <div class="section-heading">
+        <p class="eyebrow">Product Universe</p>
+        <h2>Two apps. One execution system.</h2>
     </div>
 
+    <div class="product-grid">
+
+        <article class="product-card chase-card">
+            <div class="card-bg chart-bg"></div>
+
+            <div class="money-layer"></div>
+
+            <div class="product-icon">📈</div>
+            <h3>ChaseInGreen</h3>
+
+            <p>
+                AI-assisted trading intelligence for alerts, analysis, execution planning,
+                portfolio awareness, and risk control.
+            </p>
+
+            <div class="mini-chart">
+                <span></span><span></span><span></span><span></span><span></span>
+            </div>
+
+            <button class="card-button">Hover for money flow</button>
+        </article>
+
+        <article class="product-card lottovate-card">
+            <div class="card-bg lotto-bg"></div>
+
+            <div class="product-icon">🎲</div>
+            <h3>Lottovate</h3>
+
+            <p>
+                Lottery analytics built around historical data, pattern recognition,
+                number intelligence, and prediction tools.
+            </p>
+
+            <div class="lotto-balls">
+                <span>7</span>
+                <span>3</span>
+                <span>0</span>
+                <span>9</span>
+            </div>
+
+            <button class="card-button">Hover for coin burst</button>
+        </article>
+
+    </div>
 </section>
 
+<section id="about" class="about-section">
+    <div class="glass-panel">
+        <p class="eyebrow">Detroit Built</p>
 
+        <h2>About OES</h2>
 
-<section id="about" class="about">
-
-    <h2>
-        About OES
-    </h2>
-
-    <p>
-
-        Otis Execution Systems was founded with one goal:
-        build software that genuinely improves people's lives.
-
-        From AI-powered trading tools to predictive analytics,
-        we are creating products that combine innovation,
-        beautiful design, and practical usefulness.
-
-    </p>
-
+        <p>
+            Otis Execution Systems LLC builds intelligent software designed to help people
+            make better decisions. From trading tools to prediction systems, OES focuses on
+            practical AI, clean design, and products that can grow into real platforms.
+        </p>
+    </div>
 </section>
 
-
-
-<section id="contact" class="contact">
-
-    <h2>
-        Contact
-    </h2>
+<section id="contact" class="contact-section">
+    <h2>Work with OES</h2>
 
     <p>
-        Interested in partnering with us or learning more?
+        Business inquiries, partnerships, app demos, and investor conversations.
     </p>
 
-    <p>
-
-        Contact us at
-
-        <strong>
-
-            info@otisexecutionsystems.com
-
-        </strong>
-
-    </p>
-
+    <a href="mailto:info@otisexecutionsystems.com" class="email-link">
+        info@otisexecutionsystems.com
+    </a>
 </section>
-
-
 
 <footer>
-
     © 2026 Otis Execution Systems LLC
-
 </footer>
-
 
 <script src="{{ url_for('static', filename='app.js') }}"></script>
 
 </body>
-
 </html>
