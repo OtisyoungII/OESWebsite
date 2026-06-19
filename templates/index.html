@@ -4,18 +4,17 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Otis Execution Systems</title>
-
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 
 <body>
 
 <div class="cursor-glow"></div>
-<canvas id="particleCanvas"></canvas>
+<div class="particle-layer"></div>
 
-<header class="nav">
-    <div class="brand">
-        <div class="brand-orb">OES</div>
+<header class="site-header">
+    <div class="logo">
+        <img src="{{ url_for('static', filename='oes-logo.svg') }}" alt="OES Logo">
         <span>Otis Execution Systems</span>
     </div>
 
@@ -42,20 +41,18 @@
 
         <div class="hero-actions">
             <a href="#apps" class="btn primary">Explore OES Apps</a>
-            <a href="#contact" class="btn ghost">Contact OES</a>
+            <a href="#contact" class="btn secondary">Contact OES</a>
         </div>
     </div>
 
-    <div class="hero-orbit">
-        <div class="orbit-ring ring-one"></div>
-        <div class="orbit-ring ring-two"></div>
-        <div class="orbit-core">
-            <span>OES</span>
+    <div class="hero-visual">
+        <div class="orb">
+            <img src="{{ url_for('static', filename='oes-logo.svg') }}" alt="OES Logo">
         </div>
     </div>
 </section>
 
-<section id="apps" class="apps-section">
+<section id="apps" class="apps">
     <div class="section-heading">
         <p class="eyebrow">Product Universe</p>
         <h2>Two apps. One execution system.</h2>
@@ -64,55 +61,48 @@
     <div class="product-grid">
 
         <article class="product-card chase-card">
-            <div class="card-bg chart-bg"></div>
-
-            <div class="money-layer"></div>
-
-            <div class="product-icon">📈</div>
-            <h3>ChaseInGreen</h3>
-
-            <p>
-                AI-assisted trading intelligence for alerts, analysis, execution planning,
-                portfolio awareness, and risk control.
-            </p>
-
-            <div class="mini-chart">
-                <span></span><span></span><span></span><span></span><span></span>
+            <div class="chart-area">
+                <svg viewBox="0 0 500 220" preserveAspectRatio="none">
+                    <polyline class="chart-glow" points="0,160 55,140 95,168 150,90 205,115 260,62 315,88 375,38 430,70 500,28"></polyline>
+                    <polyline class="chart-line" points="0,160 55,140 95,168 150,90 205,115 260,62 315,88 375,38 430,70 500,28"></polyline>
+                </svg>
             </div>
 
-            <button class="card-button">Hover for money flow</button>
+            <div class="product-content">
+                <span class="product-label">Trading Intelligence</span>
+                <h3>ChaseInGreen</h3>
+                <p>
+                    AI-assisted trading insight, alerts, risk awareness, and execution planning
+                    for traders who need clarity before, during, and after the move.
+                </p>
+            </div>
         </article>
 
         <article class="product-card lottovate-card">
-            <div class="card-bg lotto-bg"></div>
-
-            <div class="product-icon">🎲</div>
-            <h3>Lottovate</h3>
-
-            <p>
-                Lottery analytics built around historical data, pattern recognition,
-                number intelligence, and prediction tools.
-            </p>
-
-            <div class="lotto-balls">
+            <div class="lotto-numbers">
                 <span>7</span>
-                <span>3</span>
                 <span>0</span>
+                <span>3</span>
                 <span>9</span>
             </div>
 
-            <button class="card-button">Hover for coin burst</button>
+            <div class="product-content">
+                <span class="product-label">Lottery Analytics</span>
+                <h3>Lottovate</h3>
+                <p>
+                    Pattern recognition, historical analysis, number intelligence,
+                    and smart lottery tools built for Daily 3 and Daily 4 players.
+                </p>
+            </div>
         </article>
 
     </div>
 </section>
 
-<section id="about" class="about-section">
+<section id="about" class="about">
     <div class="glass-panel">
         <p class="eyebrow">Detroit Built</p>
-
         <h2>About OES</h2>
-
         <p>
             Otis Execution Systems LLC builds intelligent software designed to help people
             make better decisions. From trading tools to prediction systems, OES focuses on
@@ -121,16 +111,12 @@
     </div>
 </section>
 
-<section id="contact" class="contact-section">
-    <h2>Work with OES</h2>
-
-    <p>
-        Business inquiries, partnerships, app demos, and investor conversations.
-    </p>
-
-    <a href="mailto:info@otisexecutionsystems.com" class="email-link">
-        info@otisexecutionsystems.com
-    </a>
+<section id="contact" class="contact">
+    <div class="glass-panel">
+        <h2>Work with OES</h2>
+        <p>Business inquiries, partnerships, app demos, and investor conversations.</p>
+        <a href="mailto:info@otisexecutionsystems.com">info@otisexecutionsystems.com</a>
+    </div>
 </section>
 
 <footer>

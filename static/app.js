@@ -183,7 +183,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     function setupScrollReveal() {
-        const revealItems = document.querySelectorAll(".hero-text, .apps h2, .card, .about, .contact");
+        const revealItems = document.querySelectorAll(".hero-content, .section-heading, .product-card, .about, .contact");
 
         revealItems.forEach((item) => {
             item.classList.add("reveal");
