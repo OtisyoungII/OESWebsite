@@ -47,13 +47,17 @@ header{
 }
 
 .logo{
-
-    font-size:32px;
-
+    display:flex;
+    align-items:center;
+    gap:12px;
+    font-size:28px;
     font-weight:bold;
-
     color:#39bdf8;
+}
 
+.logo img{
+    width:42px;
+    height:42px;
 }
 
 nav a{

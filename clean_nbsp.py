@@ -2,7 +2,7 @@
 import pathlib
 import shutil
 
-EXTENSIONS = {".py", ".sh", ".env", ".yaml", ".yml", ".swift", ".txt", ".json", ".css", ".html"}
+EXTENSIONS = {".py", ".sh", ".env", ".yaml", ".yml", ".swift", ".txt", ".json", ".css", ".html", ".svg"}
 SKIP_DIR_NAMES = {".venv", "venv", "__pycache__", ".git", ".mypy_cache", ".pytest_cache"}
 SKIP_SUFFIXES = {".bak"}
 
