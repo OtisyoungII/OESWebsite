@@ -1,0 +1,354 @@
+/*
+===============================================================================
+FILE: static/css/hero-scene.css
+
+PURPOSE:
+    Hero scene styling for the OES website.
+
+UPDATED:
+    July 2026
+
+RESPONSIBILITIES
+-------------------------------------------------------------------------------
+[x] OES Core container
+[x] Detroit skyline
+[x] Ambient lighting
+[x] Hero atmosphere
+[x] Floating layers
+[x] Glass reflections
+[x] Responsive scaling
+
+FUTURE
+-------------------------------------------------------------------------------
+□ Animated billboards
+□ Live market ribbons
+□ Interactive city lights
+□ Moving traffic
+□ Rain mode
+□ Snow mode
+□ Three.js support
+===============================================================================
+*/
+
+/* ==========================================================================
+   HERO LAYOUT
+========================================================================== */
+
+.hero {
+    position: relative;
+    overflow: hidden;
+}
+
+.hero-visual {
+    position: relative;
+    display: grid;
+    place-items: center;
+    min-height: 650px;
+}
+
+/* ==========================================================================
+   DETROIT SCENE
+========================================================================== */
+
+.detroit-scene {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    overflow: hidden;
+    z-index: 0;
+}
+
+.detroit-gradient {
+    position: absolute;
+    inset: 0;
+
+    background:
+        radial-gradient(circle at 50% 20%,
+            rgba(56,189,248,.18),
+            transparent 42%),
+
+        radial-gradient(circle at 80% 10%,
+            rgba(34,197,94,.10),
+            transparent 38%),
+
+        linear-gradient(
+            180deg,
+            rgba(2,6,23,0),
+            rgba(2,6,23,.55),
+            rgba(2,6,23,.95)
+        );
+}
+
+/* ==========================================================================
+   SKYLINE
+========================================================================== */
+
+.detroit-skyline {
+
+    position:absolute;
+
+    left:0;
+    right:0;
+    bottom:0;
+
+    height:250px;
+
+    background-repeat:no-repeat;
+    background-position:center bottom;
+    background-size:cover;
+
+    opacity:.30;
+
+    filter:
+        drop-shadow(0 0 40px rgba(56,189,248,.15));
+}
+
+/* ==========================================================================
+   OES CORE
+========================================================================== */
+
+.orb {
+
+    position:relative;
+
+    z-index:20;
+
+    display:grid;
+    place-items:center;
+
+    width:min(440px,72vw);
+    height:min(440px,72vw);
+
+    border-radius:50%;
+
+    background:
+
+        radial-gradient(
+            circle at 35% 25%,
+            rgba(255,255,255,.30),
+            rgba(56,189,248,.18) 25%,
+            rgba(37,99,235,.12) 48%,
+            transparent 70%
+        );
+
+    box-shadow:
+
+        0 0 45px rgba(56,189,248,.30),
+
+        inset 0 0 70px rgba(255,255,255,.05);
+
+    transform-style:preserve-3d;
+
+    will-change:transform;
+}
+
+.orb img{
+
+    width:78%;
+    height:auto;
+
+    filter:
+
+        drop-shadow(0 0 40px rgba(56,189,248,.70))
+        drop-shadow(0 0 80px rgba(34,197,94,.25));
+
+    pointer-events:none;
+
+    user-select:none;
+}
+
+/* ==========================================================================
+   ENERGY RINGS
+========================================================================== */
+
+.orb::before,
+.orb::after{
+
+    content:"";
+
+    position:absolute;
+
+    border-radius:50%;
+
+    border:2px solid rgba(56,189,248,.28);
+
+    animation:
+
+        heroRingRotate 16s linear infinite;
+}
+
+.orb::before{
+
+    inset:24px;
+}
+
+.orb::after{
+
+    inset:62px;
+
+    border-color:rgba(34,197,94,.32);
+
+    animation-duration:10s;
+    animation-direction:reverse;
+}
+
+@keyframes heroRingRotate{
+
+    from{
+
+        transform:
+            rotate(0deg)
+            scale(1);
+    }
+
+    to{
+
+        transform:
+            rotate(360deg)
+            scale(1.04);
+    }
+
+}
+
+/* ==========================================================================
+   GLOW
+========================================================================== */
+
+.orb-glow{
+
+    position:absolute;
+
+    width:150%;
+    height:150%;
+
+    border-radius:50%;
+
+    background:
+
+        radial-gradient(circle,
+
+            rgba(56,189,248,.22),
+
+            rgba(37,99,235,.08),
+
+            transparent 70%
+        );
+
+    filter:blur(30px);
+
+    z-index:-1;
+}
+
+/* ==========================================================================
+   FLOATING DATA
+========================================================================== */
+
+.hero-data-layer{
+
+    position:absolute;
+
+    inset:0;
+
+    overflow:hidden;
+
+    pointer-events:none;
+}
+
+.hero-data-node{
+
+    position:absolute;
+
+    width:6px;
+    height:6px;
+
+    border-radius:50%;
+
+    background:#38bdf8;
+
+    box-shadow:
+
+        0 0 18px #38bdf8;
+
+    opacity:.45;
+
+    animation:
+
+        heroNodeFloat linear infinite;
+}
+
+@keyframes heroNodeFloat{
+
+    0%{
+
+        transform:
+            translateY(40px);
+
+        opacity:0;
+    }
+
+    15%{
+
+        opacity:.5;
+    }
+
+    100%{
+
+        transform:
+            translateY(-320px);
+
+        opacity:0;
+    }
+
+}
+
+/* ==========================================================================
+   GLASS REFLECTION
+========================================================================== */
+
+.hero-glass{
+
+    position:absolute;
+
+    inset:12%;
+
+    border-radius:50%;
+
+    background:
+
+        linear-gradient(
+
+            120deg,
+
+            rgba(255,255,255,.18),
+
+            transparent 35%
+        );
+
+    mix-blend-mode:screen;
+
+    pointer-events:none;
+}
+
+/* ==========================================================================
+   RESPONSIVE
+========================================================================== */
+
+@media(max-width:900px){
+
+    .hero-visual{
+
+        min-height:520px;
+    }
+
+    .orb{
+
+        width:min(320px,78vw);
+        height:min(320px,78vw);
+    }
+
+    .detroit-skyline{
+
+        height:170px;
+    }
+
+}
