@@ -1,0 +1,361 @@
+/*
+===============================================================================
+FILE: static/css/footer.css
+
+PURPOSE:
+    Shared footer styling for the Otis Execution Systems website.
+
+UPDATED:
+    July 15, 2026
+
+RESPONSIBILITIES:
+    [x] Footer layout
+    [x] OES footer branding
+    [x] Footer navigation
+    [x] Contact information
+    [x] Legal and location details
+    [x] Responsive footer behavior
+    [x] Accessible link states
+===============================================================================
+*/
+
+/* ==========================================================================
+   FOOTER FOUNDATION
+========================================================================== */
+
+.site-footer {
+    position: relative;
+    overflow: hidden;
+    padding:
+        72px
+        clamp(24px, 6vw, 88px)
+        30px;
+    color: #cbd5e1;
+    border-top: 1px solid rgba(148, 163, 184, 0.12);
+    background:
+        radial-gradient(
+            circle at 12% 10%,
+            rgba(56, 189, 248, 0.09),
+            transparent 30%
+        ),
+        radial-gradient(
+            circle at 88% 84%,
+            rgba(34, 197, 94, 0.07),
+            transparent 30%
+        ),
+        linear-gradient(
+            180deg,
+            #020617,
+            #01040c
+        );
+}
+
+.site-footer::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    opacity: 0.55;
+    background-image:
+        linear-gradient(
+            rgba(56, 189, 248, 0.025) 1px,
+            transparent 1px
+        ),
+        linear-gradient(
+            90deg,
+            rgba(56, 189, 248, 0.025) 1px,
+            transparent 1px
+        );
+    background-size: 72px 72px;
+}
+
+.site-footer::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    right: 10%;
+    left: 10%;
+    height: 1px;
+    background:
+        linear-gradient(
+            90deg,
+            transparent,
+            rgba(56, 189, 248, 0.48),
+            rgba(34, 197, 94, 0.35),
+            transparent
+        );
+}
+
+.site-footer__inner,
+.site-footer__bottom {
+    position: relative;
+    z-index: 2;
+    width: min(100%, 1480px);
+    margin: 0 auto;
+}
+
+/* ==========================================================================
+   FOOTER MAIN GRID
+========================================================================== */
+
+.site-footer__inner {
+    display: grid;
+    grid-template-columns:
+        minmax(280px, 1.1fr)
+        minmax(180px, 0.7fr)
+        minmax(280px, 1fr);
+    gap: clamp(36px, 7vw, 90px);
+    align-items: start;
+}
+
+/* ==========================================================================
+   FOOTER BRAND
+========================================================================== */
+
+.site-footer__brand {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+}
+
+.site-footer__brand img {
+    width: 66px;
+    height: 66px;
+    flex: 0 0 auto;
+    filter:
+        drop-shadow(
+            0 0 20px
+            rgba(56, 189, 248, 0.58)
+        )
+        drop-shadow(
+            0 0 38px
+            rgba(34, 197, 94, 0.14)
+        );
+}
+
+.site-footer__name {
+    margin-bottom: 7px;
+    color: #f8fafc;
+    font-size: 18px;
+    font-weight: 900;
+    line-height: 1.2;
+}
+
+.site-footer__tagline {
+    color: #7dd3fc;
+    font-size: 13px;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+/* ==========================================================================
+   FOOTER NAVIGATION
+========================================================================== */
+
+.site-footer__navigation {
+    display: grid;
+    gap: 13px;
+}
+
+.site-footer__navigation a {
+    position: relative;
+    width: fit-content;
+    padding: 4px 0;
+    color: #cbd5e1;
+    font-size: 14px;
+    font-weight: 800;
+    text-decoration: none;
+    transition:
+        color 0.24s ease,
+        transform 0.24s ease;
+}
+
+.site-footer__navigation a::after {
+    content: "";
+    position: absolute;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    height: 1px;
+    background:
+        linear-gradient(
+            90deg,
+            #38bdf8,
+            #22c55e
+        );
+    transform: scaleX(0);
+    transform-origin: left;
+    transition: transform 0.28s ease;
+}
+
+.site-footer__navigation a:hover {
+    color: #ffffff;
+    transform: translateX(4px);
+}
+
+.site-footer__navigation a:hover::after {
+    transform: scaleX(1);
+}
+
+.site-footer__navigation a:focus-visible {
+    outline: 2px solid rgba(125, 211, 252, 0.9);
+    outline-offset: 4px;
+    border-radius: 4px;
+}
+
+/* ==========================================================================
+   FOOTER CONTACT
+========================================================================== */
+
+.site-footer__contact {
+    max-width: 460px;
+}
+
+.site-footer__contact p {
+    margin-bottom: 18px;
+    color: #9fb0c5;
+    font-size: 14px;
+    line-height: 1.7;
+}
+
+.site-footer__contact a {
+    display: inline-block;
+    max-width: 100%;
+    color: #7dd3fc;
+    font-size: 16px;
+    font-weight: 900;
+    overflow-wrap: anywhere;
+    text-decoration: none;
+    text-shadow:
+        0 0 20px
+        rgba(56, 189, 248, 0.38);
+    transition:
+        color 0.24s ease,
+        text-shadow 0.24s ease;
+}
+
+.site-footer__contact a:hover {
+    color: #ffffff;
+    text-shadow:
+        0 0 28px
+        rgba(56, 189, 248, 0.62);
+}
+
+.site-footer__contact a:focus-visible {
+    outline: 2px solid rgba(125, 211, 252, 0.9);
+    outline-offset: 5px;
+    border-radius: 4px;
+}
+
+/* ==========================================================================
+   FOOTER BOTTOM
+========================================================================== */
+
+.site-footer__bottom {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 24px;
+    margin-top: 54px;
+    padding-top: 24px;
+    border-top: 1px solid rgba(148, 163, 184, 0.1);
+}
+
+.site-footer__bottom p {
+    color: #64748b;
+    font-size: 12px;
+    line-height: 1.5;
+}
+
+/* ==========================================================================
+   NOSCRIPT MESSAGE
+========================================================================== */
+
+.noscript-message {
+    position: fixed;
+    right: 20px;
+    bottom: 20px;
+    left: 20px;
+    z-index: 3000;
+    max-width: 760px;
+    margin: 0 auto;
+    padding: 16px 20px;
+    border: 1px solid rgba(250, 204, 21, 0.4);
+    border-radius: 14px;
+    color: #fef3c7;
+    background: rgba(66, 32, 6, 0.96);
+    box-shadow:
+        0 20px 60px
+        rgba(0, 0, 0, 0.48);
+    font-size: 14px;
+    line-height: 1.6;
+}
+
+/* ==========================================================================
+   TABLET
+========================================================================== */
+
+@media (max-width: 980px) {
+    .site-footer__inner {
+        grid-template-columns:
+            repeat(2, minmax(0, 1fr));
+    }
+
+    .site-footer__contact {
+        grid-column: 1 / -1;
+    }
+}
+
+/* ==========================================================================
+   MOBILE
+========================================================================== */
+
+@media (max-width: 640px) {
+    .site-footer {
+        padding:
+            58px
+            22px
+            24px;
+    }
+
+    .site-footer__inner {
+        grid-template-columns: 1fr;
+        gap: 34px;
+    }
+
+    .site-footer__brand {
+        align-items: flex-start;
+    }
+
+    .site-footer__brand img {
+        width: 58px;
+        height: 58px;
+    }
+
+    .site-footer__contact {
+        grid-column: auto;
+    }
+
+    .site-footer__bottom {
+        flex-direction: column;
+        align-items: flex-start;
+        margin-top: 42px;
+    }
+}
+
+/* ==========================================================================
+   REDUCED MOTION
+========================================================================== */
+
+@media (prefers-reduced-motion: reduce) {
+    .site-footer__navigation a,
+    .site-footer__navigation a::after,
+    .site-footer__contact a {
+        transition: none;
+    }
+
+    .site-footer__navigation a:hover {
+        transform: none;
+    }
+}
