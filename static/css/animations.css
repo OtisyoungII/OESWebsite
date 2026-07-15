@@ -1,0 +1,412 @@
+/*
+===============================================================================
+FILE: static/css/animations.css
+
+PURPOSE:
+    Shared animations and temporary effect styling for the Otis Execution
+    Systems website.
+
+UPDATED:
+    July 15, 2026
+
+RESPONSIBILITIES:
+    [x] Global background movement
+    [x] Ambient particle effects
+    [x] Scroll reveal transitions
+    [x] ChaseInGreen money effects
+    [x] Lottovate coin and lottery-ball effects
+    [x] Shared glow and pulse animations
+    [x] Reduced-motion protection
+
+IMPORTANT RULES:
+    [x] Temporary animation elements must not block interaction
+    [x] Animation must not be required to understand content
+    [x] Reduced-motion preferences must be respected
+===============================================================================
+*/
+
+/* ==========================================================================
+   GLOBAL BACKGROUND
+========================================================================== */
+
+@keyframes gridMove {
+    from {
+        background-position: 0 0;
+    }
+
+    to {
+        background-position: 144px 144px;
+    }
+}
+
+/* ==========================================================================
+   AMBIENT PARTICLES
+========================================================================== */
+
+.cursor-glow {
+    position: fixed;
+    width: 280px;
+    height: 280px;
+    border-radius: 50%;
+    pointer-events: none;
+    background:
+        radial-gradient(
+            circle,
+            rgba(56, 189, 248, 0.18),
+            transparent 70%
+        );
+    transform: translate(-50%, -50%);
+    z-index: 2;
+}
+
+.particle-layer {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    overflow: hidden;
+    z-index: -1;
+}
+
+.particle {
+    position: absolute;
+    width: 3px;
+    height: 3px;
+    border-radius: 50%;
+    background: rgba(125, 211, 252, 0.8);
+    box-shadow:
+        0 0 18px
+        rgba(56, 189, 248, 0.95);
+    animation:
+        particleDrift
+        linear
+        infinite;
+}
+
+@keyframes particleDrift {
+    0% {
+        opacity: 0.08;
+        transform:
+            translateY(0)
+            translateX(0)
+            scale(0.7);
+    }
+
+    35% {
+        opacity: 0.9;
+    }
+
+    100% {
+        opacity: 0;
+        transform:
+            translateY(-220px)
+            translateX(80px)
+            scale(1.2);
+    }
+}
+
+/* ==========================================================================
+   SCROLL REVEAL
+========================================================================== */
+
+.reveal {
+    opacity: 0;
+    transform: translateY(34px);
+    transition:
+        opacity 0.75s ease,
+        transform 0.75s ease;
+}
+
+.revealed {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+/* ==========================================================================
+   MONEY EFFECTS
+========================================================================== */
+
+.coin,
+.money-bill,
+.money-pop,
+.lotto-ball-pop {
+    position: absolute;
+    z-index: 40;
+    pointer-events: none;
+    user-select: none;
+}
+
+.coin {
+    animation:
+        coinBurst
+        1.05s
+        cubic-bezier(0.08, 0.82, 0.17, 1)
+        forwards;
+}
+
+@keyframes coinBurst {
+    0% {
+        opacity: 1;
+        transform:
+            translate(0, 0)
+            scale(0.15)
+            rotate(0deg);
+    }
+
+    100% {
+        opacity: 0;
+        transform:
+            translate(
+                var(--x),
+                var(--y)
+            )
+            scale(1.7)
+            rotate(900deg);
+    }
+}
+
+.money-bill {
+    top: -60px;
+    animation:
+        moneyRain
+        linear
+        forwards;
+}
+
+@keyframes moneyRain {
+    0% {
+        opacity: 0;
+        transform:
+            translateY(-40px)
+            rotate(0deg);
+    }
+
+    15% {
+        opacity: 1;
+    }
+
+    100% {
+        opacity: 0;
+        transform:
+            translateY(600px)
+            rotate(520deg);
+    }
+}
+
+.money-pop {
+    font-size: 34px;
+    animation:
+        moneyPop
+        1s
+        ease-out
+        forwards;
+}
+
+@keyframes moneyPop {
+    0% {
+        opacity: 1;
+        transform:
+            translate(0, 0)
+            scale(0.2)
+            rotate(0deg);
+    }
+
+    100% {
+        opacity: 0;
+        transform:
+            translate(
+                var(--x),
+                var(--y)
+            )
+            scale(1.7)
+            rotate(560deg);
+    }
+}
+
+/* ==========================================================================
+   LOTTERY EFFECTS
+========================================================================== */
+
+.lotto-ball-pop {
+    bottom: 20px;
+    width: 44px;
+    height: 44px;
+    display: grid;
+    place-items: center;
+    border-radius: 50%;
+    color: #020617;
+    background:
+        radial-gradient(
+            circle at 35% 25%,
+            #ffffff,
+            #fde68a 45%,
+            #f59e0b
+        );
+    box-shadow:
+        0 0 26px
+        rgba(250, 204, 21, 0.7);
+    font-weight: 1000;
+    animation:
+        lottoBounce
+        1.35s
+        ease-out
+        forwards;
+}
+
+@keyframes lottoBounce {
+    0% {
+        opacity: 0;
+        transform:
+            translateY(0)
+            scale(0.5)
+            rotate(0deg);
+    }
+
+    20% {
+        opacity: 1;
+    }
+
+    55% {
+        transform:
+            translateY(-230px)
+            scale(1.15)
+            rotate(180deg);
+    }
+
+    100% {
+        opacity: 0;
+        transform:
+            translateY(20px)
+            scale(0.8)
+            rotate(360deg);
+    }
+}
+
+/* ==========================================================================
+   SHARED PULSES
+========================================================================== */
+
+@keyframes glowPulse {
+    0%,
+    100% {
+        opacity: 0.5;
+        transform: scale(0.96);
+    }
+
+    50% {
+        opacity: 1;
+        transform: scale(1.04);
+    }
+}
+
+@keyframes softFloat {
+    0%,
+    100% {
+        transform: translateY(0);
+    }
+
+    50% {
+        transform: translateY(-12px);
+    }
+}
+
+@keyframes slowSpin {
+    from {
+        transform: rotate(0deg);
+    }
+
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
+}
+
+@keyframes fadeUp {
+    from {
+        opacity: 0;
+        transform: translateY(24px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes scanLine {
+    0% {
+        transform: translateY(-120%);
+    }
+
+    100% {
+        transform: translateY(120%);
+    }
+}
+
+/* ==========================================================================
+   READY STATE
+========================================================================== */
+
+.oes-ready .site-header {
+    animation:
+        fadeIn
+        0.6s
+        ease
+        both;
+}
+
+.oes-ready .hero-copy-block {
+    animation:
+        fadeUp
+        0.8s
+        0.12s
+        ease
+        both;
+}
+
+.oes-ready .oes-core-stage {
+    animation:
+        fadeIn
+        1s
+        0.25s
+        ease
+        both;
+}
+
+/* ==========================================================================
+   REDUCED MOTION
+========================================================================== */
+
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        scroll-behavior: auto !important;
+        animation-duration: 0.001ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.001ms !important;
+    }
+
+    .cursor-glow,
+    .particle-layer,
+    .coin,
+    .money-bill,
+    .money-pop,
+    .lotto-ball-pop {
+        display: none;
+    }
+
+    .reveal,
+    .revealed {
+        opacity: 1;
+        transform: none;
+    }
+}
