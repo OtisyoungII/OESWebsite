@@ -1,0 +1,317 @@
+/*
+===============================================================================
+FILE: static/css/responsive.css
+
+PURPOSE:
+    Responsive layout system for the Otis Execution Systems website.
+
+UPDATED:
+    July 15, 2026
+
+RESPONSIBILITIES
+-------------------------------------------------------------------------------
+[x] Desktop layouts
+[x] Laptop layouts
+[x] Tablet layouts
+[x] Mobile layouts
+[x] Large display support
+[x] Navigation adjustments
+[x] Hero adjustments
+[x] Product card adjustments
+[x] Footer adjustments
+
+IMPORTANT
+-------------------------------------------------------------------------------
+All responsive breakpoints belong in this file.
+
+Do not scatter media queries across every stylesheet.
+===============================================================================
+*/
+
+
+/*=============================================================================
+    LARGE DESKTOP
+=============================================================================*/
+
+@media (min-width: 1700px) {
+
+    .site-container,
+    .hero,
+    .section-container,
+    .footer-container {
+
+        max-width: 1700px;
+        margin-inline: auto;
+
+    }
+
+}
+
+
+/*=============================================================================
+    DESKTOP
+=============================================================================*/
+
+@media (max-width: 1440px) {
+
+    .hero {
+
+        padding-inline: 60px;
+
+    }
+
+}
+
+
+/*=============================================================================
+    LAPTOP
+=============================================================================*/
+
+@media (max-width: 1200px) {
+
+    .hero {
+
+        gap: 60px;
+
+    }
+
+    .product-grid {
+
+        grid-template-columns:
+            repeat(2, minmax(300px, 1fr));
+
+    }
+
+}
+
+
+/*=============================================================================
+    TABLET
+=============================================================================*/
+
+@media (max-width: 992px) {
+
+    .site-header {
+
+        padding-inline: 28px;
+
+    }
+
+    .hero {
+
+        grid-template-columns: 1fr;
+        text-align: center;
+        gap: 50px;
+
+    }
+
+    .hero-copy {
+
+        margin-inline: auto;
+
+    }
+
+    .hero-actions {
+
+        justify-content: center;
+
+    }
+
+    .hero-visual {
+
+        order: -1;
+
+    }
+
+    .product-grid {
+
+        grid-template-columns: 1fr;
+
+    }
+
+    .glass-panel {
+
+        padding: 40px;
+
+    }
+
+}
+
+
+/*=============================================================================
+    MOBILE
+=============================================================================*/
+
+@media (max-width: 768px) {
+
+    .site-header {
+
+        flex-direction: column;
+        justify-content: center;
+        gap: 16px;
+        padding: 18px;
+
+    }
+
+    nav {
+
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 16px;
+
+    }
+
+    nav a {
+
+        margin: 0;
+
+    }
+
+    .hero {
+
+        padding:
+            150px
+            24px
+            70px;
+
+    }
+
+    .hero h1 {
+
+        font-size: clamp(42px, 10vw, 64px);
+
+    }
+
+    .hero-copy {
+
+        font-size: 18px;
+
+    }
+
+    .hero-actions {
+
+        flex-direction: column;
+        align-items: stretch;
+
+    }
+
+    .btn {
+
+        width: 100%;
+
+    }
+
+    .orb {
+
+        width: min(340px, 82vw);
+        height: min(340px, 82vw);
+
+    }
+
+    .apps,
+    .about,
+    .contact {
+
+        padding:
+            80px
+            24px;
+
+    }
+
+    .glass-panel {
+
+        padding: 32px;
+
+    }
+
+}
+
+
+/*=============================================================================
+    SMALL MOBILE
+=============================================================================*/
+
+@media (max-width: 560px) {
+
+    .hero {
+
+        padding-top: 180px;
+
+    }
+
+    .product-card {
+
+        padding: 28px;
+        min-height: 440px;
+
+    }
+
+    .product-card h3 {
+
+        font-size: 34px;
+
+    }
+
+    .chart-area {
+
+        height: 160px;
+
+    }
+
+    .lotto-numbers {
+
+        left: 20px;
+        right: auto;
+        gap: 10px;
+
+    }
+
+    .lotto-numbers span {
+
+        width: 50px;
+        height: 50px;
+        font-size: 22px;
+
+    }
+
+}
+
+
+/*=============================================================================
+    VERY SMALL DEVICES
+=============================================================================*/
+
+@media (max-width: 400px) {
+
+    .hero {
+
+        padding-inline: 18px;
+
+    }
+
+    .site-header {
+
+        padding: 14px;
+
+    }
+
+    .glass-panel {
+
+        padding: 24px;
+
+    }
+
+    .product-card {
+
+        padding: 22px;
+
+    }
+
+    .btn {
+
+        padding: 14px 20px;
+
+    }
+
+}
