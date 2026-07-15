@@ -74,6 +74,10 @@ import {
     setupScrollReveal
 } from "./reveal-effects.js";
 
+import {
+    initializeSectionAwareness
+} from "./section-awareness.js";
+
 /* ============================================================================
    Mobile navigation
 ============================================================================ */
@@ -323,6 +327,7 @@ document.addEventListener(
 
         initializeOESCore();
         initializeDetroitScene();
+        initializeSectionAwareness();
 
         setupCardTilt();
         setupChaseMoney(chaseCard);
