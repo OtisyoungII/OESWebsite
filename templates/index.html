@@ -6,24 +6,27 @@ PURPOSE:
     Main homepage for the Otis Execution Systems website.
 
 UPDATED:
-    July 14, 2026
+    July 15, 2026
 
 RESPONSIBILITIES:
     [x] Introduce OES through an interactive Detroit-inspired hero
-    [x] Present OES products and beta-testing access
-    [x] Present approved client work
-    [x] Present custom software and technology services
-    [x] Present government and public-sector capabilities
-    [x] Present Detroit community and technology connections
-    [x] Present OES research and experimental development
-    [x] Provide clear contact and project-development paths
+    [x] Present ChaseInGreen and Lottovate with official TestFlight links
+    [x] Present Drinks With Friendz as approved client work
+    [x] Clearly explain OES software, AI, data, training, and consulting services
+    [x] Present practical government and public-sector capabilities
+    [x] Connect OES to Detroit technology and community organizations
+    [x] Present youth technology, athletics, education, and mentorship services
+    [x] Explain OES research with concrete examples
+    [x] Provide direct website and external-resource links
+    [x] Support future persistent OES Core interactions across the page
 
 IMPORTANT RULES:
     [x] ChaseInGreen and Lottovate remain OES-owned products
-    [x] Drinks With Friendz is labeled as client work
-    [x] Lottovate does not display an active beta link until ready
+    [x] Drinks With Friendz remains labeled as client work
+    [x] ChaseInGreen links directly to its active TestFlight page
+    [x] Lottovate links to its official TestFlight page while the beta is rebuilt
     [x] No government identifier is invented or displayed as pending
-    [x] The Detroit environment represents strength and opportunity
+    [x] Community organizations are described as ecosystem connections
     [x] The homepage remains usable without animation
 ===============================================================================
 #}
@@ -31,13 +34,13 @@ IMPORTANT RULES:
 {% extends "base.html" %}
 
 {% block title %}
-Otis Execution Systems | AI, Software and Technology Execution
+Otis Execution Systems | AI, Software, Trading Technology and Detroit Innovation
 {% endblock %}
 
 {% block description %}
-Otis Execution Systems is a Detroit-built technology company developing AI systems,
-mobile applications, web platforms, predictive tools, automation, data products,
-government solutions and experimental software.
+Otis Execution Systems is a Detroit-built technology company developing artificial
+intelligence, trading tools, predictive applications, mobile apps, web platforms,
+automation systems, technology training and public-sector solutions.
 {% endblock %}
 
 {% block og_title %}
@@ -45,8 +48,8 @@ Otis Execution Systems | Ideas Into Execution
 {% endblock %}
 
 {% block og_description %}
-Explore Detroit-built AI, software, mobile applications, predictive systems,
-government technology capabilities and the OES product ecosystem.
+Explore Detroit-built AI, trading technology, mobile applications, predictive
+systems, custom software, government capabilities and community technology programs.
 {% endblock %}
 
 {% block body_class %}
@@ -91,11 +94,11 @@ home-page
             <div class="brick-pattern"></div>
 
             <div class="city-sign city-sign--techtown">
-                TechTown
+                TechTown Detroit
             </div>
 
             <div class="city-sign city-sign--black-tech">
-                Black Tech
+                Black Tech Saturdays
             </div>
 
             <div class="city-sign city-sign--academy">
@@ -104,7 +107,7 @@ home-page
 
             <div class="city-mural">
                 <span>DETROIT</span>
-                <small>Build through every challenge.</small>
+                <small>Every challenge is another place to build.</small>
             </div>
         </div>
 
@@ -147,7 +150,7 @@ home-page
 
         <div class="hero-copy-block">
             <p class="eyebrow hero-eyebrow">
-                Detroit Built • AI • Software • Data • Execution
+                Detroit Built • AI • Trading • Software • Data • Execution
             </p>
 
             <h1 id="hero-title">
@@ -156,13 +159,14 @@ home-page
 
             <p class="hero-introduction">
                 Otis Execution Systems turns ideas into intelligent applications,
-                predictive systems, digital platforms and real-world execution.
+                trading tools, predictive systems, digital platforms and
+                practical technology people can actually use.
             </p>
 
             <p class="hero-belief">
                 Great technology should not belong only to giant corporations.
-                Bring the idea, the business, the community problem or the unfinished
-                dream. OES helps build what comes next.
+                Bring the business problem, community need, unfinished idea or
+                ambitious dream. OES helps move it from imagination to execution.
             </p>
 
             <div class="hero-actions">
@@ -376,9 +380,9 @@ home-page
             </h2>
 
             <p class="section-introduction">
-                OES products combine intelligent analysis, thoughtful design and
-                practical tools that help people work with information instead of
-                becoming overwhelmed by it.
+                OES products combine artificial intelligence, data analysis,
+                behavioral learning and practical execution tools. These are
+                working product systems, not just design concepts.
             </p>
         </header>
 
@@ -412,16 +416,20 @@ home-page
                 </div>
 
                 <p class="product-card__description">
-                    A decision-support environment for market analysis, trade
-                    preparation, risk awareness, execution planning and learning
-                    from previous trading behavior.
+                    ChaseInGreen combines market analysis, risk controls,
+                    execution planning, journaling and personal performance
+                    learning in one trading environment. It helps traders
+                    understand current conditions, decide whether to enter or
+                    wait, calculate position size and review how their own
+                    decisions affected the outcome.
                 </p>
 
                 <ul class="product-card__features">
-                    <li>Market-state interpretation</li>
-                    <li>Support and resistance awareness</li>
-                    <li>Position sizing and execution levels</li>
-                    <li>Trade journaling and calendar analytics</li>
+                    <li>Market-state, pressure and trend interpretation</li>
+                    <li>Support, resistance and execution-level planning</li>
+                    <li>Position sizing, risk awareness and profit protection</li>
+                    <li>Trade journaling, outcomes and calendar analytics</li>
+                    <li>Personal learning from discipline and past behavior</li>
                 </ul>
 
                 <div
@@ -496,17 +504,18 @@ home-page
                 <div class="product-card__actions">
                     <a
                         class="button button--product"
-                        href="#contact"
-                        data-beta-product="ChaseInGreen"
+                        href="https://testflight.apple.com/join/nPjjyDSf"
+                        target="_blank"
+                        rel="noopener noreferrer"
                     >
-                        Join ChaseInGreen beta
+                        Download ChaseInGreen Beta
                     </a>
 
                     <a
                         class="text-link"
                         href="#contact"
                     >
-                        Request a demonstration
+                        Request an OES demonstration
                     </a>
                 </div>
             </article>
@@ -539,16 +548,19 @@ home-page
                 </div>
 
                 <p class="product-card__description">
-                    A data-assisted Daily 3 and Daily 4 experience combining
-                    historical patterns, number intelligence, personalized picks
-                    and platform-generated predictions.
+                    Lottovate is a data-assisted Daily 3 and Daily 4 platform
+                    built around historical results, user-selected numbers,
+                    pattern analysis and platform-generated predictions. It is
+                    designed to make lottery data easier to explore without
+                    claiming that any result is guaranteed.
                 </p>
 
                 <ul class="product-card__features">
-                    <li>Daily 3 and Daily 4 tools</li>
-                    <li>Midday and evening draw lanes</li>
-                    <li>Historical hot and cold analysis</li>
-                    <li>Prediction confidence and performance tracking</li>
+                    <li>Daily 3 and Daily 4 prediction tools</li>
+                    <li>Midday and evening draw analysis</li>
+                    <li>Hot, cold and historical number intelligence</li>
+                    <li>Personal picks, easy picks and platform predictions</li>
+                    <li>Confidence tracking and prediction performance history</li>
                 </ul>
 
                 <div
@@ -576,21 +588,23 @@ home-page
                     <div class="lottery-display__scan"></div>
 
                     <p class="lottery-display__status">
-                        Pattern engine recalibrating
+                        Next iOS release in development
                     </p>
                 </div>
 
                 <div class="product-card__actions">
                     <a
                         class="button button--product"
-                        href="#contact"
-                        data-beta-product="Lottovate"
+                        href="https://testflight.apple.com/join/CD35ByXj"
+                        target="_blank"
+                        rel="noopener noreferrer"
                     >
-                        Join the Lottovate interest list
+                        View Lottovate on TestFlight
                     </a>
 
                     <span class="product-card__note">
-                        The next iOS testing release is being prepared.
+                        The previous public beta has expired while the next
+                        Swift-based iOS release is prepared.
                     </span>
                 </div>
             </article>
@@ -617,8 +631,14 @@ home-page
             </p>
 
             <h2 id="client-work-title">
-                OES also builds technology for other businesses.
+                OES builds technology for businesses with real plans to grow.
             </h2>
+
+            <p class="section-introduction">
+                Client work receives the same product thinking, technical
+                planning and attention to usability that OES applies to its
+                own platforms.
+            </p>
         </header>
 
         <article class="client-spotlight">
@@ -633,24 +653,37 @@ home-page
                 </h3>
 
                 <p>
-                    A native iPhone experience designed to help people discover
-                    nearby restaurants, bars, cafés, nightclubs and social
-                    destinations through location-aware search and mapping.
+                    OES is developing a native iPhone experience that helps
+                    people discover nearby restaurants, bars, cafés, nightclubs,
+                    events and social destinations through location-aware search,
+                    mapping and business information.
                 </p>
 
                 <div class="client-spotlight__details">
                     <span>Native SwiftUI development</span>
-                    <span>Maps and nearby discovery</span>
+                    <span>Google Maps and Places</span>
+                    <span>Nearby business discovery</span>
                     <span>App Store preparation</span>
-                    <span>iPhone user experience</span>
+                    <span>Long-term iPhone foundation</span>
                 </div>
 
-                <a
-                    class="button button--secondary"
-                    href="#contact"
-                >
-                    Discuss a client project
-                </a>
+                <div class="product-card__actions">
+                    <a
+                        class="button button--secondary"
+                        href="https://drinkswithfriendz.com/"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                    >
+                        Visit Drinks With Friendz
+                    </a>
+
+                    <a
+                        class="text-link"
+                        href="#contact"
+                    >
+                        Discuss a client application
+                    </a>
+                </div>
             </div>
 
             <div
@@ -696,8 +729,9 @@ home-page
             </h2>
 
             <p class="section-introduction">
-                OES develops focused technology solutions for entrepreneurs,
-                organizations, public agencies and communities.
+                OES helps entrepreneurs, organizations, agencies and communities
+                define what they need, build a testable version and move toward
+                a reliable product people can use.
             </p>
         </header>
 
@@ -709,12 +743,13 @@ home-page
                 </span>
 
                 <h3>
-                    Artificial Intelligence
+                    Applied Artificial Intelligence
                 </h3>
 
                 <p>
-                    Applied AI systems, intelligent workflows, predictive tools
-                    and purpose-built decision support.
+                    Add focused AI to an application for analysis, prediction,
+                    recommendations, summarization, coaching, workflow support
+                    or decision assistance.
                 </p>
             </article>
 
@@ -724,12 +759,13 @@ home-page
                 </span>
 
                 <h3>
-                    Mobile Applications
+                    Native Mobile Applications
                 </h3>
 
                 <p>
-                    Native and modern mobile experiences designed around real
-                    users, clear workflows and long-term product growth.
+                    Plan and build iPhone applications with SwiftUI, user flows,
+                    location services, cloud connections, testing and App Store
+                    preparation.
                 </p>
             </article>
 
@@ -743,8 +779,9 @@ home-page
                 </h3>
 
                 <p>
-                    Business websites, dashboards, interactive systems,
-                    customer portals and cloud-connected applications.
+                    Build company websites, customer portals, dashboards,
+                    administrative tools and connected web applications that
+                    support real business operations.
                 </p>
             </article>
 
@@ -758,8 +795,9 @@ home-page
                 </h3>
 
                 <p>
-                    Data organization, reporting systems, behavioral analytics,
-                    prediction support and decision-ready visualizations.
+                    Organize raw information into reports, visual dashboards,
+                    behavior patterns, performance measurements and clearer
+                    decisions.
                 </p>
             </article>
 
@@ -769,12 +807,13 @@ home-page
                 </span>
 
                 <h3>
-                    SaaS Development
+                    SaaS Product Development
                 </h3>
 
                 <p>
-                    Subscription-ready product foundations, account systems,
-                    cloud services, product tiers and scalable architecture.
+                    Create subscription-ready platforms with accounts, product
+                    tiers, cloud services, protected features, billing-ready
+                    architecture and room for future growth.
                 </p>
             </article>
 
@@ -784,12 +823,12 @@ home-page
                 </span>
 
                 <h3>
-                    Automation
+                    Workflow Automation
                 </h3>
 
                 <p>
-                    Workflow automation and connected systems that reduce
-                    repetitive work and improve operational consistency.
+                    Connect repetitive business processes, reduce manual steps,
+                    route information and create consistent digital workflows.
                 </p>
             </article>
 
@@ -799,12 +838,13 @@ home-page
                 </span>
 
                 <h3>
-                    Technology Consulting
+                    Product and Technology Consulting
                 </h3>
 
                 <p>
-                    Product planning, technical architecture, modernization,
-                    prototype strategy and implementation guidance.
+                    Turn an idea into a practical scope, technical architecture,
+                    feature roadmap, prototype plan and realistic development
+                    strategy.
                 </p>
             </article>
 
@@ -814,12 +854,13 @@ home-page
                 </span>
 
                 <h3>
-                    AI and IT Training
+                    AI, Digital Skills and IT Training
                 </h3>
 
                 <p>
-                    Accessible instruction for teams, young people, community
-                    organizations and first-time technology users.
+                    Provide accessible technology instruction for employees,
+                    entrepreneurs, young people, community organizations and
+                    first-time AI users.
                 </p>
             </article>
 
@@ -851,15 +892,17 @@ home-page
                 </h2>
 
                 <p>
-                    Otis Execution Systems provides software, AI, data,
-                    automation, training and research capabilities for federal,
-                    state, municipal, nonprofit and community-focused work.
+                    Otis Execution Systems provides custom software, artificial
+                    intelligence, data analysis, workflow automation, digital
+                    training and prototype development for federal, state,
+                    municipal, nonprofit and community-focused work.
                 </p>
 
                 <p>
-                    OES approaches public-sector technology with practical
-                    implementation, accessible design, documentation,
-                    responsible system boundaries and measurable outcomes.
+                    OES focuses on clearly defined outcomes: helping people
+                    complete a process, giving staff better information,
+                    modernizing a manual workflow, testing a new idea or
+                    increasing access to useful technology.
                 </p>
 
                 <a
@@ -882,7 +925,9 @@ home-page
                     </h3>
 
                     <p>
-                        Purpose-built mobile, web and cloud-connected systems.
+                        Mobile apps, web systems, internal dashboards, public
+                        information tools and cloud-connected workflows built
+                        around a defined agency or program need.
                     </p>
                 </article>
 
@@ -896,8 +941,9 @@ home-page
                     </h3>
 
                     <p>
-                        Intelligent analysis, reporting, prediction support and
-                        workflow assistance.
+                        Systems that organize information, identify patterns,
+                        support staff decisions and make complex data easier to
+                        understand.
                     </p>
                 </article>
 
@@ -907,12 +953,28 @@ home-page
                     </p>
 
                     <h3>
-                        SaaS and Digital Platforms
+                        Digital Platforms and Portals
                     </h3>
 
                     <p>
-                        Secure product foundations, user-facing services and
-                        operational dashboards.
+                        Secure service portals, account-based platforms,
+                        program dashboards and public-facing digital tools.
+                    </p>
+                </article>
+
+                <article class="capability-card">
+                    <p class="capability-card__label">
+                        Workforce capability
+                    </p>
+
+                    <h3>
+                        Technology and AI Training
+                    </h3>
+
+                    <p>
+                        Practical instruction in artificial intelligence,
+                        prompting, software fundamentals, digital tools and
+                        responsible technology use.
                     </p>
                 </article>
 
@@ -922,27 +984,13 @@ home-page
                     </p>
 
                     <h3>
-                        Technology Training
+                        Prototype and Technical Validation
                     </h3>
 
                     <p>
-                        AI prompting, software fundamentals, digital skills and
-                        practical technology education.
-                    </p>
-                </article>
-
-                <article class="capability-card">
-                    <p class="capability-card__label">
-                        Core capability
-                    </p>
-
-                    <h3>
-                        Research and Prototyping
-                    </h3>
-
-                    <p>
-                        Experimental development, technical validation and
-                        emerging-interface exploration.
+                        Turn an early concept into testable software, determine
+                        whether the workflow works for real users and identify
+                        what should improve before larger investment or rollout.
                     </p>
                 </article>
 
@@ -952,12 +1000,13 @@ home-page
                     </p>
 
                     <h3>
-                        Federal, State and Local
+                        Federal, State and Local Support
                     </h3>
 
                     <p>
-                        Technology services structured for government,
-                        institutional and community-sector needs.
+                        Technology services structured for public agencies,
+                        institutions, nonprofits, educational programs and
+                        community-serving organizations.
                     </p>
                 </article>
 
@@ -965,13 +1014,13 @@ home-page
         </div>
 
         <div class="government-strip">
-            <span>AI systems</span>
+            <span>Custom software</span>
             <span>Mobile applications</span>
             <span>Web platforms</span>
-            <span>Data analytics</span>
-            <span>Automation</span>
-            <span>Training</span>
-            <span>Experimental development</span>
+            <span>AI-assisted workflows</span>
+            <span>Data dashboards</span>
+            <span>Technology training</span>
+            <span>Prototype validation</span>
         </div>
 
     </div>
@@ -999,9 +1048,9 @@ home-page
             </h2>
 
             <p class="section-introduction">
-                OES is shaped by Detroit, community service, hands-on learning,
-                youth mentorship and the technology organizations helping local
-                builders create what comes next.
+                OES is shaped by Detroit technology education, entrepreneurship,
+                community service, youth mentorship and organizations creating
+                more pathways into the future.
             </p>
         </header>
 
@@ -1017,14 +1066,35 @@ home-page
                 </h3>
 
                 <p>
-                    A foundation in product thinking, Swift development,
-                    collaboration and building technology for real people.
+                    OES grew through hands-on training in Swift, application
+                    development, product design, collaboration and building
+                    technology around real human needs.
                 </p>
+
+                <div class="product-card__actions">
+                    <a
+                        class="text-link"
+                        href="https://developeracademy.msu.edu/"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                    >
+                        Visit the Academy
+                    </a>
+
+                    <a
+                        class="text-link"
+                        href="https://developeracademy.msu.edu/foundation"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                    >
+                        View Foundation programs
+                    </a>
+                </div>
             </article>
 
             <article class="community-card">
                 <p class="community-card__type">
-                    Detroit ecosystem
+                    Detroit business ecosystem
                 </p>
 
                 <h3>
@@ -1032,9 +1102,30 @@ home-page
                 </h3>
 
                 <p>
-                    Part of the broader environment helping Detroit
-                    entrepreneurs, startups and technology companies grow.
+                    Founder programs, workshops, business resources and events
+                    connecting Detroit entrepreneurs with knowledge, support
+                    and opportunities to grow.
                 </p>
+
+                <div class="product-card__actions">
+                    <a
+                        class="text-link"
+                        href="https://techtowndetroit.org/"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                    >
+                        Visit TechTown
+                    </a>
+
+                    <a
+                        class="text-link"
+                        href="https://techtowndetroit.org/events/"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                    >
+                        View upcoming events
+                    </a>
+                </div>
             </article>
 
             <article class="community-card">
@@ -1047,14 +1138,24 @@ home-page
                 </h3>
 
                 <p>
-                    Visibility, connection and opportunities for Black founders,
-                    technologists, builders and future industry leaders.
+                    A Detroit-centered technology community creating access,
+                    education, visibility and stronger connections for Black
+                    builders, professionals, founders and future leaders.
                 </p>
+
+                <a
+                    class="text-link"
+                    href="https://www.blacktechsaturdays.com/"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                >
+                    Explore Black Tech Saturdays
+                </a>
             </article>
 
             <article class="community-card">
                 <p class="community-card__type">
-                    Community service
+                    Community technology support
                 </p>
 
                 <h3>
@@ -1062,23 +1163,47 @@ home-page
                 </h3>
 
                 <p>
-                    Supporting people with practical technology help, computer
-                    access, resumes, printing and community-centered service.
+                    OES supports community members with computer access,
+                    printing, resumes, digital assistance, AI exposure and
+                    practical help using technology.
                 </p>
+
+                <a
+                    class="text-link"
+                    href="https://www.crossroadsofmichigan.org/"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                >
+                    Visit Crossroads
+                </a>
             </article>
 
             <article class="community-card">
                 <p class="community-card__type">
-                    Youth development
+                    Technology, athletics and life preparation
                 </p>
 
                 <h3>
-                    Coaching and Mentorship
+                    Coaching, Education and Mentorship
                 </h3>
 
                 <p>
-                    Building confidence, teamwork, discipline and curiosity
-                    through youth baseball and direct mentorship.
+                    OES combines AI education, digital skills, life preparation
+                    and athletic coaching to help young people recognize more
+                    pathways into high school, college and professional life.
+                </p>
+
+                <p>
+                    Experience includes work with the Boys &amp; Girls Club,
+                    Apple Developer Academy, community technology programs,
+                    Midwest baseball organizations and athletes pursuing serious
+                    baseball and football goals.
+                </p>
+
+                <p>
+                    Athletics can build discipline, create educational
+                    opportunities and make college more affordable. OES teaches
+                    both the game and the path beyond it.
                 </p>
             </article>
 
@@ -1092,9 +1217,10 @@ home-page
                 </h3>
 
                 <p>
-                    Whether it begins with a notebook, a business problem,
-                    knitting needles, a classroom, a trading screen or a dream,
-                    technology should help more people shape what comes next.
+                    Whether it begins with a notebook, knitting needles, a
+                    classroom, a trading screen, a community problem or an
+                    unfinished dream, technology should help more people shape
+                    what comes next.
                 </p>
             </article>
 
@@ -1126,8 +1252,16 @@ home-page
                 </h2>
 
                 <p>
-                    OES research connects artificial intelligence, prediction,
-                    human behavior, interaction design and real-world execution.
+                    OES research focuses on systems that react to people, learn
+                    from behavior, organize difficult information and turn it
+                    into clearer action.
+                </p>
+
+                <p>
+                    The research is already visible inside ChaseInGreen,
+                    Lottovate and this website through predictive logic,
+                    personalized learning, specialized AI tasks and interfaces
+                    that respond to user movement and attention.
                 </p>
             </header>
 
@@ -1151,7 +1285,7 @@ home-page
                         </span>
 
                         <span class="research-line__name">
-                            Predictive decision systems
+                            AI guidance that adjusts using real user behavior
                         </span>
                     </div>
 
@@ -1161,7 +1295,7 @@ home-page
                         </span>
 
                         <span class="research-line__name">
-                            Human-centered AI interfaces
+                            Trading systems combining market conditions, risk and past decisions
                         </span>
                     </div>
 
@@ -1171,7 +1305,7 @@ home-page
                         </span>
 
                         <span class="research-line__name">
-                            Personalized behavioral learning
+                            Predictive tools for financial and number-based applications
                         </span>
                     </div>
 
@@ -1181,7 +1315,7 @@ home-page
                         </span>
 
                         <span class="research-line__name">
-                            Interactive visual environments
+                            Interfaces that move, focus and react like living digital environments
                         </span>
                     </div>
 
@@ -1191,7 +1325,7 @@ home-page
                         </span>
 
                         <span class="research-line__name">
-                            Multi-agent application systems
+                            Specialized AI agents assigned to focused jobs inside applications
                         </span>
                     </div>
 
@@ -1201,7 +1335,7 @@ home-page
                         </span>
 
                         <span class="research-line__name">
-                            Spatial and adaptive computing
+                            Spatial, voice and adaptive interfaces for emerging devices
                         </span>
                     </div>
 
@@ -1246,21 +1380,22 @@ home-page
                 </h2>
 
                 <p>
-                    Otis Execution Systems LLC develops intelligent software and
-                    digital products designed to help people make better
-                    decisions, launch stronger ideas and use technology more
-                    effectively.
+                    Otis Execution Systems LLC develops intelligent software,
+                    trading technology, predictive products and digital platforms
+                    designed to help people make better decisions and turn strong
+                    ideas into working systems.
                 </p>
 
                 <p>
-                    OES combines product development, artificial intelligence,
-                    mobile engineering, web systems, data, automation,
-                    experimentation and community-centered learning.
+                    OES combines artificial intelligence, mobile engineering,
+                    web development, data analysis, automation, product design,
+                    technical experimentation and community-centered education.
                 </p>
 
                 <p>
                     We believe imperfections are not reasons to stop building.
-                    They are places where better systems can begin.
+                    They are places where better systems, stronger people and
+                    new opportunities can begin.
                 </p>
             </div>
 
@@ -1292,10 +1427,10 @@ home-page
                 </h2>
 
                 <p>
-                    Contact OES about product development, custom applications,
-                    artificial intelligence, beta testing, government work,
-                    training, partnerships, demonstrations and investment
-                    conversations.
+                    Contact OES about custom software, mobile applications,
+                    artificial intelligence, trading technology, data systems,
+                    public-sector projects, technology training, partnerships,
+                    demonstrations and investment conversations.
                 </p>
             </div>
 
@@ -1316,9 +1451,11 @@ home-page
 
                 <a
                     class="button button--secondary"
-                    href="mailto:info@otisexecutionsystems.com?subject=OES%20Beta%20Testing"
+                    href="https://testflight.apple.com/join/nPjjyDSf"
+                    target="_blank"
+                    rel="noopener noreferrer"
                 >
-                    Ask about beta testing
+                    Test ChaseInGreen
                 </a>
             </div>
 
