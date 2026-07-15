@@ -1,0 +1,202 @@
+/*
+===============================================================================
+FILE: static/css/navigation.css
+
+PURPOSE:
+    Global navigation, branding, and header styling.
+
+UPDATED:
+    July 2026
+
+RESPONSIBILITIES
+-------------------------------------------------------------------------------
+[x] Site header
+[x] Brand logo
+[x] Navigation links
+[x] Sticky behavior
+[x] Mobile navigation
+[x] Header transitions
+
+FUTURE
+-------------------------------------------------------------------------------
+□ Active page highlighting
+□ Mega menu
+□ Search
+□ User profile menu
+□ Notifications
+===============================================================================
+*/
+
+/* ==========================================================================
+   HEADER
+========================================================================== */
+
+.site-header {
+
+    position: fixed;
+
+    top: 0;
+    left: 0;
+    right: 0;
+
+    height: 82px;
+
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+
+    padding: 0 58px;
+
+    background: rgba(2,6,23,.72);
+
+    backdrop-filter: blur(18px);
+
+    border-bottom: 1px solid rgba(148,163,184,.14);
+
+    transition:
+        background .35s ease,
+        border-color .35s ease,
+        box-shadow .35s ease;
+
+    z-index: 1000;
+}
+
+.site-header--scrolled {
+
+    background: rgba(2,6,23,.90);
+
+    border-bottom-color: rgba(56,189,248,.28);
+
+    box-shadow:
+        0 12px 40px rgba(0,0,0,.35);
+}
+
+/* ==========================================================================
+   BRAND
+========================================================================== */
+
+.site-brand,
+.logo {
+
+    display: flex;
+
+    align-items: center;
+
+    gap: 14px;
+
+    text-decoration: none;
+
+    color: white;
+}
+
+.site-brand img,
+.logo img {
+
+    width: 48px;
+
+    height: 48px;
+
+    filter:
+        drop-shadow(0 0 18px rgba(56,189,248,.65));
+}
+
+.site-brand__name {
+
+    font-size: 18px;
+
+    font-weight: 900;
+}
+
+.site-brand__location {
+
+    font-size: 12px;
+
+    color: #94a3b8;
+
+    letter-spacing: .12em;
+
+    text-transform: uppercase;
+}
+
+/* ==========================================================================
+   NAVIGATION
+========================================================================== */
+
+.primary-navigation,
+nav {
+
+    display: flex;
+
+    align-items: center;
+
+    gap: 28px;
+}
+
+.primary-navigation a,
+nav a {
+
+    color: #dbeafe;
+
+    text-decoration: none;
+
+    font-size: 14px;
+
+    font-weight: 800;
+
+    transition:
+        color .25s ease,
+        transform .25s ease;
+}
+
+.primary-navigation a:hover,
+nav a:hover {
+
+    color: #38bdf8;
+
+    transform: translateY(-2px);
+}
+
+.primary-navigation__link--contact {
+
+    padding: 12px 20px;
+
+    border-radius: 999px;
+
+    border: 1px solid rgba(56,189,248,.45);
+
+    background: rgba(15,23,42,.45);
+}
+
+/* ==========================================================================
+   MOBILE MENU
+========================================================================== */
+
+.menu-toggle {
+
+    display: none;
+
+    width: 48px;
+
+    height: 48px;
+
+    border: none;
+
+    background: transparent;
+
+    cursor: pointer;
+}
+
+.menu-toggle__line {
+
+    display: block;
+
+    width: 24px;
+
+    height: 2px;
+
+    margin: 5px auto;
+
+    background: white;
+
+    transition: .30s;
+}
