@@ -1,130 +1,1329 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Otis Execution Systems</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
-</head>
+{#
+===============================================================================
+FILE: templates/index.html
 
-<body>
+PURPOSE:
+    Main homepage for the Otis Execution Systems website.
 
-<div class="cursor-glow"></div>
-<div class="particle-layer"></div>
+UPDATED:
+    July 14, 2026
 
-<header class="site-header">
-    <div class="logo">
-        <img src="{{ url_for('static', filename='images/oes-logo.svg') }}" alt="OES Logo">
-        <span>Otis Execution Systems</span>
+RESPONSIBILITIES:
+    [x] Introduce OES through an interactive Detroit-inspired hero
+    [x] Present OES products and beta-testing access
+    [x] Present approved client work
+    [x] Present custom software and technology services
+    [x] Present government and public-sector capabilities
+    [x] Present Detroit community and technology connections
+    [x] Present OES research and experimental development
+    [x] Provide clear contact and project-development paths
+
+IMPORTANT RULES:
+    [x] ChaseInGreen and Lottovate remain OES-owned products
+    [x] Drinks With Friendz is labeled as client work
+    [x] Lottovate does not display an active beta link until ready
+    [x] No government identifier is invented or displayed as pending
+    [x] The Detroit environment represents strength and opportunity
+    [x] The homepage remains usable without animation
+===============================================================================
+#}
+
+{% extends "base.html" %}
+
+{% block title %}
+Otis Execution Systems | AI, Software and Technology Execution
+{% endblock %}
+
+{% block description %}
+Otis Execution Systems is a Detroit-built technology company developing AI systems,
+mobile applications, web platforms, predictive tools, automation, data products,
+government solutions and experimental software.
+{% endblock %}
+
+{% block og_title %}
+Otis Execution Systems | Ideas Into Execution
+{% endblock %}
+
+{% block og_description %}
+Explore Detroit-built AI, software, mobile applications, predictive systems,
+government technology capabilities and the OES product ecosystem.
+{% endblock %}
+
+{% block body_class %}
+home-page
+{% endblock %}
+
+{% block content %}
+
+<!-- =========================================================================
+     HERO / DETROIT NIGHT EXPERIENCE
+========================================================================== -->
+
+<section
+    id="home"
+    class="hero-scene"
+    aria-labelledby="hero-title"
+    data-detroit-scene
+>
+    <div
+        class="detroit-world"
+        aria-hidden="true"
+    >
+        <div class="detroit-sky"></div>
+
+        <div class="detroit-moon-glow"></div>
+
+        <div class="detroit-building detroit-building--left">
+            <span class="building-window building-window--one"></span>
+            <span class="building-window building-window--two"></span>
+            <span class="building-window building-window--three"></span>
+            <span class="building-window building-window--four"></span>
+        </div>
+
+        <div class="detroit-building detroit-building--right">
+            <span class="building-window building-window--one"></span>
+            <span class="building-window building-window--two"></span>
+            <span class="building-window building-window--three"></span>
+            <span class="building-window building-window--four"></span>
+        </div>
+
+        <div class="alley-wall alley-wall--left">
+            <div class="brick-pattern"></div>
+
+            <div class="city-sign city-sign--techtown">
+                TechTown
+            </div>
+
+            <div class="city-sign city-sign--black-tech">
+                Black Tech
+            </div>
+
+            <div class="city-sign city-sign--academy">
+                Apple Developer Academy
+            </div>
+
+            <div class="city-mural">
+                <span>DETROIT</span>
+                <small>Build through every challenge.</small>
+            </div>
+        </div>
+
+        <div class="alley-wall alley-wall--right">
+            <div class="brick-pattern"></div>
+
+            <div class="club-sign">
+                <span class="club-sign__small">Latin Nights</span>
+                <span class="club-sign__name">MOTOR CITY</span>
+            </div>
+
+            <div class="club-door">
+                <span class="club-door__light"></span>
+            </div>
+
+            <div class="public-safety-silhouette">
+                <span class="public-safety-silhouette__light"></span>
+                <span class="public-safety-silhouette__figure"></span>
+            </div>
+        </div>
+
+        <div class="alley-ground">
+            <div class="street-reflection street-reflection--blue"></div>
+            <div class="street-reflection street-reflection--green"></div>
+            <div class="street-reflection street-reflection--purple"></div>
+            <div class="street-line street-line--one"></div>
+            <div class="street-line street-line--two"></div>
+        </div>
+
+        <div class="steam steam--one"></div>
+        <div class="steam steam--two"></div>
+        <div class="steam steam--three"></div>
+
+        <div class="scene-light scene-light--left"></div>
+        <div class="scene-light scene-light--right"></div>
+        <div class="scene-light scene-light--center"></div>
     </div>
 
-    <nav>
-        <a href="#home">Home</a>
-        <a href="#apps">Apps</a>
-        <a href="#about">About</a>
-        <a href="#contact">Contact</a>
-    </nav>
-</header>
+    <div class="hero-scene__content">
 
-<section id="home" class="hero">
-    <div class="hero-content">
-        <p class="eyebrow">AI • Trading • Prediction • Automation</p>
+        <div class="hero-copy-block">
+            <p class="eyebrow hero-eyebrow">
+                Detroit Built • AI • Software • Data • Execution
+            </p>
 
-        <h1>Building software that feels alive.</h1>
+            <h1 id="hero-title">
+                We build technology that feels alive.
+            </h1>
 
-        <p class="hero-copy">
-            Otis Execution Systems creates AI-powered applications for trading intelligence,
-            lottery analytics, education, automation, and real-world execution.
-        </p>
+            <p class="hero-introduction">
+                Otis Execution Systems turns ideas into intelligent applications,
+                predictive systems, digital platforms and real-world execution.
+            </p>
 
-        <div class="hero-actions">
-            <a href="#apps" class="btn primary">Explore OES Apps</a>
-            <a href="#contact" class="btn secondary">Contact OES</a>
+            <p class="hero-belief">
+                Great technology should not belong only to giant corporations.
+                Bring the idea, the business, the community problem or the unfinished
+                dream. OES helps build what comes next.
+            </p>
+
+            <div class="hero-actions">
+                <a
+                    class="button button--primary"
+                    href="#products"
+                >
+                    Explore the OES ecosystem
+                </a>
+
+                <a
+                    class="button button--secondary"
+                    href="#contact"
+                >
+                    Build with OES
+                </a>
+            </div>
+
+            <div
+                class="hero-status"
+                aria-label="OES system status"
+            >
+                <span class="hero-status__indicator"></span>
+
+                <span class="hero-status__text">
+                    OES systems online
+                </span>
+
+                <span class="hero-status__divider"></span>
+
+                <span class="hero-status__text">
+                    Detroit, Michigan
+                </span>
+            </div>
+        </div>
+
+        <div
+            class="oes-core-stage"
+            data-oes-core-stage
+        >
+            <div
+                class="core-orbit core-orbit--outer"
+                aria-hidden="true"
+            ></div>
+
+            <div
+                class="core-orbit core-orbit--middle"
+                aria-hidden="true"
+            ></div>
+
+            <div
+                class="core-orbit core-orbit--inner"
+                aria-hidden="true"
+            ></div>
+
+            <div
+                class="core-data-ring core-data-ring--one"
+                aria-hidden="true"
+            >
+                <span>AI</span>
+                <span>DATA</span>
+                <span>MOBILE</span>
+                <span>WEB</span>
+            </div>
+
+            <div
+                class="core-data-ring core-data-ring--two"
+                aria-hidden="true"
+            >
+                <span>BUILD</span>
+                <span>TEST</span>
+                <span>LEARN</span>
+                <span>EXECUTE</span>
+            </div>
+
+            <button
+                class="oes-core"
+                type="button"
+                aria-label="Activate the interactive OES Core"
+                data-oes-core
+            >
+                <span
+                    class="oes-core__energy"
+                    aria-hidden="true"
+                ></span>
+
+                <span
+                    class="oes-core__surface"
+                    aria-hidden="true"
+                >
+                    <img
+                        src="{{ url_for('static', filename='images/oes-logo.svg') }}"
+                        alt=""
+                        width="420"
+                        height="420"
+                    >
+                </span>
+
+                <span
+                    class="oes-core__shine"
+                    aria-hidden="true"
+                ></span>
+
+                <span
+                    class="oes-core__pulse"
+                    aria-hidden="true"
+                ></span>
+            </button>
+
+            <div
+                class="core-shadow"
+                aria-hidden="true"
+            ></div>
+
+            <div
+                class="core-message"
+                aria-live="polite"
+                data-core-message
+            >
+                Move. Touch. Explore.
+            </div>
+
+            <a
+                class="hologram-link hologram-link--products"
+                href="#products"
+                data-core-destination="products"
+            >
+                <span class="hologram-link__label">
+                    Products
+                </span>
+
+                <span class="hologram-link__value">
+                    Intelligence in motion
+                </span>
+            </a>
+
+            <a
+                class="hologram-link hologram-link--services"
+                href="#services"
+                data-core-destination="services"
+            >
+                <span class="hologram-link__label">
+                    Services
+                </span>
+
+                <span class="hologram-link__value">
+                    Build your system
+                </span>
+            </a>
+
+            <a
+                class="hologram-link hologram-link--government"
+                href="#government"
+                data-core-destination="government"
+            >
+                <span class="hologram-link__label">
+                    Public Sector
+                </span>
+
+                <span class="hologram-link__value">
+                    Technology with purpose
+                </span>
+            </a>
+
+            <a
+                class="hologram-link hologram-link--research"
+                href="#research"
+                data-core-destination="research"
+            >
+                <span class="hologram-link__label">
+                    Research
+                </span>
+
+                <span class="hologram-link__value">
+                    Explore what is next
+                </span>
+            </a>
+        </div>
+
+    </div>
+
+    <a
+        class="hero-scroll-cue"
+        href="#products"
+        aria-label="Continue to OES products"
+    >
+        <span>Enter OES</span>
+        <span class="hero-scroll-cue__line"></span>
+    </a>
+</section>
+
+
+<!-- =========================================================================
+     OES PRODUCT ECOSYSTEM
+========================================================================== -->
+
+<section
+    id="products"
+    class="section section--products products"
+    aria-labelledby="products-title"
+>
+    <div class="section-shell">
+
+        <header class="section-heading">
+            <p class="eyebrow">
+                OES Product Ecosystem
+            </p>
+
+            <h2 id="products-title">
+                Built to help people recognize, decide and execute.
+            </h2>
+
+            <p class="section-introduction">
+                OES products combine intelligent analysis, thoughtful design and
+                practical tools that help people work with information instead of
+                becoming overwhelmed by it.
+            </p>
+        </header>
+
+        <div class="product-grid">
+
+            <!-- ChaseInGreen -->
+
+            <article
+                class="product-card product-card--chase chase-card"
+                data-product="chaseingreen"
+            >
+                <div
+                    class="product-card__ambient"
+                    aria-hidden="true"
+                ></div>
+
+                <div class="product-card__header">
+                    <div>
+                        <p class="product-card__category">
+                            AI Trading Intelligence
+                        </p>
+
+                        <h3>
+                            ChaseInGreen
+                        </h3>
+                    </div>
+
+                    <span class="status-badge status-badge--testing">
+                        Beta testing
+                    </span>
+                </div>
+
+                <p class="product-card__description">
+                    A decision-support environment for market analysis, trade
+                    preparation, risk awareness, execution planning and learning
+                    from previous trading behavior.
+                </p>
+
+                <ul class="product-card__features">
+                    <li>Market-state interpretation</li>
+                    <li>Support and resistance awareness</li>
+                    <li>Position sizing and execution levels</li>
+                    <li>Trade journaling and calendar analytics</li>
+                </ul>
+
+                <div
+                    class="market-display"
+                    aria-hidden="true"
+                >
+                    <div class="market-display__toolbar">
+                        <span>OES MARKET INTELLIGENCE</span>
+                        <span class="market-display__live">LIVE</span>
+                    </div>
+
+                    <svg
+                        viewBox="0 0 600 240"
+                        preserveAspectRatio="none"
+                        role="presentation"
+                    >
+                        <defs>
+                            <linearGradient
+                                id="chase-chart-gradient"
+                                x1="0%"
+                                y1="0%"
+                                x2="100%"
+                                y2="0%"
+                            >
+                                <stop
+                                    offset="0%"
+                                    stop-color="#38bdf8"
+                                ></stop>
+
+                                <stop
+                                    offset="55%"
+                                    stop-color="#22c55e"
+                                ></stop>
+
+                                <stop
+                                    offset="100%"
+                                    stop-color="#86efac"
+                                ></stop>
+                            </linearGradient>
+                        </defs>
+
+                        <polyline
+                            class="market-display__glow"
+                            points="0,190 45,180 85,197 130,135 170,151 225,92 275,122 330,69 380,91 432,45 485,70 540,28 600,42"
+                        ></polyline>
+
+                        <polyline
+                            class="market-display__line"
+                            points="0,190 45,180 85,197 130,135 170,151 225,92 275,122 330,69 380,91 432,45 485,70 540,28 600,42"
+                            stroke="url(#chase-chart-gradient)"
+                        ></polyline>
+                    </svg>
+
+                    <div class="market-display__metrics">
+                        <span>
+                            Market state
+                            <strong>WAIT</strong>
+                        </span>
+
+                        <span>
+                            Pressure
+                            <strong>Balanced</strong>
+                        </span>
+
+                        <span>
+                            Risk
+                            <strong>Defined</strong>
+                        </span>
+                    </div>
+                </div>
+
+                <div class="product-card__actions">
+                    <a
+                        class="button button--product"
+                        href="#contact"
+                        data-beta-product="ChaseInGreen"
+                    >
+                        Join ChaseInGreen beta
+                    </a>
+
+                    <a
+                        class="text-link"
+                        href="#contact"
+                    >
+                        Request a demonstration
+                    </a>
+                </div>
+            </article>
+
+            <!-- Lottovate -->
+
+            <article
+                class="product-card product-card--lottovate lottovate-card"
+                data-product="lottovate"
+            >
+                <div
+                    class="product-card__ambient"
+                    aria-hidden="true"
+                ></div>
+
+                <div class="product-card__header">
+                    <div>
+                        <p class="product-card__category">
+                            Lottery Analytics
+                        </p>
+
+                        <h3>
+                            Lottovate
+                        </h3>
+                    </div>
+
+                    <span class="status-badge status-badge--returning">
+                        Beta returning
+                    </span>
+                </div>
+
+                <p class="product-card__description">
+                    A data-assisted Daily 3 and Daily 4 experience combining
+                    historical patterns, number intelligence, personalized picks
+                    and platform-generated predictions.
+                </p>
+
+                <ul class="product-card__features">
+                    <li>Daily 3 and Daily 4 tools</li>
+                    <li>Midday and evening draw lanes</li>
+                    <li>Historical hot and cold analysis</li>
+                    <li>Prediction confidence and performance tracking</li>
+                </ul>
+
+                <div
+                    class="lottery-display"
+                    aria-hidden="true"
+                >
+                    <div class="lottery-display__grid"></div>
+
+                    <div class="lottery-ball lottery-ball--one">
+                        7
+                    </div>
+
+                    <div class="lottery-ball lottery-ball--two">
+                        0
+                    </div>
+
+                    <div class="lottery-ball lottery-ball--three">
+                        3
+                    </div>
+
+                    <div class="lottery-ball lottery-ball--four">
+                        9
+                    </div>
+
+                    <div class="lottery-display__scan"></div>
+
+                    <p class="lottery-display__status">
+                        Pattern engine recalibrating
+                    </p>
+                </div>
+
+                <div class="product-card__actions">
+                    <a
+                        class="button button--product"
+                        href="#contact"
+                        data-beta-product="Lottovate"
+                    >
+                        Join the Lottovate interest list
+                    </a>
+
+                    <span class="product-card__note">
+                        The next iOS testing release is being prepared.
+                    </span>
+                </div>
+            </article>
+
         </div>
     </div>
+</section>
 
-    <div class="hero-visual">
-        <div class="orb">
-            <img src="{{ url_for('static', filename='images/oes-logo.svg') }}" alt="OES Logo">
+
+<!-- =========================================================================
+     CLIENT WORK
+========================================================================== -->
+
+<section
+    id="client-work"
+    class="section section--client client-work"
+    aria-labelledby="client-work-title"
+>
+    <div class="section-shell">
+
+        <header class="section-heading section-heading--left">
+            <p class="eyebrow">
+                Selected Client Development
+            </p>
+
+            <h2 id="client-work-title">
+                OES also builds technology for other businesses.
+            </h2>
+        </header>
+
+        <article class="client-spotlight">
+
+            <div class="client-spotlight__content">
+                <p class="client-spotlight__label">
+                    Client project
+                </p>
+
+                <h3>
+                    Drinks With Friendz
+                </h3>
+
+                <p>
+                    A native iPhone experience designed to help people discover
+                    nearby restaurants, bars, cafés, nightclubs and social
+                    destinations through location-aware search and mapping.
+                </p>
+
+                <div class="client-spotlight__details">
+                    <span>Native SwiftUI development</span>
+                    <span>Maps and nearby discovery</span>
+                    <span>App Store preparation</span>
+                    <span>iPhone user experience</span>
+                </div>
+
+                <a
+                    class="button button--secondary"
+                    href="#contact"
+                >
+                    Discuss a client project
+                </a>
+            </div>
+
+            <div
+                class="client-spotlight__visual"
+                aria-hidden="true"
+            >
+                <div class="nightlife-map">
+                    <span class="nightlife-map__road nightlife-map__road--one"></span>
+                    <span class="nightlife-map__road nightlife-map__road--two"></span>
+                    <span class="nightlife-map__road nightlife-map__road--three"></span>
+
+                    <span class="map-pin map-pin--one">D</span>
+                    <span class="map-pin map-pin--two">F</span>
+                    <span class="map-pin map-pin--three">W</span>
+
+                    <div class="nightlife-map__pulse"></div>
+                </div>
+            </div>
+
+        </article>
+    </div>
+</section>
+
+
+<!-- =========================================================================
+     SERVICES
+========================================================================== -->
+
+<section
+    id="services"
+    class="section section--services services"
+    aria-labelledby="services-title"
+>
+    <div class="section-shell">
+
+        <header class="section-heading">
+            <p class="eyebrow">
+                Build With OES
+            </p>
+
+            <h2 id="services-title">
+                From an unfinished idea to a working platform.
+            </h2>
+
+            <p class="section-introduction">
+                OES develops focused technology solutions for entrepreneurs,
+                organizations, public agencies and communities.
+            </p>
+        </header>
+
+        <div class="service-grid">
+
+            <article class="service-card">
+                <span class="service-card__number">
+                    01
+                </span>
+
+                <h3>
+                    Artificial Intelligence
+                </h3>
+
+                <p>
+                    Applied AI systems, intelligent workflows, predictive tools
+                    and purpose-built decision support.
+                </p>
+            </article>
+
+            <article class="service-card">
+                <span class="service-card__number">
+                    02
+                </span>
+
+                <h3>
+                    Mobile Applications
+                </h3>
+
+                <p>
+                    Native and modern mobile experiences designed around real
+                    users, clear workflows and long-term product growth.
+                </p>
+            </article>
+
+            <article class="service-card">
+                <span class="service-card__number">
+                    03
+                </span>
+
+                <h3>
+                    Web Platforms
+                </h3>
+
+                <p>
+                    Business websites, dashboards, interactive systems,
+                    customer portals and cloud-connected applications.
+                </p>
+            </article>
+
+            <article class="service-card">
+                <span class="service-card__number">
+                    04
+                </span>
+
+                <h3>
+                    Data and Analytics
+                </h3>
+
+                <p>
+                    Data organization, reporting systems, behavioral analytics,
+                    prediction support and decision-ready visualizations.
+                </p>
+            </article>
+
+            <article class="service-card">
+                <span class="service-card__number">
+                    05
+                </span>
+
+                <h3>
+                    SaaS Development
+                </h3>
+
+                <p>
+                    Subscription-ready product foundations, account systems,
+                    cloud services, product tiers and scalable architecture.
+                </p>
+            </article>
+
+            <article class="service-card">
+                <span class="service-card__number">
+                    06
+                </span>
+
+                <h3>
+                    Automation
+                </h3>
+
+                <p>
+                    Workflow automation and connected systems that reduce
+                    repetitive work and improve operational consistency.
+                </p>
+            </article>
+
+            <article class="service-card">
+                <span class="service-card__number">
+                    07
+                </span>
+
+                <h3>
+                    Technology Consulting
+                </h3>
+
+                <p>
+                    Product planning, technical architecture, modernization,
+                    prototype strategy and implementation guidance.
+                </p>
+            </article>
+
+            <article class="service-card">
+                <span class="service-card__number">
+                    08
+                </span>
+
+                <h3>
+                    AI and IT Training
+                </h3>
+
+                <p>
+                    Accessible instruction for teams, young people, community
+                    organizations and first-time technology users.
+                </p>
+            </article>
+
         </div>
     </div>
 </section>
 
-<section id="apps" class="apps">
-    <div class="section-heading">
-        <p class="eyebrow">Product Universe</p>
-        <h2>Two apps. One execution system.</h2>
-    </div>
 
-    <div class="product-grid">
+<!-- =========================================================================
+     GOVERNMENT AND PUBLIC SECTOR
+========================================================================== -->
 
-        <article class="product-card chase-card">
-            <div class="chart-area">
-                <svg viewBox="0 0 500 220" preserveAspectRatio="none">
-                    <polyline class="chart-glow" points="0,160 55,140 95,168 150,90 205,115 260,62 315,88 375,38 430,70 500,28"></polyline>
-                    <polyline class="chart-line" points="0,160 55,140 95,168 150,90 205,115 260,62 315,88 375,38 430,70 500,28"></polyline>
-                </svg>
+<section
+    id="government"
+    class="section section--government government"
+    aria-labelledby="government-title"
+>
+    <div class="section-shell">
+
+        <div class="government-layout">
+
+            <div class="government-introduction">
+                <p class="eyebrow">
+                    Government and Public Sector
+                </p>
+
+                <h2 id="government-title">
+                    Modern technology for real public needs.
+                </h2>
+
+                <p>
+                    Otis Execution Systems provides software, AI, data,
+                    automation, training and research capabilities for federal,
+                    state, municipal, nonprofit and community-focused work.
+                </p>
+
+                <p>
+                    OES approaches public-sector technology with practical
+                    implementation, accessible design, documentation,
+                    responsible system boundaries and measurable outcomes.
+                </p>
+
+                <a
+                    class="button button--primary"
+                    href="#contact"
+                >
+                    Discuss public-sector work
+                </a>
             </div>
 
-            <div class="product-content">
-                <span class="product-label">Trading Intelligence</span>
-                <h3>ChaseInGreen</h3>
+            <div class="government-capabilities">
+
+                <article class="capability-card">
+                    <p class="capability-card__label">
+                        Core capability
+                    </p>
+
+                    <h3>
+                        Custom Software Development
+                    </h3>
+
+                    <p>
+                        Purpose-built mobile, web and cloud-connected systems.
+                    </p>
+                </article>
+
+                <article class="capability-card">
+                    <p class="capability-card__label">
+                        Core capability
+                    </p>
+
+                    <h3>
+                        AI and Data Systems
+                    </h3>
+
+                    <p>
+                        Intelligent analysis, reporting, prediction support and
+                        workflow assistance.
+                    </p>
+                </article>
+
+                <article class="capability-card">
+                    <p class="capability-card__label">
+                        Core capability
+                    </p>
+
+                    <h3>
+                        SaaS and Digital Platforms
+                    </h3>
+
+                    <p>
+                        Secure product foundations, user-facing services and
+                        operational dashboards.
+                    </p>
+                </article>
+
+                <article class="capability-card">
+                    <p class="capability-card__label">
+                        Core capability
+                    </p>
+
+                    <h3>
+                        Technology Training
+                    </h3>
+
+                    <p>
+                        AI prompting, software fundamentals, digital skills and
+                        practical technology education.
+                    </p>
+                </article>
+
+                <article class="capability-card">
+                    <p class="capability-card__label">
+                        Core capability
+                    </p>
+
+                    <h3>
+                        Research and Prototyping
+                    </h3>
+
+                    <p>
+                        Experimental development, technical validation and
+                        emerging-interface exploration.
+                    </p>
+                </article>
+
+                <article class="capability-card">
+                    <p class="capability-card__label">
+                        Delivery capability
+                    </p>
+
+                    <h3>
+                        Federal, State and Local
+                    </h3>
+
+                    <p>
+                        Technology services structured for government,
+                        institutional and community-sector needs.
+                    </p>
+                </article>
+
+            </div>
+        </div>
+
+        <div class="government-strip">
+            <span>AI systems</span>
+            <span>Mobile applications</span>
+            <span>Web platforms</span>
+            <span>Data analytics</span>
+            <span>Automation</span>
+            <span>Training</span>
+            <span>Experimental development</span>
+        </div>
+
+    </div>
+</section>
+
+
+<!-- =========================================================================
+     COMMUNITY AND DETROIT
+========================================================================== -->
+
+<section
+    id="community"
+    class="section section--community community"
+    aria-labelledby="community-title"
+>
+    <div class="section-shell">
+
+        <header class="section-heading">
+            <p class="eyebrow">
+                Detroit Is Part of the System
+            </p>
+
+            <h2 id="community-title">
+                Technology grows when more people can participate.
+            </h2>
+
+            <p class="section-introduction">
+                OES is shaped by Detroit, community service, hands-on learning,
+                youth mentorship and the technology organizations helping local
+                builders create what comes next.
+            </p>
+        </header>
+
+        <div class="community-grid">
+
+            <article class="community-card">
+                <p class="community-card__type">
+                    Technology education
+                </p>
+
+                <h3>
+                    Apple Developer Academy
+                </h3>
+
                 <p>
-                    AI-assisted trading insight, alerts, risk awareness, and execution planning
-                    for traders who need clarity before, during, and after the move.
+                    A foundation in product thinking, Swift development,
+                    collaboration and building technology for real people.
+                </p>
+            </article>
+
+            <article class="community-card">
+                <p class="community-card__type">
+                    Detroit ecosystem
+                </p>
+
+                <h3>
+                    TechTown Detroit
+                </h3>
+
+                <p>
+                    Part of the broader environment helping Detroit
+                    entrepreneurs, startups and technology companies grow.
+                </p>
+            </article>
+
+            <article class="community-card">
+                <p class="community-card__type">
+                    Black technology ecosystem
+                </p>
+
+                <h3>
+                    Black Tech Saturdays
+                </h3>
+
+                <p>
+                    Visibility, connection and opportunities for Black founders,
+                    technologists, builders and future industry leaders.
+                </p>
+            </article>
+
+            <article class="community-card">
+                <p class="community-card__type">
+                    Community service
+                </p>
+
+                <h3>
+                    Crossroads of Michigan
+                </h3>
+
+                <p>
+                    Supporting people with practical technology help, computer
+                    access, resumes, printing and community-centered service.
+                </p>
+            </article>
+
+            <article class="community-card">
+                <p class="community-card__type">
+                    Youth development
+                </p>
+
+                <h3>
+                    Coaching and Mentorship
+                </h3>
+
+                <p>
+                    Building confidence, teamwork, discipline and curiosity
+                    through youth baseball and direct mentorship.
+                </p>
+            </article>
+
+            <article class="community-card community-card--statement">
+                <p class="community-card__type">
+                    OES belief
+                </p>
+
+                <h3>
+                    Your idea belongs in the future.
+                </h3>
+
+                <p>
+                    Whether it begins with a notebook, a business problem,
+                    knitting needles, a classroom, a trading screen or a dream,
+                    technology should help more people shape what comes next.
+                </p>
+            </article>
+
+        </div>
+    </div>
+</section>
+
+
+<!-- =========================================================================
+     RESEARCH AND EXPERIMENTAL DEVELOPMENT
+========================================================================== -->
+
+<section
+    id="research"
+    class="section section--research research"
+    aria-labelledby="research-title"
+>
+    <div class="section-shell">
+
+        <div class="research-layout">
+
+            <header class="research-heading">
+                <p class="eyebrow">
+                    OES Research Lab
+                </p>
+
+                <h2 id="research-title">
+                    We explore before the path is obvious.
+                </h2>
+
+                <p>
+                    OES research connects artificial intelligence, prediction,
+                    human behavior, interaction design and real-world execution.
+                </p>
+            </header>
+
+            <div class="research-terminal">
+
+                <div class="research-terminal__topbar">
+                    <span class="terminal-dot"></span>
+                    <span class="terminal-dot"></span>
+                    <span class="terminal-dot"></span>
+
+                    <span class="research-terminal__title">
+                        OES EXPERIMENTAL SYSTEMS
+                    </span>
+                </div>
+
+                <div class="research-terminal__body">
+
+                    <div class="research-line">
+                        <span class="research-line__status">
+                            ACTIVE
+                        </span>
+
+                        <span class="research-line__name">
+                            Predictive decision systems
+                        </span>
+                    </div>
+
+                    <div class="research-line">
+                        <span class="research-line__status">
+                            ACTIVE
+                        </span>
+
+                        <span class="research-line__name">
+                            Human-centered AI interfaces
+                        </span>
+                    </div>
+
+                    <div class="research-line">
+                        <span class="research-line__status">
+                            ACTIVE
+                        </span>
+
+                        <span class="research-line__name">
+                            Personalized behavioral learning
+                        </span>
+                    </div>
+
+                    <div class="research-line">
+                        <span class="research-line__status">
+                            TESTING
+                        </span>
+
+                        <span class="research-line__name">
+                            Interactive visual environments
+                        </span>
+                    </div>
+
+                    <div class="research-line">
+                        <span class="research-line__status">
+                            EXPLORING
+                        </span>
+
+                        <span class="research-line__name">
+                            Multi-agent application systems
+                        </span>
+                    </div>
+
+                    <div class="research-line">
+                        <span class="research-line__status">
+                            FUTURE
+                        </span>
+
+                        <span class="research-line__name">
+                            Spatial and adaptive computing
+                        </span>
+                    </div>
+
+                </div>
+            </div>
+
+        </div>
+    </div>
+</section>
+
+
+<!-- =========================================================================
+     ABOUT OES
+========================================================================== -->
+
+<section
+    id="about"
+    class="section section--about about"
+    aria-labelledby="about-title"
+>
+    <div class="section-shell">
+
+        <div class="about-panel">
+
+            <div class="about-panel__identity">
+                <img
+                    src="{{ url_for('static', filename='images/oes-logo.svg') }}"
+                    alt="Otis Execution Systems logo"
+                    width="180"
+                    height="180"
+                    loading="lazy"
+                >
+            </div>
+
+            <div class="about-panel__content">
+                <p class="eyebrow">
+                    About OES
+                </p>
+
+                <h2 id="about-title">
+                    Building from Detroit with purpose, imagination and execution.
+                </h2>
+
+                <p>
+                    Otis Execution Systems LLC develops intelligent software and
+                    digital products designed to help people make better
+                    decisions, launch stronger ideas and use technology more
+                    effectively.
+                </p>
+
+                <p>
+                    OES combines product development, artificial intelligence,
+                    mobile engineering, web systems, data, automation,
+                    experimentation and community-centered learning.
+                </p>
+
+                <p>
+                    We believe imperfections are not reasons to stop building.
+                    They are places where better systems can begin.
                 </p>
             </div>
-        </article>
 
-        <article class="product-card lottovate-card">
-            <div class="lotto-numbers">
-                <span>7</span>
-                <span>0</span>
-                <span>3</span>
-                <span>9</span>
-            </div>
+        </div>
+    </div>
+</section>
 
-            <div class="product-content">
-                <span class="product-label">Lottery Analytics</span>
-                <h3>Lottovate</h3>
+
+<!-- =========================================================================
+     CONTACT
+========================================================================== -->
+
+<section
+    id="contact"
+    class="section section--contact contact"
+    aria-labelledby="contact-title"
+>
+    <div class="section-shell">
+
+        <div class="contact-panel">
+
+            <div class="contact-panel__content">
+                <p class="eyebrow">
+                    Start the Conversation
+                </p>
+
+                <h2 id="contact-title">
+                    Bring OES the idea.
+                </h2>
+
                 <p>
-                    Pattern recognition, historical analysis, number intelligence,
-                    and smart lottery tools built for Daily 3 and Daily 4 players.
+                    Contact OES about product development, custom applications,
+                    artificial intelligence, beta testing, government work,
+                    training, partnerships, demonstrations and investment
+                    conversations.
                 </p>
             </div>
-        </article>
 
+            <div class="contact-panel__actions">
+                <a
+                    class="contact-email"
+                    href="mailto:info@otisexecutionsystems.com"
+                >
+                    info@otisexecutionsystems.com
+                </a>
+
+                <a
+                    class="button button--primary"
+                    href="mailto:info@otisexecutionsystems.com?subject=OES%20Project%20Inquiry"
+                >
+                    Start a project conversation
+                </a>
+
+                <a
+                    class="button button--secondary"
+                    href="mailto:info@otisexecutionsystems.com?subject=OES%20Beta%20Testing"
+                >
+                    Ask about beta testing
+                </a>
+            </div>
+
+        </div>
     </div>
 </section>
 
-<section id="about" class="about">
-    <div class="glass-panel">
-        <p class="eyebrow">Detroit Built</p>
-        <h2>About OES</h2>
-        <p>
-            Otis Execution Systems LLC builds intelligent software designed to help people
-            make better decisions. From trading tools to prediction systems, OES focuses on
-            practical AI, clean design, and products that can grow into real platforms.
-        </p>
-    </div>
-</section>
-
-<section id="contact" class="contact">
-    <div class="glass-panel">
-        <h2>Work with OES</h2>
-        <p>Business inquiries, partnerships, app demos, and investor conversations.</p>
-        <a href="mailto:info@otisexecutionsystems.com">info@otisexecutionsystems.com</a>
-    </div>
-</section>
-
-<footer>
-    © 2026 Otis Execution Systems LLC
-</footer>
-
-<script
-    type="module"
-    src="{{ url_for('static', filename='js/app.js') }}">
-</script>
-
-</body>
-</html>
+{% endblock %}

@@ -1,0 +1,330 @@
+{#
+===============================================================================
+FILE: templates/base.html
+
+PURPOSE:
+    Shared HTML foundation for the Otis Execution Systems website.
+
+UPDATED:
+    July 14, 2026
+
+RESPONSIBILITIES:
+    [x] Shared document structure
+    [x] Shared navigation
+    [x] Shared metadata
+    [x] Shared CSS loading
+    [x] Shared JavaScript loading
+    [x] Mobile navigation controls
+    [x] Accessibility foundations
+    [x] Shared footer
+
+ARCHITECTURE:
+    Individual pages extend this template.
+
+    Page templates provide:
+        {% block title %}{% endblock %}
+        {% block description %}{% endblock %}
+        {% block page_styles %}{% endblock %}
+        {% block content %}{% endblock %}
+        {% block page_scripts %}{% endblock %}
+
+IMPORTANT RULES:
+    [x] Static assets must remain inside the Flask static directory
+    [x] JavaScript is loaded as ES modules
+    [x] Navigation must remain keyboard accessible
+    [x] External links must use safe rel attributes
+    [x] No pending government-registration language appears publicly
+===============================================================================
+#}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0, viewport-fit=cover"
+    >
+
+    <meta
+        name="theme-color"
+        content="#020617"
+    >
+
+    <meta
+        name="description"
+        content="{% block description %}Otis Execution Systems builds AI-powered software, mobile applications, data systems, automation tools, and technology platforms from Detroit.{% endblock %}"
+    >
+
+    <meta
+        name="robots"
+        content="index, follow"
+    >
+
+    <meta
+        property="og:type"
+        content="website"
+    >
+
+    <meta
+        property="og:title"
+        content="{% block og_title %}Otis Execution Systems{% endblock %}"
+    >
+
+    <meta
+        property="og:description"
+        content="{% block og_description %}Detroit-built AI, software, data, automation, and technology execution.{% endblock %}"
+    >
+
+    <meta
+        property="og:image"
+        content="{{ url_for('static', filename='images/oes-logo.svg', _external=True) }}"
+    >
+
+    <meta
+        property="og:site_name"
+        content="Otis Execution Systems"
+    >
+
+    <title>
+        {% block title %}Otis Execution Systems{% endblock %}
+    </title>
+
+    <link
+        rel="icon"
+        href="{{ url_for('static', filename='images/oes-logo.svg') }}"
+        type="image/svg+xml"
+    >
+
+    <link
+        rel="preload"
+        href="{{ url_for('static', filename='images/oes-logo.svg') }}"
+        as="image"
+        type="image/svg+xml"
+    >
+
+    <link
+        rel="stylesheet"
+        href="{{ url_for('static', filename='css/style.css') }}"
+    >
+
+    <link
+        rel="stylesheet"
+        href="{{ url_for('static', filename='css/hero-scene.css') }}"
+    >
+
+    {% block page_styles %}{% endblock %}
+</head>
+
+<body class="{% block body_class %}{% endblock %}">
+
+<a
+    class="skip-link"
+    href="#main-content"
+>
+    Skip to main content
+</a>
+
+<div
+    class="site-atmosphere"
+    aria-hidden="true"
+>
+    <div class="cursor-glow"></div>
+    <div class="particle-layer"></div>
+    <div class="ambient-vignette"></div>
+</div>
+
+<header
+    class="site-header"
+    data-site-header
+>
+    <a
+        class="site-brand"
+        href="{{ url_for('home') }}"
+        aria-label="Otis Execution Systems home"
+    >
+        <span
+            class="site-brand__mark"
+            aria-hidden="true"
+        >
+            <img
+                src="{{ url_for('static', filename='images/oes-logo.svg') }}"
+                alt=""
+                width="52"
+                height="52"
+            >
+        </span>
+
+        <span class="site-brand__text">
+            <span class="site-brand__name">
+                Otis Execution Systems
+            </span>
+
+            <span class="site-brand__location">
+                Detroit, Michigan
+            </span>
+        </span>
+    </a>
+
+    <button
+        class="menu-toggle"
+        type="button"
+        aria-expanded="false"
+        aria-controls="primary-navigation"
+        aria-label="Open navigation"
+        data-menu-toggle
+    >
+        <span class="menu-toggle__line"></span>
+        <span class="menu-toggle__line"></span>
+        <span class="menu-toggle__line"></span>
+    </button>
+
+    <nav
+        id="primary-navigation"
+        class="primary-navigation"
+        aria-label="Primary navigation"
+        data-navigation
+    >
+        <a
+            class="primary-navigation__link"
+            href="{{ url_for('home') }}#home"
+        >
+            Home
+        </a>
+
+        <a
+            class="primary-navigation__link"
+            href="{{ url_for('home') }}#products"
+        >
+            Products
+        </a>
+
+        <a
+            class="primary-navigation__link"
+            href="{{ url_for('home') }}#services"
+        >
+            Services
+        </a>
+
+        <a
+            class="primary-navigation__link"
+            href="{{ url_for('home') }}#government"
+        >
+            Government
+        </a>
+
+        <a
+            class="primary-navigation__link"
+            href="{{ url_for('home') }}#community"
+        >
+            Community
+        </a>
+
+        <a
+            class="primary-navigation__link"
+            href="{{ url_for('home') }}#research"
+        >
+            Research
+        </a>
+
+        <a
+            class="primary-navigation__link primary-navigation__link--contact"
+            href="{{ url_for('home') }}#contact"
+        >
+            Contact
+        </a>
+    </nav>
+</header>
+
+<main
+    id="main-content"
+    tabindex="-1"
+>
+    {% block content %}{% endblock %}
+</main>
+
+<footer class="site-footer">
+    <div class="site-footer__inner">
+
+        <div class="site-footer__brand">
+            <img
+                src="{{ url_for('static', filename='images/oes-logo.svg') }}"
+                alt="Otis Execution Systems logo"
+                width="62"
+                height="62"
+                loading="lazy"
+            >
+
+            <div>
+                <p class="site-footer__name">
+                    Otis Execution Systems LLC
+                </p>
+
+                <p class="site-footer__tagline">
+                    Ideas into execution.
+                </p>
+            </div>
+        </div>
+
+        <div class="site-footer__navigation">
+            <a href="{{ url_for('home') }}#products">
+                Products
+            </a>
+
+            <a href="{{ url_for('home') }}#services">
+                Services
+            </a>
+
+            <a href="{{ url_for('home') }}#government">
+                Government
+            </a>
+
+            <a href="{{ url_for('home') }}#community">
+                Community
+            </a>
+
+            <a href="{{ url_for('home') }}#research">
+                Research
+            </a>
+        </div>
+
+        <div class="site-footer__contact">
+            <p>
+                Business inquiries, partnerships, beta testing, and project development.
+            </p>
+
+            <a href="mailto:info@otisexecutionsystems.com">
+                info@otisexecutionsystems.com
+            </a>
+        </div>
+
+    </div>
+
+    <div class="site-footer__bottom">
+        <p>
+            © 2026 Otis Execution Systems LLC. All rights reserved.
+        </p>
+
+        <p>
+            Detroit built. Future focused.
+        </p>
+    </div>
+</footer>
+
+<noscript>
+    <div class="noscript-message">
+        This website uses JavaScript for its interactive experience. Core company
+        information remains available, but some visual features will be disabled.
+    </div>
+</noscript>
+
+<script
+    type="module"
+    src="{{ url_for('static', filename='js/app.js') }}"
+></script>
+
+{% block page_scripts %}{% endblock %}
+
+</body>
+</html>
