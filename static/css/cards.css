@@ -1,0 +1,1299 @@
+/*
+===============================================================================
+FILE: static/css/cards.css
+
+PURPOSE:
+    Product, client, service, government capability, community, and research
+    card styling for the Otis Execution Systems website.
+
+UPDATED:
+    July 15, 2026
+
+RESPONSIBILITIES:
+    [x] ChaseInGreen product showcase
+    [x] Lottovate product showcase
+    [x] Product status badges
+    [x] Market visualization
+    [x] Lottery visualization
+    [x] Client spotlight
+    [x] Service cards
+    [x] Government capability cards
+    [x] Community cards
+    [x] Research terminal
+    [x] Hover and focus interactions
+    [x] Responsive-ready card foundations
+
+IMPORTANT RULES:
+    [x] OES-owned products remain visually distinct from client work
+    [x] Temporary JavaScript effects remain inside card boundaries
+    [x] Cards must remain readable without animation
+    [x] Interactive cards must expose visible keyboard focus
+===============================================================================
+*/
+
+/* ==========================================================================
+   SHARED CARD FOUNDATIONS
+========================================================================== */
+
+.product-card,
+.client-spotlight,
+.service-card,
+.capability-card,
+.community-card,
+.research-terminal,
+.about-panel,
+.contact-panel {
+    position: relative;
+    border: 1px solid rgba(148, 163, 184, 0.18);
+    background:
+        linear-gradient(
+            145deg,
+            rgba(15, 23, 42, 0.88),
+            rgba(2, 6, 23, 0.92)
+        );
+    box-shadow:
+        0 28px 90px rgba(0, 0, 0, 0.38),
+        inset 0 1px 0 rgba(255, 255, 255, 0.04);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+}
+
+.product-card,
+.service-card,
+.capability-card,
+.community-card {
+    transition:
+        transform 0.34s ease,
+        border-color 0.34s ease,
+        box-shadow 0.34s ease,
+        background 0.34s ease;
+}
+
+.product-card:focus-within,
+.service-card:focus-within,
+.capability-card:focus-within,
+.community-card:focus-within {
+    outline: 2px solid rgba(56, 189, 248, 0.82);
+    outline-offset: 4px;
+}
+
+/* ==========================================================================
+   PRODUCT GRID
+========================================================================== */
+
+.product-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: clamp(24px, 3vw, 38px);
+    align-items: stretch;
+}
+
+.product-card {
+    isolation: isolate;
+    min-height: 720px;
+    padding: clamp(28px, 4vw, 48px);
+    overflow: hidden;
+    border-radius: 34px;
+    transform-style: preserve-3d;
+    will-change: transform;
+}
+
+.product-card::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -3;
+    pointer-events: none;
+    opacity: 0.85;
+}
+
+.product-card::after {
+    content: "";
+    position: absolute;
+    inset: 1px;
+    z-index: -2;
+    border-radius: inherit;
+    pointer-events: none;
+    background:
+        linear-gradient(
+            130deg,
+            rgba(255, 255, 255, 0.08),
+            transparent 23%,
+            transparent 72%,
+            rgba(255, 255, 255, 0.025)
+        );
+}
+
+.product-card:hover {
+    border-color: rgba(125, 211, 252, 0.55);
+    box-shadow:
+        0 42px 120px rgba(0, 0, 0, 0.5),
+        0 0 70px rgba(56, 189, 248, 0.12),
+        inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+.product-card__ambient {
+    position: absolute;
+    width: 420px;
+    height: 420px;
+    top: -170px;
+    right: -140px;
+    z-index: -1;
+    border-radius: 50%;
+    pointer-events: none;
+    filter: blur(8px);
+    opacity: 0.7;
+}
+
+.product-card__header {
+    position: relative;
+    z-index: 5;
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 24px;
+    margin-bottom: 24px;
+}
+
+.product-card__category {
+    margin-bottom: 10px;
+    color: #7dd3fc;
+    font-size: 12px;
+    font-weight: 900;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+}
+
+.product-card h3 {
+    margin: 0;
+    font-size: clamp(42px, 5vw, 64px);
+    line-height: 0.98;
+    letter-spacing: -0.055em;
+}
+
+.product-card__description {
+    position: relative;
+    z-index: 5;
+    max-width: 660px;
+    color: #dbeafe;
+    font-size: 18px;
+    line-height: 1.72;
+}
+
+.product-card__features {
+    position: relative;
+    z-index: 5;
+    display: grid;
+    gap: 11px;
+    margin: 26px 0 30px;
+    list-style: none;
+}
+
+.product-card__features li {
+    position: relative;
+    padding-left: 24px;
+    color: #cbd5e1;
+    font-size: 15px;
+    line-height: 1.5;
+}
+
+.product-card__features li::before {
+    content: "";
+    position: absolute;
+    top: 0.58em;
+    left: 0;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #38bdf8;
+    box-shadow: 0 0 14px rgba(56, 189, 248, 0.8);
+}
+
+.product-card__actions {
+    position: relative;
+    z-index: 8;
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    flex-wrap: wrap;
+    margin-top: 28px;
+}
+
+.product-card__note {
+    max-width: 290px;
+    color: #cbd5e1;
+    font-size: 13px;
+    line-height: 1.5;
+}
+
+/* ==========================================================================
+   PRODUCT STATUS
+========================================================================== */
+
+.status-badge {
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 34px;
+    padding: 8px 13px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 900;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+
+.status-badge::before {
+    content: "";
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+}
+
+.status-badge--testing {
+    color: #bbf7d0;
+    border: 1px solid rgba(34, 197, 94, 0.42);
+    background: rgba(20, 83, 45, 0.34);
+}
+
+.status-badge--testing::before {
+    background: #22c55e;
+    box-shadow: 0 0 12px rgba(34, 197, 94, 0.95);
+    animation: statusPulse 1.8s ease-in-out infinite;
+}
+
+.status-badge--returning {
+    color: #fde68a;
+    border: 1px solid rgba(250, 204, 21, 0.42);
+    background: rgba(113, 63, 18, 0.3);
+}
+
+.status-badge--returning::before {
+    background: #facc15;
+    box-shadow: 0 0 12px rgba(250, 204, 21, 0.9);
+}
+
+/* ==========================================================================
+   CHASEINGREEN PRODUCT
+========================================================================== */
+
+.product-card--chase {
+    background:
+        radial-gradient(
+            circle at 86% 9%,
+            rgba(34, 197, 94, 0.25),
+            transparent 33%
+        ),
+        radial-gradient(
+            circle at 12% 80%,
+            rgba(56, 189, 248, 0.14),
+            transparent 38%
+        ),
+        linear-gradient(
+            145deg,
+            rgba(5, 46, 22, 0.86),
+            rgba(2, 6, 23, 0.96) 65%
+        );
+}
+
+.product-card--chase::before {
+    background:
+        linear-gradient(
+            115deg,
+            transparent 30%,
+            rgba(34, 197, 94, 0.06),
+            transparent 70%
+        );
+}
+
+.product-card--chase .product-card__ambient {
+    background:
+        radial-gradient(
+            circle,
+            rgba(34, 197, 94, 0.38),
+            rgba(56, 189, 248, 0.08) 48%,
+            transparent 72%
+        );
+}
+
+.product-card--chase .product-card__features li::before {
+    background: #22c55e;
+    box-shadow: 0 0 14px rgba(34, 197, 94, 0.9);
+}
+
+/* ==========================================================================
+   MARKET DISPLAY
+========================================================================== */
+
+.market-display {
+    position: relative;
+    z-index: 4;
+    min-height: 250px;
+    margin-top: 22px;
+    overflow: hidden;
+    border: 1px solid rgba(134, 239, 172, 0.18);
+    border-radius: 24px;
+    background:
+        linear-gradient(
+            rgba(255, 255, 255, 0.045) 1px,
+            transparent 1px
+        ),
+        linear-gradient(
+            90deg,
+            rgba(255, 255, 255, 0.045) 1px,
+            transparent 1px
+        ),
+        rgba(2, 15, 11, 0.72);
+    background-size: 42px 42px;
+    box-shadow:
+        inset 0 0 42px rgba(34, 197, 94, 0.05),
+        0 18px 50px rgba(0, 0, 0, 0.24);
+}
+
+.market-display__toolbar {
+    position: absolute;
+    top: 14px;
+    left: 16px;
+    right: 16px;
+    z-index: 3;
+    display: flex;
+    justify-content: space-between;
+    gap: 14px;
+    color: #a7f3d0;
+    font-size: 10px;
+    font-weight: 900;
+    letter-spacing: 0.12em;
+}
+
+.market-display__live {
+    color: #86efac;
+}
+
+.market-display__live::before {
+    content: "";
+    display: inline-block;
+    width: 7px;
+    height: 7px;
+    margin-right: 7px;
+    border-radius: 50%;
+    background: #22c55e;
+    box-shadow: 0 0 10px rgba(34, 197, 94, 0.9);
+}
+
+.market-display svg {
+    position: absolute;
+    inset: 38px 0 48px;
+    width: 100%;
+    height: calc(100% - 86px);
+}
+
+.market-display__line,
+.market-display__glow {
+    fill: none;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.market-display__line {
+    stroke-width: 5;
+    stroke-dasharray: 1100;
+    stroke-dashoffset: 1100;
+    animation: marketLineDraw 4.8s ease-in-out infinite;
+}
+
+.market-display__glow {
+    stroke: rgba(34, 197, 94, 0.28);
+    stroke-width: 18;
+    filter: blur(4px);
+}
+
+.market-display__metrics {
+    position: absolute;
+    right: 14px;
+    bottom: 12px;
+    left: 14px;
+    z-index: 4;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+}
+
+.market-display__metrics span {
+    padding: 8px 10px;
+    border: 1px solid rgba(134, 239, 172, 0.12);
+    border-radius: 10px;
+    color: #94a3b8;
+    background: rgba(2, 6, 23, 0.64);
+    font-size: 9px;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+}
+
+.market-display__metrics strong {
+    display: block;
+    margin-top: 4px;
+    color: #dcfce7;
+    font-size: 11px;
+    letter-spacing: normal;
+    text-transform: none;
+}
+
+/* ==========================================================================
+   LOTTOVATE PRODUCT
+========================================================================== */
+
+.product-card--lottovate {
+    background:
+        radial-gradient(
+            circle at 84% 10%,
+            rgba(250, 204, 21, 0.26),
+            transparent 31%
+        ),
+        radial-gradient(
+            circle at 14% 82%,
+            rgba(168, 85, 247, 0.18),
+            transparent 38%
+        ),
+        linear-gradient(
+            145deg,
+            rgba(76, 29, 149, 0.82),
+            rgba(2, 6, 23, 0.96) 67%
+        );
+}
+
+.product-card--lottovate::before {
+    background:
+        linear-gradient(
+            125deg,
+            transparent 25%,
+            rgba(250, 204, 21, 0.05),
+            transparent 72%
+        );
+}
+
+.product-card--lottovate .product-card__ambient {
+    background:
+        radial-gradient(
+            circle,
+            rgba(250, 204, 21, 0.35),
+            rgba(168, 85, 247, 0.12) 48%,
+            transparent 72%
+        );
+}
+
+.product-card--lottovate .product-card__features li::before {
+    background: #facc15;
+    box-shadow: 0 0 14px rgba(250, 204, 21, 0.9);
+}
+
+/* ==========================================================================
+   LOTTERY DISPLAY
+========================================================================== */
+
+.lottery-display {
+    position: relative;
+    z-index: 4;
+    min-height: 250px;
+    margin-top: 22px;
+    overflow: hidden;
+    border: 1px solid rgba(250, 204, 21, 0.17);
+    border-radius: 24px;
+    background:
+        radial-gradient(
+            circle at 50% 50%,
+            rgba(168, 85, 247, 0.17),
+            transparent 64%
+        ),
+        rgba(24, 8, 52, 0.68);
+    box-shadow:
+        inset 0 0 48px rgba(250, 204, 21, 0.04),
+        0 18px 50px rgba(0, 0, 0, 0.24);
+}
+
+.lottery-display__grid {
+    position: absolute;
+    inset: 0;
+    opacity: 0.4;
+    background-image:
+        linear-gradient(
+            rgba(255, 255, 255, 0.045) 1px,
+            transparent 1px
+        ),
+        linear-gradient(
+            90deg,
+            rgba(255, 255, 255, 0.045) 1px,
+            transparent 1px
+        );
+    background-size: 34px 34px;
+}
+
+.lottery-ball {
+    position: absolute;
+    top: 49%;
+    width: clamp(52px, 6vw, 72px);
+    height: clamp(52px, 6vw, 72px);
+    display: grid;
+    place-items: center;
+    border-radius: 50%;
+    color: #111827;
+    background:
+        radial-gradient(
+            circle at 32% 24%,
+            #ffffff,
+            #fef3c7 36%,
+            #fbbf24 66%,
+            #d97706
+        );
+    box-shadow:
+        0 0 28px rgba(250, 204, 21, 0.5),
+        inset -9px -10px 16px rgba(146, 64, 14, 0.2);
+    font-size: clamp(23px, 3vw, 32px);
+    font-weight: 1000;
+    transform: translate(-50%, -50%);
+    animation: lotteryBallFloat 3.4s ease-in-out infinite;
+}
+
+.lottery-ball::after {
+    content: "";
+    position: absolute;
+    top: 12%;
+    left: 19%;
+    width: 25%;
+    height: 16%;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.72);
+    filter: blur(1px);
+    transform: rotate(-28deg);
+}
+
+.lottery-ball--one {
+    left: 18%;
+    animation-delay: 0s;
+}
+
+.lottery-ball--two {
+    left: 39%;
+    animation-delay: 0.22s;
+}
+
+.lottery-ball--three {
+    left: 61%;
+    animation-delay: 0.44s;
+}
+
+.lottery-ball--four {
+    left: 82%;
+    animation-delay: 0.66s;
+}
+
+.lottery-display__scan {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 24%;
+    background:
+        linear-gradient(
+            90deg,
+            transparent,
+            rgba(250, 204, 21, 0.12),
+            transparent
+        );
+    filter: blur(8px);
+    animation: lotteryScan 4.2s ease-in-out infinite;
+}
+
+.lottery-display__status {
+    position: absolute;
+    right: 16px;
+    bottom: 14px;
+    left: 16px;
+    color: #fde68a;
+    font-size: 10px;
+    font-weight: 900;
+    letter-spacing: 0.11em;
+    text-align: center;
+    text-transform: uppercase;
+}
+
+/* ==========================================================================
+   CLIENT SPOTLIGHT
+========================================================================== */
+
+.client-spotlight {
+    display: grid;
+    grid-template-columns: 1.08fr 0.92fr;
+    gap: clamp(28px, 5vw, 70px);
+    align-items: center;
+    padding: clamp(32px, 5vw, 64px);
+    overflow: hidden;
+    border-radius: 36px;
+    background:
+        radial-gradient(
+            circle at 90% 15%,
+            rgba(236, 72, 153, 0.19),
+            transparent 34%
+        ),
+        radial-gradient(
+            circle at 70% 80%,
+            rgba(168, 85, 247, 0.14),
+            transparent 38%
+        ),
+        linear-gradient(
+            145deg,
+            rgba(49, 12, 52, 0.88),
+            rgba(2, 6, 23, 0.94)
+        );
+}
+
+.client-spotlight__content {
+    position: relative;
+    z-index: 3;
+}
+
+.client-spotlight__label {
+    margin-bottom: 13px;
+    color: #f0abfc;
+    font-size: 11px;
+    font-weight: 900;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+}
+
+.client-spotlight h3 {
+    margin-bottom: 20px;
+    font-size: clamp(42px, 6vw, 72px);
+    line-height: 0.98;
+    letter-spacing: -0.055em;
+}
+
+.client-spotlight__content > p:not(.client-spotlight__label) {
+    max-width: 700px;
+    color: #e2e8f0;
+    font-size: 18px;
+    line-height: 1.72;
+}
+
+.client-spotlight__details {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin: 26px 0 32px;
+}
+
+.client-spotlight__details span {
+    padding: 9px 12px;
+    border: 1px solid rgba(240, 171, 252, 0.18);
+    border-radius: 999px;
+    color: #f5d0fe;
+    background: rgba(88, 28, 135, 0.18);
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.client-spotlight__visual {
+    position: relative;
+    min-height: 390px;
+    display: grid;
+    place-items: center;
+}
+
+/* ==========================================================================
+   NIGHTLIFE MAP
+========================================================================== */
+
+.nightlife-map {
+    position: relative;
+    width: min(390px, 78vw);
+    aspect-ratio: 1;
+    overflow: hidden;
+    border: 1px solid rgba(244, 114, 182, 0.28);
+    border-radius: 50%;
+    background:
+        radial-gradient(
+            circle at 50% 50%,
+            rgba(236, 72, 153, 0.2),
+            transparent 52%
+        ),
+        linear-gradient(
+            rgba(255, 255, 255, 0.05) 1px,
+            transparent 1px
+        ),
+        linear-gradient(
+            90deg,
+            rgba(255, 255, 255, 0.05) 1px,
+            transparent 1px
+        ),
+        rgba(24, 8, 34, 0.78);
+    background-size: auto, 34px 34px, 34px 34px, auto;
+    box-shadow:
+        0 0 80px rgba(236, 72, 153, 0.14),
+        inset 0 0 50px rgba(168, 85, 247, 0.08);
+}
+
+.nightlife-map::before,
+.nightlife-map::after {
+    content: "";
+    position: absolute;
+    inset: 12%;
+    border: 1px solid rgba(240, 171, 252, 0.14);
+    border-radius: 50%;
+}
+
+.nightlife-map::after {
+    inset: 27%;
+}
+
+.nightlife-map__road {
+    position: absolute;
+    left: 5%;
+    width: 90%;
+    height: 3px;
+    border-radius: 999px;
+    background: linear-gradient(
+        90deg,
+        transparent,
+        rgba(244, 114, 182, 0.35),
+        transparent
+    );
+}
+
+.nightlife-map__road--one {
+    top: 34%;
+    transform: rotate(18deg);
+}
+
+.nightlife-map__road--two {
+    top: 55%;
+    transform: rotate(-23deg);
+}
+
+.nightlife-map__road--three {
+    top: 70%;
+    transform: rotate(7deg);
+}
+
+.map-pin {
+    position: absolute;
+    width: 46px;
+    height: 46px;
+    display: grid;
+    place-items: center;
+    border-radius: 50% 50% 50% 12%;
+    color: #ffffff;
+    background:
+        linear-gradient(
+            135deg,
+            #ec4899,
+            #9333ea
+        );
+    box-shadow:
+        0 0 24px rgba(236, 72, 153, 0.58);
+    font-size: 17px;
+    font-weight: 1000;
+    transform: rotate(-45deg);
+}
+
+.map-pin::before {
+    content: "";
+    position: absolute;
+    inset: 9px;
+    border: 2px solid rgba(255, 255, 255, 0.7);
+    border-radius: 50%;
+}
+
+.map-pin {
+    text-indent: -9999px;
+}
+
+.map-pin--one {
+    top: 23%;
+    left: 31%;
+}
+
+.map-pin--two {
+    top: 49%;
+    left: 62%;
+}
+
+.map-pin--three {
+    top: 68%;
+    left: 25%;
+}
+
+.nightlife-map__pulse {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 84px;
+    height: 84px;
+    border: 2px solid rgba(244, 114, 182, 0.52);
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
+    animation: nightlifePulse 2.7s ease-out infinite;
+}
+
+/* ==========================================================================
+   SERVICE CARDS
+========================================================================== */
+
+.service-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 18px;
+}
+
+.service-card {
+    min-height: 270px;
+    padding: 28px;
+    overflow: hidden;
+    border-radius: 24px;
+}
+
+.service-card::before {
+    content: "";
+    position: absolute;
+    top: -90px;
+    right: -90px;
+    width: 180px;
+    height: 180px;
+    border-radius: 50%;
+    background:
+        radial-gradient(
+            circle,
+            rgba(56, 189, 248, 0.17),
+            transparent 70%
+        );
+    transition: transform 0.35s ease;
+}
+
+.service-card:hover {
+    transform: translateY(-9px);
+    border-color: rgba(56, 189, 248, 0.46);
+    box-shadow:
+        0 28px 80px rgba(0, 0, 0, 0.42),
+        0 0 45px rgba(56, 189, 248, 0.08);
+}
+
+.service-card:hover::before {
+    transform: scale(1.24);
+}
+
+.service-card__number {
+    display: inline-block;
+    margin-bottom: 38px;
+    color: #38bdf8;
+    font-size: 11px;
+    font-weight: 900;
+    letter-spacing: 0.15em;
+}
+
+.service-card h3 {
+    margin-bottom: 14px;
+    font-size: 24px;
+    line-height: 1.08;
+    letter-spacing: -0.025em;
+}
+
+.service-card p {
+    color: #aebed2;
+    font-size: 15px;
+    line-height: 1.65;
+}
+
+/* ==========================================================================
+   GOVERNMENT CAPABILITY CARDS
+========================================================================== */
+
+.government-capabilities {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px;
+}
+
+.capability-card {
+    min-height: 190px;
+    padding: 25px;
+    border-radius: 20px;
+    background:
+        linear-gradient(
+            145deg,
+            rgba(15, 23, 42, 0.9),
+            rgba(8, 18, 36, 0.92)
+        );
+}
+
+.capability-card:hover {
+    transform: translateY(-6px);
+    border-color: rgba(96, 165, 250, 0.45);
+    box-shadow:
+        0 24px 65px rgba(0, 0, 0, 0.38),
+        0 0 35px rgba(59, 130, 246, 0.08);
+}
+
+.capability-card__label {
+    margin-bottom: 16px;
+    color: #93c5fd;
+    font-size: 10px;
+    font-weight: 900;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+}
+
+.capability-card h3 {
+    margin-bottom: 12px;
+    font-size: 21px;
+    line-height: 1.15;
+}
+
+.capability-card p {
+    color: #b9c7d8;
+    font-size: 14px;
+    line-height: 1.6;
+}
+
+/* ==========================================================================
+   COMMUNITY CARDS
+========================================================================== */
+
+.community-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 20px;
+}
+
+.community-card {
+    min-height: 310px;
+    padding: 31px;
+    overflow: hidden;
+    border-radius: 26px;
+}
+
+.community-card::before {
+    content: "";
+    position: absolute;
+    right: -70px;
+    bottom: -80px;
+    width: 190px;
+    height: 190px;
+    border-radius: 50%;
+    background:
+        radial-gradient(
+            circle,
+            rgba(34, 197, 94, 0.13),
+            transparent 70%
+        );
+    transition: transform 0.35s ease;
+}
+
+.community-card:hover {
+    transform: translateY(-8px);
+    border-color: rgba(34, 197, 94, 0.38);
+}
+
+.community-card:hover::before {
+    transform: scale(1.26);
+}
+
+.community-card__type {
+    margin-bottom: 30px;
+    color: #86efac;
+    font-size: 10px;
+    font-weight: 900;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+}
+
+.community-card h3 {
+    margin-bottom: 16px;
+    font-size: 27px;
+    line-height: 1.08;
+    letter-spacing: -0.03em;
+}
+
+.community-card p:not(.community-card__type) {
+    color: #bac8d8;
+    font-size: 15px;
+    line-height: 1.68;
+}
+
+.community-card--statement {
+    background:
+        radial-gradient(
+            circle at 90% 15%,
+            rgba(34, 197, 94, 0.2),
+            transparent 34%
+        ),
+        linear-gradient(
+            145deg,
+            rgba(5, 46, 22, 0.82),
+            rgba(2, 6, 23, 0.94)
+        );
+}
+
+.community-card--statement h3 {
+    font-size: 31px;
+}
+
+/* ==========================================================================
+   RESEARCH TERMINAL
+========================================================================== */
+
+.research-terminal {
+    overflow: hidden;
+    border-radius: 26px;
+    background:
+        linear-gradient(
+            145deg,
+            rgba(3, 18, 29, 0.96),
+            rgba(2, 6, 23, 0.98)
+        );
+    box-shadow:
+        0 32px 95px rgba(0, 0, 0, 0.46),
+        0 0 60px rgba(56, 189, 248, 0.08);
+}
+
+.research-terminal__topbar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 48px;
+    padding: 0 18px;
+    border-bottom: 1px solid rgba(125, 211, 252, 0.12);
+    background: rgba(15, 23, 42, 0.72);
+}
+
+.terminal-dot {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: #334155;
+}
+
+.terminal-dot:nth-child(1) {
+    background: #fb7185;
+}
+
+.terminal-dot:nth-child(2) {
+    background: #facc15;
+}
+
+.terminal-dot:nth-child(3) {
+    background: #22c55e;
+}
+
+.research-terminal__title {
+    margin-left: 10px;
+    color: #7dd3fc;
+    font-size: 10px;
+    font-weight: 900;
+    letter-spacing: 0.15em;
+}
+
+.research-terminal__body {
+    display: grid;
+    gap: 2px;
+    padding: 16px;
+}
+
+.research-line {
+    display: grid;
+    grid-template-columns: 98px 1fr;
+    gap: 16px;
+    align-items: center;
+    min-height: 58px;
+    padding: 13px 15px;
+    border: 1px solid transparent;
+    border-radius: 12px;
+    transition:
+        background 0.25s ease,
+        border-color 0.25s ease,
+        transform 0.25s ease;
+}
+
+.research-line:hover {
+    transform: translateX(5px);
+    border-color: rgba(56, 189, 248, 0.12);
+    background: rgba(56, 189, 248, 0.045);
+}
+
+.research-line__status {
+    color: #22c55e;
+    font-size: 10px;
+    font-weight: 900;
+    letter-spacing: 0.1em;
+}
+
+.research-line:nth-child(4) .research-line__status {
+    color: #facc15;
+}
+
+.research-line:nth-child(5) .research-line__status {
+    color: #c084fc;
+}
+
+.research-line:nth-child(6) .research-line__status {
+    color: #60a5fa;
+}
+
+.research-line__name {
+    color: #dbeafe;
+    font-family:
+        "SFMono-Regular",
+        Consolas,
+        "Liberation Mono",
+        monospace;
+    font-size: 13px;
+}
+
+/* ==========================================================================
+   TEMPORARY PRODUCT EFFECT ELEMENTS
+========================================================================== */
+
+.coin,
+.money-bill,
+.money-pop,
+.lotto-ball-pop {
+    position: absolute;
+    z-index: 30;
+    pointer-events: none;
+    user-select: none;
+}
+
+.money-bill {
+    top: -60px;
+}
+
+.money-pop {
+    font-size: 34px;
+}
+
+.lotto-ball-pop {
+    bottom: 20px;
+    width: 44px;
+    height: 44px;
+    display: grid;
+    place-items: center;
+    border-radius: 50%;
+    color: #020617;
+    background:
+        radial-gradient(
+            circle at 35% 25%,
+            white,
+            #fde68a 45%,
+            #f59e0b
+        );
+    box-shadow: 0 0 26px rgba(250, 204, 21, 0.7);
+    font-weight: 1000;
+}
+
+/* ==========================================================================
+   CARD ANIMATIONS
+========================================================================== */
+
+@keyframes statusPulse {
+    0%,
+    100% {
+        opacity: 0.55;
+        transform: scale(0.88);
+    }
+
+    50% {
+        opacity: 1;
+        transform: scale(1.08);
+    }
+}
+
+@keyframes marketLineDraw {
+    0% {
+        stroke-dashoffset: 1100;
+        opacity: 0.45;
+    }
+
+    48% {
+        stroke-dashoffset: 0;
+        opacity: 1;
+    }
+
+    82%,
+    100% {
+        stroke-dashoffset: 0;
+        opacity: 1;
+    }
+}
+
+@keyframes lotteryBallFloat {
+    0%,
+    100% {
+        transform:
+            translate(-50%, -50%)
+            translateY(0)
+            rotate(0deg);
+    }
+
+    50% {
+        transform:
+            translate(-50%, -50%)
+            translateY(-13px)
+            rotate(8deg);
+    }
+}
+
+@keyframes lotteryScan {
+    0% {
+        left: -30%;
+        opacity: 0;
+    }
+
+    20% {
+        opacity: 1;
+    }
+
+    80% {
+        opacity: 1;
+    }
+
+    100% {
+        left: 108%;
+        opacity: 0;
+    }
+}
+
+@keyframes nightlifePulse {
+    0% {
+        opacity: 0.8;
+        transform:
+            translate(-50%, -50%)
+            scale(0.45);
+    }
+
+    100% {
+        opacity: 0;
+        transform:
+            translate(-50%, -50%)
+            scale(3.3);
+    }
+}
+
+/* ==========================================================================
+   REDUCED MOTION
+========================================================================== */
+
+@media (prefers-reduced-motion: reduce) {
+    .status-badge--testing::before,
+    .market-display__line,
+    .lottery-ball,
+    .lottery-display__scan,
+    .nightlife-map__pulse {
+        animation: none;
+    }
+
+    .product-card,
+    .service-card,
+    .capability-card,
+    .community-card,
+    .research-line {
+        transition: none;
+    }
+}
