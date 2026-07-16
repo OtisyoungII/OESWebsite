@@ -3,49 +3,83 @@
 FILE: templates/partials/dwf_logo_showcase.html
 
 PURPOSE:
-    Displays the animated Drinks With Friendz logo inside the OES client-work
-    section without changing the original logo design.
+    Displays the animated Drinks With Friendz logo as a floating neon client
+    showcase inside the OES client-work section.
 
 UPDATED:
-    July 15, 2026
+    July 16, 2026
 
 RESPONSIBILITIES:
     [x] Load the layered animated SVG
-    [x] Preserve the original Drinks With Friendz branding
-    [x] Provide accessible fallback text
-    [x] Support future OES hover and lighting effects
+    [x] Preserve the original Drinks With Friendz logo design and colors
+    [x] Remove the boxed image appearance
+    [x] Give the logo an open spatial presentation
+    [x] Provide accessible logo text
+    [x] Support ambient glow, reflection, depth, and hover behavior
+    [x] Keep OES attribution away from the logo artwork
+
+IMPORTANT RULES:
+    [x] Do not recolor or redesign the client logo
+    [x] Do not place text over the client logo
+    [x] Do not place a visible square directly behind the logo
+    [x] Decorative atmosphere must remain hidden from assistive technology
+    [x] The logo must remain visible if animation is unavailable
 ===============================================================================
 #}
 
-<div
+<figure
     class="dwf-logo-showcase"
     data-dwf-logo-showcase
 >
+    <div
+        class="dwf-logo-showcase__space"
+        aria-hidden="true"
+    >
+        <span class="dwf-logo-showcase__orbit dwf-logo-showcase__orbit--outer"></span>
+        <span class="dwf-logo-showcase__orbit dwf-logo-showcase__orbit--inner"></span>
+
+        <span class="dwf-logo-showcase__particle dwf-logo-showcase__particle--one"></span>
+        <span class="dwf-logo-showcase__particle dwf-logo-showcase__particle--two"></span>
+        <span class="dwf-logo-showcase__particle dwf-logo-showcase__particle--three"></span>
+        <span class="dwf-logo-showcase__particle dwf-logo-showcase__particle--four"></span>
+    </div>
+
     <div
         class="dwf-logo-showcase__ambient"
         aria-hidden="true"
     ></div>
 
     <div
+        class="dwf-logo-showcase__stage"
+        data-dwf-logo-stage
+    >
+        <div
+            class="dwf-logo-showcase__backlight"
+            aria-hidden="true"
+        ></div>
+
+        <img
+            class="dwf-logo-showcase__logo"
+            src="{{ url_for('static', filename='images/drinkz-logo-animated.svg') }}"
+            alt="Drinks With Friendz logo"
+            width="1500"
+            height="1500"
+            loading="lazy"
+            decoding="async"
+        >
+
+        <div
+            class="dwf-logo-showcase__surface-light"
+            aria-hidden="true"
+        ></div>
+    </div>
+
+    <div
         class="dwf-logo-showcase__reflection"
         aria-hidden="true"
     ></div>
 
-    <img
-        class="dwf-logo-showcase__logo"
-        src="{{ url_for('static', filename='images/drinkz-logo-animated.svg') }}"
-        alt="Drinks With Friendz"
-        width="1500"
-        height="1500"
-        loading="lazy"
-        decoding="async"
-    >
-
-    <div
-        class="dwf-logo-showcase__status"
-        aria-hidden="true"
-    >
-        <span class="dwf-logo-showcase__status-light"></span>
-        <span>Client experience powered by OES</span>
-    </div>
-</div>
+    <figcaption class="visually-hidden">
+        Animated Drinks With Friendz client logo presentation.
+    </figcaption>
+</figure>
