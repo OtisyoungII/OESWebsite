@@ -1890,3 +1890,23 @@ IMPORTANT RULES:
         display: none;
     }
 }
+/* ==========================================================================
+   TEMPORARY EYELID REMOVAL
+
+   The previous CSS eyelids were detached from the WebGL sphere and obscured
+   the Detroit environment. Blinking will later be rebuilt inside Three.js.
+========================================================================== */
+
+.oes-core__eyelid,
+.oes-core__eyelid--top,
+.oes-core__eyelid--bottom,
+.core-eyelid,
+.core-eyelid--top,
+.core-eyelid--bottom,
+[data-core-eyelid] {
+    display: none !important;
+    visibility: hidden !important;
+    opacity: 0 !important;
+    animation: none !important;
+    pointer-events: none !important;
+}
