@@ -1,0 +1,51 @@
+{#
+===============================================================================
+FILE: templates/partials/dwf_logo_showcase.html
+
+PURPOSE:
+    Displays the animated Drinks With Friendz logo inside the OES client-work
+    section without changing the original logo design.
+
+UPDATED:
+    July 15, 2026
+
+RESPONSIBILITIES:
+    [x] Load the layered animated SVG
+    [x] Preserve the original Drinks With Friendz branding
+    [x] Provide accessible fallback text
+    [x] Support future OES hover and lighting effects
+===============================================================================
+#}
+
+<div
+    class="dwf-logo-showcase"
+    data-dwf-logo-showcase
+>
+    <div
+        class="dwf-logo-showcase__ambient"
+        aria-hidden="true"
+    ></div>
+
+    <div
+        class="dwf-logo-showcase__reflection"
+        aria-hidden="true"
+    ></div>
+
+    <img
+        class="dwf-logo-showcase__logo"
+        src="{{ url_for('static', filename='images/drinkz-logo-animated.svg') }}"
+        alt="Drinks With Friendz"
+        width="1500"
+        height="1500"
+        loading="lazy"
+        decoding="async"
+    >
+
+    <div
+        class="dwf-logo-showcase__status"
+        aria-hidden="true"
+    >
+        <span class="dwf-logo-showcase__status-light"></span>
+        <span>Client experience powered by OES</span>
+    </div>
+</div>

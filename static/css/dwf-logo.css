@@ -1,0 +1,168 @@
+/*
+===============================================================================
+FILE: static/css/dwf-logo.css
+
+PURPOSE:
+    Showcase styling for the Drinks With Friendz logo.
+
+UPDATED:
+    July 2026
+
+RESPONSIBILITIES
+-------------------------------------------------------------------------------
+[x] Floating animation
+[x] Neon glow
+[x] Lime flicker
+[x] Ambient lighting
+[x] Reflection
+[x] Hover interaction
+
+===============================================================================
+*/
+
+
+.dwf-logo-showcase{
+
+    position:relative;
+
+    display:flex;
+
+    justify-content:center;
+
+    align-items:center;
+
+    padding:80px;
+
+    overflow:hidden;
+
+}
+
+
+.dwf-logo-showcase__logo{
+
+    width:min(900px,90vw);
+
+    height:auto;
+
+    filter:
+        drop-shadow(0 0 14px rgba(255,255,255,.25))
+        drop-shadow(0 0 28px rgba(255,255,255,.15));
+
+    animation:
+        dwfFloat 7s ease-in-out infinite;
+
+}
+
+
+.dwf-logo-showcase__ambient{
+
+    position:absolute;
+
+    width:900px;
+
+    height:900px;
+
+    border-radius:50%;
+
+    background:
+        radial-gradient(circle,
+            rgba(56,189,248,.15),
+            transparent 70%);
+
+    filter:blur(80px);
+
+    animation:
+        ambientPulse 6s ease-in-out infinite;
+
+}
+
+
+.dwf-logo-showcase__reflection{
+
+    position:absolute;
+
+    inset:0;
+
+    background:
+
+        linear-gradient(
+            110deg,
+            transparent 20%,
+            rgba(255,255,255,.08) 50%,
+            transparent 80%
+        );
+
+    transform:translateX(-120%);
+
+    animation:
+        reflectionMove 9s linear infinite;
+
+    pointer-events:none;
+
+}
+
+
+@keyframes dwfFloat{
+
+    0%{
+
+        transform:
+            translateY(0px);
+
+    }
+
+    50%{
+
+        transform:
+            translateY(-10px);
+
+    }
+
+    100%{
+
+        transform:
+            translateY(0px);
+
+    }
+
+}
+
+
+@keyframes ambientPulse{
+
+    0%,100%{
+
+        opacity:.45;
+
+        transform:scale(1);
+
+    }
+
+    50%{
+
+        opacity:.9;
+
+        transform:scale(1.08);
+
+    }
+
+}
+
+
+@keyframes reflectionMove{
+
+    from{
+
+        transform:
+            translateX(-120%);
+
+    }
+
+    to{
+
+        transform:
+            translateX(140%);
+
+    }
+
+}
