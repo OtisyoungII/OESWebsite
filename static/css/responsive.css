@@ -8,310 +8,863 @@ PURPOSE:
 UPDATED:
     July 15, 2026
 
-RESPONSIBILITIES
--------------------------------------------------------------------------------
-[x] Desktop layouts
-[x] Laptop layouts
-[x] Tablet layouts
-[x] Mobile layouts
-[x] Large display support
-[x] Navigation adjustments
-[x] Hero adjustments
-[x] Product card adjustments
-[x] Footer adjustments
+RESPONSIBILITIES:
+    [x] Large desktop layout support
+    [x] Laptop layout adjustments
+    [x] Tablet layout adjustments
+    [x] Mobile layout adjustments
+    [x] Section spacing
+    [x] Product cards
+    [x] Service and capability cards
+    [x] Drinks With Friendz client spotlight
+    [x] Community cards
+    [x] Government layouts
+    [x] Research layouts
+    [x] About and contact panels
+    [x] Footer adjustments
+    [x] Small-screen overflow protection
 
-IMPORTANT
--------------------------------------------------------------------------------
-All responsive breakpoints belong in this file.
-
-Do not scatter media queries across every stylesheet.
+IMPORTANT RULES:
+    [x] Navigation responsiveness belongs in navigation.css
+    [x] Hero environment responsiveness belongs in hero-scene.css
+    [x] This file controls page and section responsiveness
+    [x] Mobile content must never overlap decorative visuals
+    [x] Cards must not force horizontal scrolling
+    [x] Drinks With Friendz content and map must separate on mobile
 ===============================================================================
 */
 
+/* ==========================================================================
+   GLOBAL RESPONSIVE SAFETY
+========================================================================== */
 
-/*=============================================================================
-    LARGE DESKTOP
-=============================================================================*/
+html,
+body {
+    max-width: 100%;
+    overflow-x: hidden;
+}
+
+img,
+svg,
+video,
+canvas {
+    max-width: 100%;
+}
+
+.section-shell,
+.section-container,
+.site-container,
+.footer-container {
+    width: min(100%, 1540px);
+    margin-inline: auto;
+}
+
+.product-grid,
+.service-grid,
+.community-grid,
+.government-layout,
+.government-capabilities,
+.research-layout,
+.about-panel,
+.contact-panel,
+.client-spotlight {
+    min-width: 0;
+}
+
+.product-card,
+.service-card,
+.capability-card,
+.community-card,
+.client-spotlight,
+.research-terminal,
+.about-panel,
+.contact-panel {
+    max-width: 100%;
+    min-width: 0;
+}
+
+/* ==========================================================================
+   LARGE DESKTOP
+========================================================================== */
 
 @media (min-width: 1700px) {
-
-    .site-container,
-    .hero,
+    .section-shell,
     .section-container,
+    .site-container,
     .footer-container {
-
         max-width: 1700px;
-        margin-inline: auto;
-
     }
 
+    .section {
+        padding-inline: clamp(72px, 6vw, 120px);
+    }
+
+    .product-grid {
+        gap: 42px;
+    }
+
+    .service-grid {
+        grid-template-columns:
+            repeat(4, minmax(260px, 1fr));
+    }
+
+    .community-grid {
+        grid-template-columns:
+            repeat(3, minmax(320px, 1fr));
+    }
+
+    .government-layout {
+        grid-template-columns:
+            minmax(420px, 0.82fr)
+            minmax(760px, 1.18fr);
+        gap: 80px;
+    }
+
+    .client-spotlight {
+        grid-template-columns:
+            minmax(520px, 0.95fr)
+            minmax(620px, 1.05fr);
+    }
 }
 
-
-/*=============================================================================
-    DESKTOP
-=============================================================================*/
+/* ==========================================================================
+   DESKTOP
+========================================================================== */
 
 @media (max-width: 1440px) {
-
-    .hero {
-
-        padding-inline: 60px;
-
+    .section {
+        padding-inline: clamp(42px, 5vw, 72px);
     }
 
+    .section-shell,
+    .section-container,
+    .site-container,
+    .footer-container {
+        max-width: 1320px;
+    }
+
+    .product-grid {
+        gap: 30px;
+    }
+
+    .government-layout {
+        gap: 54px;
+    }
+
+    .client-spotlight {
+        gap: 46px;
+    }
 }
 
-
-/*=============================================================================
-    LAPTOP
-=============================================================================*/
+/* ==========================================================================
+   LAPTOP
+========================================================================== */
 
 @media (max-width: 1200px) {
+    .section {
+        padding-inline: 40px;
+    }
 
-    .hero {
-
-        gap: 60px;
-
+    .section-heading {
+        max-width: 900px;
+        margin-inline: auto;
     }
 
     .product-grid {
-
         grid-template-columns:
-            repeat(2, minmax(300px, 1fr));
-
+            repeat(2, minmax(0, 1fr));
+        gap: 26px;
     }
 
+    .product-card {
+        min-width: 0;
+    }
+
+    .product-card__header {
+        align-items: flex-start;
+        gap: 18px;
+    }
+
+    .product-card__description {
+        max-width: 100%;
+    }
+
+    .service-grid {
+        grid-template-columns:
+            repeat(2, minmax(0, 1fr));
+    }
+
+    .community-grid {
+        grid-template-columns:
+            repeat(2, minmax(0, 1fr));
+    }
+
+    .government-layout {
+        grid-template-columns:
+            minmax(320px, 0.8fr)
+            minmax(520px, 1.2fr);
+        gap: 42px;
+    }
+
+    .government-capabilities {
+        grid-template-columns:
+            repeat(2, minmax(0, 1fr));
+    }
+
+    .client-spotlight {
+        grid-template-columns:
+            minmax(0, 0.92fr)
+            minmax(390px, 1.08fr);
+        gap: 36px;
+    }
+
+    .client-spotlight__content h3 {
+        font-size: clamp(48px, 6vw, 78px);
+    }
+
+    .research-layout {
+        gap: 42px;
+    }
+
+    .about-panel,
+    .contact-panel {
+        gap: 42px;
+    }
 }
 
-
-/*=============================================================================
-    TABLET
-=============================================================================*/
+/* ==========================================================================
+   TABLET
+========================================================================== */
 
 @media (max-width: 992px) {
-
-    .site-header {
-
-        padding-inline: 28px;
-
+    .section {
+        padding:
+            92px
+            28px;
     }
 
-    .hero {
-
-        grid-template-columns: 1fr;
-        text-align: center;
-        gap: 50px;
-
-    }
-
-    .hero-copy {
-
+    .section-heading,
+    .section-heading--left {
+        max-width: 780px;
         margin-inline: auto;
-
+        text-align: center;
     }
 
-    .hero-actions {
-
-        justify-content: center;
-
-    }
-
-    .hero-visual {
-
-        order: -1;
-
+    .section-introduction {
+        margin-inline: auto;
     }
 
     .product-grid {
-
         grid-template-columns: 1fr;
-
+        max-width: 820px;
+        margin-inline: auto;
     }
 
-    .glass-panel {
-
-        padding: 40px;
-
+    .product-card {
+        width: 100%;
     }
 
+    .service-grid {
+        grid-template-columns:
+            repeat(2, minmax(0, 1fr));
+    }
+
+    .government-layout {
+        grid-template-columns: 1fr;
+        gap: 46px;
+    }
+
+    .government-introduction {
+        max-width: 760px;
+        margin-inline: auto;
+        text-align: center;
+    }
+
+    .government-introduction .button {
+        margin-inline: auto;
+    }
+
+    .government-capabilities {
+        grid-template-columns:
+            repeat(2, minmax(0, 1fr));
+    }
+
+    .government-strip {
+        justify-content: center;
+    }
+
+    .community-grid {
+        grid-template-columns:
+            repeat(2, minmax(0, 1fr));
+    }
+
+    .client-spotlight {
+        grid-template-columns: 1fr;
+        gap: 36px;
+    }
+
+    .client-spotlight__content {
+        max-width: 760px;
+    }
+
+    .client-spotlight__visual {
+        min-height: 420px;
+    }
+
+    .research-layout {
+        grid-template-columns: 1fr;
+        gap: 40px;
+    }
+
+    .research-heading {
+        max-width: 760px;
+        margin-inline: auto;
+        text-align: center;
+    }
+
+    .research-terminal {
+        width: 100%;
+        max-width: 860px;
+        margin-inline: auto;
+    }
+
+    .about-panel {
+        grid-template-columns: 1fr;
+        text-align: center;
+    }
+
+    .about-panel__identity {
+        margin-inline: auto;
+    }
+
+    .contact-panel {
+        grid-template-columns: 1fr;
+        text-align: center;
+    }
+
+    .contact-panel__actions {
+        align-items: center;
+    }
+
+    .site-footer__inner {
+        grid-template-columns:
+            repeat(2, minmax(0, 1fr));
+    }
+
+    .site-footer__contact {
+        grid-column: 1 / -1;
+    }
 }
 
-
-/*=============================================================================
-    MOBILE
-=============================================================================*/
+/* ==========================================================================
+   MOBILE
+========================================================================== */
 
 @media (max-width: 768px) {
-
-    .site-header {
-
-        flex-direction: column;
-        justify-content: center;
-        gap: 16px;
-        padding: 18px;
-
-    }
-
-    nav {
-
-        display: flex;
-        flex-wrap: wrap;
-        justify-content: center;
-        gap: 16px;
-
-    }
-
-    nav a {
-
-        margin: 0;
-
-    }
-
-    .hero {
-
+    .section {
         padding:
-            150px
-            24px
-            70px;
-
+            76px
+            20px;
     }
 
-    .hero h1 {
-
-        font-size: clamp(42px, 10vw, 64px);
-
-    }
-
-    .hero-copy {
-
-        font-size: 18px;
-
-    }
-
-    .hero-actions {
-
-        flex-direction: column;
-        align-items: stretch;
-
-    }
-
-    .btn {
-
+    .section-shell {
         width: 100%;
-
     }
 
-    .orb {
-
-        width: min(340px, 82vw);
-        height: min(340px, 82vw);
-
+    .section-heading {
+        margin-bottom: 38px;
     }
 
-    .apps,
-    .about,
-    .contact {
-
-        padding:
-            80px
-            24px;
-
+    .section-heading h2,
+    .government-introduction h2,
+    .research-heading h2,
+    .about-panel__content h2,
+    .contact-panel__content h2 {
+        font-size: clamp(38px, 10vw, 58px);
+        line-height: 0.98;
+        letter-spacing: -0.05em;
     }
 
-    .glass-panel {
-
-        padding: 32px;
-
+    .section-introduction,
+    .government-introduction p,
+    .research-heading p,
+    .about-panel__content p,
+    .contact-panel__content p {
+        font-size: 17px;
+        line-height: 1.7;
     }
 
+    .product-grid,
+    .service-grid,
+    .government-capabilities,
+    .community-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .product-card {
+        min-height: auto;
+        padding: 28px 22px;
+        border-radius: 28px;
+    }
+
+    .product-card__header {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 14px;
+    }
+
+    .product-card__header h3 {
+        font-size: clamp(42px, 12vw, 62px);
+        line-height: 0.95;
+    }
+
+    .status-badge {
+        align-self: flex-start;
+    }
+
+    .product-card__description {
+        font-size: 16px;
+        line-height: 1.7;
+    }
+
+    .product-card__features {
+        width: 100%;
+    }
+
+    .product-card__features li {
+        line-height: 1.5;
+    }
+
+    .market-display,
+    .lottery-display {
+        width: 100%;
+        min-height: 260px;
+    }
+
+    .market-display__metrics {
+        grid-template-columns: 1fr;
+    }
+
+    .lottery-ball {
+        width: clamp(48px, 14vw, 64px);
+        height: clamp(48px, 14vw, 64px);
+        font-size: clamp(20px, 6vw, 28px);
+    }
+
+    .product-card__actions {
+        width: 100%;
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 14px;
+    }
+
+    .product-card__actions .button,
+    .product-card__actions .text-link {
+        width: 100%;
+        min-height: 52px;
+        justify-content: center;
+        text-align: center;
+    }
+
+    .service-card,
+    .capability-card,
+    .community-card {
+        padding: 26px 22px;
+        border-radius: 24px;
+    }
+
+    .service-card h3,
+    .capability-card h3,
+    .community-card h3 {
+        font-size: clamp(27px, 7vw, 36px);
+        line-height: 1.05;
+    }
+
+    .government-layout {
+        gap: 34px;
+    }
+
+    .government-capabilities {
+        gap: 18px;
+    }
+
+    .government-strip {
+        gap: 10px;
+        padding: 20px 0 0;
+    }
+
+    .government-strip span {
+        flex: 1 1 calc(50% - 10px);
+        min-width: 135px;
+        text-align: center;
+    }
+
+    /* ======================================================================
+       DRINKS WITH FRIENDZ MOBILE REPAIR
+    ====================================================================== */
+
+    .client-work {
+        overflow: hidden;
+    }
+
+    .client-spotlight {
+        position: relative;
+        width: 100%;
+        display: flex;
+        flex-direction: column;
+        gap: 28px;
+        padding: 30px 22px;
+        overflow: hidden;
+        border-radius: 30px;
+    }
+
+    .client-spotlight__content {
+        position: relative;
+        z-index: 5;
+        order: 1;
+        width: 100%;
+        max-width: none;
+        min-width: 0;
+    }
+
+    .client-spotlight__label {
+        max-width: 100%;
+    }
+
+    .client-spotlight__content h3 {
+        max-width: 100%;
+        margin-bottom: 22px;
+        font-size: clamp(42px, 13vw, 64px);
+        line-height: 0.92;
+        letter-spacing: -0.055em;
+        overflow-wrap: normal;
+        word-break: normal;
+        hyphens: none;
+    }
+
+    .client-spotlight__content > p {
+        width: 100%;
+        max-width: 100%;
+        font-size: 17px;
+        line-height: 1.68;
+        overflow-wrap: break-word;
+        word-break: normal;
+    }
+
+    .client-spotlight__details {
+        width: 100%;
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 11px;
+        margin-top: 24px;
+    }
+
+    .client-spotlight__details span {
+        width: 100%;
+        min-height: 52px;
+        display: flex;
+        align-items: center;
+        padding: 13px 16px;
+        border-radius: 17px;
+        font-size: 14px;
+        line-height: 1.35;
+        overflow-wrap: break-word;
+    }
+
+    .client-spotlight__content .product-card__actions {
+        margin-top: 28px;
+    }
+
+    .client-spotlight__visual {
+        position: relative;
+        inset: auto;
+        order: 2;
+        width: 100%;
+        min-height: 290px;
+        margin: 0;
+        overflow: hidden;
+        border-radius: 24px;
+    }
+
+    .nightlife-map {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        min-height: 100%;
+        transform: none;
+    }
+
+    .nightlife-map__road {
+        max-width: none;
+    }
+
+    .community-grid {
+        gap: 18px;
+    }
+
+    .community-card .product-card__actions {
+        width: 100%;
+        margin-top: 22px;
+    }
+
+    .community-card .text-link {
+        width: 100%;
+        min-height: 46px;
+        justify-content: center;
+        text-align: center;
+    }
+
+    .research-terminal {
+        border-radius: 24px;
+    }
+
+    .research-terminal__topbar {
+        padding: 14px;
+    }
+
+    .research-terminal__title {
+        max-width: calc(100% - 72px);
+        overflow: hidden;
+        font-size: 9px;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .research-terminal__body {
+        padding: 18px;
+    }
+
+    .research-line {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 8px;
+        padding: 15px 0;
+    }
+
+    .research-line__status {
+        justify-self: flex-start;
+    }
+
+    .research-line__name {
+        line-height: 1.5;
+    }
+
+    .about-panel,
+    .contact-panel {
+        padding: 32px 22px;
+        border-radius: 28px;
+    }
+
+    .about-panel__identity img {
+        width: 130px;
+        height: 130px;
+    }
+
+    .contact-panel__actions {
+        width: 100%;
+    }
+
+    .contact-email {
+        max-width: 100%;
+        font-size: clamp(17px, 5vw, 24px);
+        overflow-wrap: anywhere;
+    }
+
+    .contact-panel__actions .button {
+        width: 100%;
+        justify-content: center;
+    }
+
+    .site-footer__inner {
+        grid-template-columns: 1fr;
+        gap: 32px;
+    }
+
+    .site-footer__navigation,
+    .site-footer__contact {
+        grid-column: auto;
+    }
+
+    .site-footer__bottom {
+        flex-direction: column;
+        gap: 10px;
+        text-align: center;
+    }
 }
 
-
-/*=============================================================================
-    SMALL MOBILE
-=============================================================================*/
+/* ==========================================================================
+   SMALL MOBILE
+========================================================================== */
 
 @media (max-width: 560px) {
+    .section {
+        padding:
+            68px
+            16px;
+    }
 
-    .hero {
-
-        padding-top: 180px;
-
+    .section-heading h2,
+    .government-introduction h2,
+    .research-heading h2,
+    .about-panel__content h2,
+    .contact-panel__content h2 {
+        font-size: clamp(34px, 11vw, 50px);
     }
 
     .product-card {
-
-        padding: 28px;
-        min-height: 440px;
-
+        padding: 24px 18px;
+        border-radius: 25px;
     }
 
-    .product-card h3 {
-
-        font-size: 34px;
-
+    .product-card__header h3 {
+        font-size: clamp(38px, 12vw, 52px);
     }
 
-    .chart-area {
-
-        height: 160px;
-
+    .market-display,
+    .lottery-display {
+        min-height: 235px;
     }
 
-    .lotto-numbers {
-
-        left: 20px;
-        right: auto;
+    .market-display__toolbar {
+        align-items: flex-start;
         gap: 10px;
-
+        font-size: 9px;
     }
 
-    .lotto-numbers span {
-
-        width: 50px;
-        height: 50px;
-        font-size: 22px;
-
+    .market-display__metrics span {
+        font-size: 11px;
     }
 
+    .service-card,
+    .capability-card,
+    .community-card {
+        padding: 23px 18px;
+    }
+
+    .government-strip span {
+        flex-basis: 100%;
+    }
+
+    .client-spotlight {
+        padding: 26px 18px;
+        border-radius: 27px;
+    }
+
+    .client-spotlight__content h3 {
+        font-size: clamp(39px, 12vw, 54px);
+    }
+
+    .client-spotlight__content > p {
+        font-size: 16px;
+    }
+
+    .client-spotlight__visual {
+        min-height: 250px;
+        border-radius: 21px;
+    }
+
+    .research-terminal__body {
+        padding: 16px;
+    }
+
+    .about-panel,
+    .contact-panel {
+        padding: 28px 18px;
+    }
 }
 
-
-/*=============================================================================
-    VERY SMALL DEVICES
-=============================================================================*/
+/* ==========================================================================
+   VERY SMALL DEVICES
+========================================================================== */
 
 @media (max-width: 400px) {
-
-    .hero {
-
-        padding-inline: 18px;
-
+    .section {
+        padding-inline: 13px;
     }
 
-    .site-header {
-
-        padding: 14px;
-
+    .product-card,
+    .client-spotlight,
+    .about-panel,
+    .contact-panel {
+        padding-right: 16px;
+        padding-left: 16px;
     }
 
-    .glass-panel {
+    .product-card__header h3 {
+        font-size: 38px;
+    }
 
-        padding: 24px;
+    .button,
+    .btn {
+        width: 100%;
+        min-height: 50px;
+        padding: 14px 16px;
+        justify-content: center;
+        text-align: center;
+    }
 
+    .client-spotlight__content h3 {
+        font-size: 38px;
+    }
+
+    .client-spotlight__visual {
+        min-height: 225px;
+    }
+
+    .client-spotlight__details span {
+        padding: 12px 14px;
+    }
+
+    .lottery-ball {
+        width: 46px;
+        height: 46px;
+    }
+
+    .contact-email {
+        font-size: 16px;
+    }
+}
+
+/* ==========================================================================
+   LANDSCAPE MOBILE
+========================================================================== */
+
+@media (
+    max-width: 900px
+) and (
+    max-height: 560px
+) and (
+    orientation: landscape
+) {
+    .section {
+        padding-top: 60px;
+        padding-bottom: 60px;
+    }
+
+    .client-spotlight__visual {
+        min-height: 220px;
     }
 
     .product-card {
-
-        padding: 22px;
-
+        min-height: auto;
     }
+}
 
-    .btn {
+/* ==========================================================================
+   REDUCED MOTION
+========================================================================== */
 
-        padding: 14px 20px;
-
+@media (prefers-reduced-motion: reduce) {
+    .product-card,
+    .service-card,
+    .capability-card,
+    .community-card,
+    .client-spotlight,
+    .research-terminal,
+    .about-panel,
+    .contact-panel {
+        scroll-behavior: auto;
     }
-
 }
