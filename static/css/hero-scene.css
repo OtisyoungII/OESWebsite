@@ -17,35 +17,15 @@ RESPONSIBILITIES:
     [x] Orbit rings and data rings
     [x] Holographic destination links
     [x] Core activation reactions
-    [x] Scroll cue
+    [x] Stronger visible movement and blinking
     [x] Desktop, tablet, and mobile layouts
     [x] Reduced-motion support
 
-JAVASCRIPT VARIABLES:
-    --core-rotate-x
-    --core-rotate-y
-    --core-translate-x
-    --core-translate-y
-    --core-glow-strength
-    --core-activation-scale
-
-    --scene-shift-x
-    --scene-shift-y
-    --scene-brightness
-    --scene-core-glow
-
-IMPORTANT SELECTORS:
-    [data-detroit-scene]
-    [data-oes-core-stage]
-    [data-oes-core]
-    [data-core-message]
-    [data-core-destination]
-
 IMPORTANT RULES:
+    [x] The Detroit mural must never overlap the hero copy
     [x] The environment must not block page interaction
-    [x] Detroit is presented as strong, creative, and opportunity-driven
     [x] The hero remains readable without JavaScript
-    [x] No external image asset is required for the initial scene
+    [x] Reduced-motion rules must remain at the end of this file
 ===============================================================================
 */
 
@@ -65,27 +45,19 @@ IMPORTANT RULES:
     --core-translate-y: 0px;
     --core-glow-strength: 0.55;
     --core-activation-scale: 1;
+    --core-breath-scale: 1;
 
     position: relative;
     isolation: isolate;
     min-height: 100svh;
     overflow: hidden;
     padding:
-        calc(var(--oes-header-height) + 76px)
+        calc(var(--oes-header-height, 82px) + 76px)
         clamp(24px, 6vw, 88px)
         82px;
     background:
-        radial-gradient(
-            circle at 50% 28%,
-            rgba(30, 64, 175, 0.16),
-            transparent 34%
-        ),
-        linear-gradient(
-            180deg,
-            #02040a 0%,
-            #030814 42%,
-            #020617 100%
-        );
+        radial-gradient(circle at 50% 28%, rgba(30, 64, 175, 0.16), transparent 34%),
+        linear-gradient(180deg, #02040a 0%, #030814 42%, #020617 100%);
     filter: brightness(var(--scene-brightness));
 }
 
@@ -98,16 +70,16 @@ IMPORTANT RULES:
     background:
         linear-gradient(
             90deg,
-            rgba(0, 0, 0, 0.62),
-            transparent 23%,
-            transparent 77%,
-            rgba(0, 0, 0, 0.62)
+            rgba(0, 0, 0, 0.64),
+            transparent 24%,
+            transparent 76%,
+            rgba(0, 0, 0, 0.64)
         ),
         linear-gradient(
             180deg,
-            rgba(0, 0, 0, 0.06),
-            transparent 35%,
-            rgba(0, 0, 0, 0.58)
+            rgba(0, 0, 0, 0.08),
+            transparent 34%,
+            rgba(0, 0, 0, 0.62)
         );
 }
 
@@ -118,11 +90,7 @@ IMPORTANT RULES:
     z-index: 40;
     pointer-events: none;
     background:
-        radial-gradient(
-            circle at center,
-            transparent 42%,
-            rgba(0, 0, 0, 0.45) 100%
-        );
+        radial-gradient(circle at center, transparent 42%, rgba(0, 0, 0, 0.45) 100%);
     mix-blend-mode: multiply;
 }
 
@@ -130,12 +98,10 @@ IMPORTANT RULES:
     position: relative;
     z-index: 20;
     width: min(100%, 1540px);
-    min-height: calc(100svh - var(--oes-header-height) - 158px);
+    min-height: calc(100svh - var(--oes-header-height, 82px) - 158px);
     margin: 0 auto;
     display: grid;
-    grid-template-columns:
-        minmax(0, 0.92fr)
-        minmax(480px, 1.08fr);
+    grid-template-columns: minmax(0, 0.92fr) minmax(480px, 1.08fr);
     gap: clamp(42px, 6vw, 100px);
     align-items: center;
 }
@@ -146,8 +112,9 @@ IMPORTANT RULES:
 
 .hero-copy-block {
     position: relative;
-    z-index: 30;
+    z-index: 35;
     max-width: 780px;
+    padding: 18px 0;
 }
 
 .hero-eyebrow {
@@ -173,11 +140,16 @@ IMPORTANT RULES:
     line-height: 0.88;
     letter-spacing: -0.072em;
     text-wrap: balance;
-    filter:
-        drop-shadow(
-            0 0 34px
-            rgba(56, 189, 248, 0.1)
-        );
+    filter: drop-shadow(0 0 34px rgba(56, 189, 248, 0.1));
+}
+
+.hero-introduction,
+.hero-belief {
+    position: relative;
+    z-index: 36;
+    text-shadow:
+        0 2px 8px rgba(0, 0, 0, 0.94),
+        0 0 18px rgba(0, 0, 0, 0.58);
 }
 
 .hero-introduction {
@@ -191,7 +163,7 @@ IMPORTANT RULES:
 .hero-belief {
     max-width: 720px;
     margin-bottom: 34px;
-    color: #aabbd0;
+    color: #b9c8d9;
     font-size: 16px;
     line-height: 1.72;
 }
@@ -205,7 +177,7 @@ IMPORTANT RULES:
     border: 1px solid rgba(125, 211, 252, 0.15);
     border-radius: 999px;
     color: #a9bdd2;
-    background: rgba(2, 6, 23, 0.56);
+    background: rgba(2, 6, 23, 0.62);
     box-shadow:
         inset 0 1px 0 rgba(255, 255, 255, 0.03),
         0 12px 32px rgba(0, 0, 0, 0.25);
@@ -222,13 +194,8 @@ IMPORTANT RULES:
     height: 8px;
     border-radius: 50%;
     background: #22c55e;
-    box-shadow:
-        0 0 12px rgba(34, 197, 94, 0.95);
-    animation:
-        heroStatusPulse
-        1.9s
-        ease-in-out
-        infinite;
+    box-shadow: 0 0 12px rgba(34, 197, 94, 0.95);
+    animation: heroStatusPulse 1.9s ease-in-out infinite;
 }
 
 .hero-status__divider {
@@ -248,11 +215,7 @@ IMPORTANT RULES:
     overflow: hidden;
     pointer-events: none;
     transform:
-        translate3d(
-            var(--scene-shift-x),
-            var(--scene-shift-y),
-            0
-        )
+        translate3d(var(--scene-shift-x), var(--scene-shift-y), 0)
         scale(1.025);
     transform-origin: center;
     transition: filter 0.3s ease;
@@ -263,17 +226,8 @@ IMPORTANT RULES:
     position: absolute;
     inset: 0 0 38%;
     background:
-        radial-gradient(
-            circle at 52% 18%,
-            rgba(96, 165, 250, 0.14),
-            transparent 28%
-        ),
-        linear-gradient(
-            180deg,
-            #01030a,
-            #050a16 62%,
-            #08101d
-        );
+        radial-gradient(circle at 52% 18%, rgba(96, 165, 250, 0.14), transparent 28%),
+        linear-gradient(180deg, #01030a, #050a16 62%, #08101d);
 }
 
 .detroit-sky::before {
@@ -282,18 +236,9 @@ IMPORTANT RULES:
     inset: 0;
     opacity: 0.72;
     background-image:
-        radial-gradient(
-            circle,
-            rgba(255, 255, 255, 0.7) 0 1px,
-            transparent 1.4px
-        );
+        radial-gradient(circle, rgba(255, 255, 255, 0.7) 0 1px, transparent 1.4px);
     background-size: 92px 92px;
-    mask-image:
-        linear-gradient(
-            to bottom,
-            black,
-            transparent 80%
-        );
+    mask-image: linear-gradient(to bottom, black, transparent 80%);
 }
 
 .detroit-moon-glow {
@@ -326,11 +271,7 @@ IMPORTANT RULES:
     height: 48%;
     opacity: 0.76;
     background:
-        linear-gradient(
-            180deg,
-            rgba(14, 22, 34, 0.95),
-            rgba(4, 10, 19, 0.98)
-        );
+        linear-gradient(180deg, rgba(14, 22, 34, 0.95), rgba(4, 10, 19, 0.98));
     box-shadow:
         0 0 0 1px rgba(148, 163, 184, 0.04),
         0 0 40px rgba(0, 0, 0, 0.55);
@@ -377,23 +318,14 @@ IMPORTANT RULES:
     box-shadow: 0 0 8px rgba(96, 165, 250, 0.14);
 }
 
-.building-window--one {
-    top: 21%;
-    left: 18%;
-}
-
+.building-window--one { top: 21%; left: 18%; }
 .building-window--two {
     top: 34%;
     left: 54%;
     background: rgba(250, 204, 21, 0.28);
     box-shadow: 0 0 8px rgba(250, 204, 21, 0.12);
 }
-
-.building-window--three {
-    top: 55%;
-    left: 29%;
-}
-
+.building-window--three { top: 55%; left: 29%; }
 .building-window--four {
     top: 70%;
     left: 67%;
@@ -411,11 +343,7 @@ IMPORTANT RULES:
     width: 28%;
     overflow: hidden;
     background:
-        linear-gradient(
-            180deg,
-            rgba(14, 17, 23, 0.98),
-            rgba(6, 8, 13, 0.99)
-        );
+        linear-gradient(180deg, rgba(14, 17, 23, 0.98), rgba(6, 8, 13, 0.99));
     box-shadow:
         inset 0 0 80px rgba(0, 0, 0, 0.7),
         0 0 60px rgba(0, 0, 0, 0.65);
@@ -423,17 +351,13 @@ IMPORTANT RULES:
 
 .alley-wall--left {
     left: -3%;
-    transform:
-        perspective(900px)
-        rotateY(15deg);
+    transform: perspective(900px) rotateY(15deg);
     transform-origin: left center;
 }
 
 .alley-wall--right {
     right: -3%;
-    transform:
-        perspective(900px)
-        rotateY(-15deg);
+    transform: perspective(900px) rotateY(-15deg);
     transform-origin: right center;
 }
 
@@ -442,15 +366,8 @@ IMPORTANT RULES:
     inset: 0;
     opacity: 0.7;
     background-image:
-        linear-gradient(
-            rgba(255, 255, 255, 0.035) 1px,
-            transparent 1px
-        ),
-        linear-gradient(
-            90deg,
-            rgba(255, 255, 255, 0.028) 1px,
-            transparent 1px
-        );
+        linear-gradient(rgba(255, 255, 255, 0.035) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.028) 1px, transparent 1px);
     background-size: 64px 30px;
 }
 
@@ -484,11 +401,7 @@ IMPORTANT RULES:
     border-radius: 7px;
     color: #bae6fd;
     background:
-        linear-gradient(
-            145deg,
-            rgba(7, 25, 42, 0.9),
-            rgba(2, 6, 23, 0.94)
-        );
+        linear-gradient(145deg, rgba(7, 25, 42, 0.9), rgba(2, 6, 23, 0.94));
     box-shadow:
         0 0 18px rgba(56, 189, 248, 0.08),
         inset 0 0 16px rgba(56, 189, 248, 0.04);
@@ -518,8 +431,7 @@ IMPORTANT RULES:
     width: 56%;
     color: #d8b4fe;
     border-color: rgba(192, 132, 252, 0.26);
-    box-shadow:
-        0 0 18px rgba(168, 85, 247, 0.09);
+    box-shadow: 0 0 18px rgba(168, 85, 247, 0.09);
     transform: rotate(1deg);
 }
 
@@ -539,16 +451,8 @@ IMPORTANT RULES:
         inset 0 0 24px rgba(56, 189, 248, 0.1);
 }
 
-.city-sign--dragging {
-    filter: brightness(1.28);
-}
-
-.city-sign--pulse {
-    animation:
-        citySignPulse
-        0.8s
-        ease-out;
-}
+.city-sign--dragging { filter: brightness(1.28); }
+.city-sign--pulse { animation: citySignPulse 0.8s ease-out; }
 
 /* ==========================================================================
    DETROIT MURAL
@@ -556,50 +460,52 @@ IMPORTANT RULES:
 
 .city-mural {
     position: absolute;
-    left: 12%;
-    bottom: 18%;
-    width: 70%;
-    min-height: 120px;
+    left: 5%;
+    bottom: 4%;
+    width: 58%;
+    min-height: 88px;
+    z-index: 2;
     display: flex;
     flex-direction: column;
     justify-content: center;
-    padding: 18px;
-    border-left: 3px solid rgba(34, 197, 94, 0.48);
-    color: rgba(255, 255, 255, 0.8);
+    padding: 14px 16px;
+    border-left: 3px solid rgba(34, 197, 94, 0.5);
+    opacity: 0.94;
+    color: rgba(255, 255, 255, 0.86);
     background:
         linear-gradient(
             90deg,
-            rgba(5, 46, 22, 0.38),
+            rgba(2, 6, 23, 0.92),
+            rgba(5, 46, 22, 0.62) 58%,
             transparent
         );
+    box-shadow: -8px 8px 30px rgba(0, 0, 0, 0.34);
     transform: rotate(-1.5deg);
 }
 
 .city-mural span {
     color: transparent;
-    background:
-        linear-gradient(
-            90deg,
-            #38bdf8,
-            #22c55e
-        );
+    background: linear-gradient(90deg, #38bdf8, #22c55e);
     background-clip: text;
     -webkit-background-clip: text;
-    font-size: clamp(22px, 3vw, 54px);
+    font-size: clamp(20px, 2.2vw, 42px);
     font-weight: 1000;
     line-height: 0.9;
     letter-spacing: -0.05em;
 }
 
 .city-mural small {
-    max-width: 240px;
+    max-width: 190px;
     margin-top: 10px;
-    color: #a7b8ca;
+    color: rgba(226, 232, 240, 0.96);
     font-size: clamp(7px, 0.72vw, 11px);
-    font-weight: 800;
+    font-weight: 900;
     line-height: 1.5;
     letter-spacing: 0.05em;
     text-transform: uppercase;
+    text-shadow:
+        0 2px 5px rgba(0, 0, 0, 0.96),
+        0 0 10px rgba(0, 0, 0, 0.9);
 }
 
 /* ==========================================================================
@@ -616,11 +522,7 @@ IMPORTANT RULES:
     border-color: rgba(244, 114, 182, 0.38);
     color: #f9a8d4;
     background:
-        radial-gradient(
-            circle at center,
-            rgba(236, 72, 153, 0.13),
-            transparent 72%
-        ),
+        radial-gradient(circle at center, rgba(236, 72, 153, 0.13), transparent 72%),
         rgba(32, 8, 29, 0.9);
     box-shadow:
         0 0 26px rgba(236, 72, 153, 0.17),
@@ -652,22 +554,14 @@ IMPORTANT RULES:
     height: 38%;
     border: 1px solid rgba(244, 114, 182, 0.18);
     background:
-        linear-gradient(
-            180deg,
-            rgba(56, 16, 58, 0.36),
-            rgba(4, 5, 10, 0.96)
-        );
-    box-shadow:
-        inset 0 0 50px rgba(0, 0, 0, 0.7);
+        linear-gradient(180deg, rgba(56, 16, 58, 0.36), rgba(4, 5, 10, 0.96));
+    box-shadow: inset 0 0 50px rgba(0, 0, 0, 0.7);
 }
 
 .club-door::before {
     content: "";
     position: absolute;
-    top: 12%;
-    right: 12%;
-    bottom: 12%;
-    left: 12%;
+    inset: 12%;
     border: 1px solid rgba(244, 114, 182, 0.12);
 }
 
@@ -679,18 +573,10 @@ IMPORTANT RULES:
     height: 28%;
     border-radius: 50%;
     background:
-        radial-gradient(
-            ellipse,
-            rgba(236, 72, 153, 0.42),
-            transparent 70%
-        );
+        radial-gradient(ellipse, rgba(236, 72, 153, 0.42), transparent 70%);
     filter: blur(13px);
     transform: translateX(-50%);
-    animation:
-        clubLightPulse
-        2.8s
-        ease-in-out
-        infinite;
+    animation: clubLightPulse 2.8s ease-in-out infinite;
 }
 
 /* ==========================================================================
@@ -713,14 +599,8 @@ IMPORTANT RULES:
     width: 34%;
     height: 72%;
     border-radius: 50% 50% 14% 14%;
-    background:
-        linear-gradient(
-            180deg,
-            #0a0d13,
-            #020308
-        );
-    box-shadow:
-        0 0 20px rgba(0, 0, 0, 0.8);
+    background: linear-gradient(180deg, #0a0d13, #020308);
+    box-shadow: 0 0 20px rgba(0, 0, 0, 0.8);
 }
 
 .public-safety-silhouette__figure::before {
@@ -746,11 +626,7 @@ IMPORTANT RULES:
     box-shadow:
         0 0 10px #60a5fa,
         0 0 28px rgba(96, 165, 250, 0.75);
-    animation:
-        explorerLight
-        2.3s
-        ease-in-out
-        infinite;
+    animation: explorerLight 2.3s ease-in-out infinite;
 }
 
 /* ==========================================================================
@@ -765,14 +641,8 @@ IMPORTANT RULES:
     height: 58%;
     overflow: hidden;
     background:
-        linear-gradient(
-            180deg,
-            rgba(8, 13, 21, 0.98),
-            rgba(2, 4, 8, 1)
-        );
-    transform:
-        perspective(700px)
-        rotateX(64deg);
+        linear-gradient(180deg, rgba(8, 13, 21, 0.98), rgba(2, 4, 8, 1));
+    transform: perspective(700px) rotateX(64deg);
     transform-origin: bottom;
 }
 
@@ -782,15 +652,8 @@ IMPORTANT RULES:
     inset: 0;
     opacity: 0.48;
     background-image:
-        linear-gradient(
-            rgba(255, 255, 255, 0.035) 1px,
-            transparent 1px
-        ),
-        linear-gradient(
-            90deg,
-            rgba(255, 255, 255, 0.025) 1px,
-            transparent 1px
-        );
+        linear-gradient(rgba(255, 255, 255, 0.035) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.025) 1px, transparent 1px);
     background-size: 90px 56px;
 }
 
@@ -802,50 +665,28 @@ IMPORTANT RULES:
     opacity: 0.35;
     filter: blur(17px);
     transform: skewX(-8deg);
-    transition:
-        opacity 0.3s ease,
-        filter 0.3s ease;
+    transition: opacity 0.3s ease, filter 0.3s ease;
 }
 
 .street-reflection--blue {
     left: 31%;
     width: 12%;
-    background:
-        linear-gradient(
-            180deg,
-            rgba(56, 189, 248, 0.5),
-            transparent
-        );
+    background: linear-gradient(180deg, rgba(56, 189, 248, 0.5), transparent);
 }
 
 .street-reflection--green {
     left: 47%;
     width: 11%;
-    background:
-        linear-gradient(
-            180deg,
-            rgba(34, 197, 94, 0.42),
-            transparent
-        );
+    background: linear-gradient(180deg, rgba(34, 197, 94, 0.42), transparent);
 }
 
 .street-reflection--purple {
     right: 22%;
     width: 13%;
-    background:
-        linear-gradient(
-            180deg,
-            rgba(236, 72, 153, 0.4),
-            transparent
-        );
+    background: linear-gradient(180deg, rgba(236, 72, 153, 0.4), transparent);
 }
 
-.street-reflection--pulse {
-    animation:
-        streetReflectionPulse
-        1.05s
-        ease-out;
-}
+.street-reflection--pulse { animation: streetReflectionPulse 1.05s ease-out; }
 
 .street-line {
     position: absolute;
@@ -853,20 +694,11 @@ IMPORTANT RULES:
     bottom: 0;
     width: 1px;
     background:
-        linear-gradient(
-            180deg,
-            rgba(148, 163, 184, 0.16),
-            transparent
-        );
+        linear-gradient(180deg, rgba(148, 163, 184, 0.16), transparent);
 }
 
-.street-line--one {
-    left: 41%;
-}
-
-.street-line--two {
-    right: 38%;
-}
+.street-line--one { left: 41%; }
+.street-line--two { right: 38%; }
 
 /* ==========================================================================
    STEAM
@@ -874,7 +706,6 @@ IMPORTANT RULES:
 
 .steam {
     --steam-drift: 0px;
-
     position: absolute;
     z-index: 10;
     width: 160px;
@@ -882,33 +713,14 @@ IMPORTANT RULES:
     border-radius: 50%;
     opacity: 0.12;
     background:
-        radial-gradient(
-            ellipse,
-            rgba(226, 232, 240, 0.3),
-            transparent 68%
-        );
+        radial-gradient(ellipse, rgba(226, 232, 240, 0.3), transparent 68%);
     filter: blur(18px);
-    transform:
-        translateX(var(--steam-drift))
-        rotate(-8deg);
-    animation:
-        steamRise
-        6s
-        ease-in-out
-        infinite;
+    transform: translateX(var(--steam-drift)) rotate(-8deg);
+    animation: steamRise 6s ease-in-out infinite;
 }
 
-.steam--one {
-    bottom: 9%;
-    left: 24%;
-}
-
-.steam--two {
-    right: 24%;
-    bottom: 4%;
-    animation-delay: -2s;
-}
-
+.steam--one { bottom: 9%; left: 24%; }
+.steam--two { right: 24%; bottom: 4%; animation-delay: -2s; }
 .steam--three {
     right: 47%;
     bottom: -4%;
@@ -937,11 +749,7 @@ IMPORTANT RULES:
     height: 58%;
     opacity: 0.38;
     background:
-        radial-gradient(
-            ellipse,
-            rgba(56, 189, 248, 0.32),
-            transparent 72%
-        );
+        radial-gradient(ellipse, rgba(56, 189, 248, 0.32), transparent 72%);
 }
 
 .scene-light--right {
@@ -951,11 +759,7 @@ IMPORTANT RULES:
     height: 58%;
     opacity: 0.32;
     background:
-        radial-gradient(
-            ellipse,
-            rgba(236, 72, 153, 0.26),
-            transparent 72%
-        );
+        radial-gradient(ellipse, rgba(236, 72, 153, 0.26), transparent 72%);
 }
 
 .scene-light--center {
@@ -997,11 +801,7 @@ IMPORTANT RULES:
     aspect-ratio: 1;
     border-radius: 50%;
     pointer-events: none;
-    opacity:
-        calc(
-            var(--core-glow-strength) *
-            0.46
-        );
+    opacity: calc(var(--core-glow-strength) * 0.46);
     background:
         radial-gradient(
             circle,
@@ -1013,26 +813,16 @@ IMPORTANT RULES:
     filter: blur(30px);
     transform:
         translate(-50%, -50%)
-        scale(
-            var(--core-activation-scale)
-        );
-    transition:
-        opacity 0.2s ease;
+        scale(var(--core-activation-scale));
+    transition: opacity 0.2s ease;
 }
 
 .oes-core-stage--engaged::before {
-    opacity:
-        calc(
-            var(--core-glow-strength) *
-            0.68
-        );
+    opacity: calc(var(--core-glow-strength) * 0.68);
 }
 
 .oes-core-stage--activated::before {
-    animation:
-        stageActivationGlow
-        1.25s
-        ease-out;
+    animation: stageActivationGlow 1.25s ease-out;
 }
 
 /* ==========================================================================
@@ -1060,14 +850,12 @@ IMPORTANT RULES:
         )
         rotateX(var(--core-rotate-x))
         rotateY(var(--core-rotate-y))
-        scale(var(--core-activation-scale));
+        scale(calc(var(--core-activation-scale) * var(--core-breath-scale)));
     transform-style: preserve-3d;
     will-change: transform;
 }
 
-.oes-core:active {
-    cursor: grabbing;
-}
+.oes-core:active { cursor: grabbing; }
 
 .oes-core:focus-visible {
     outline: 3px solid rgba(125, 211, 252, 0.95);
@@ -1086,16 +874,8 @@ IMPORTANT RULES:
             transparent 72%
         );
     filter: blur(22px);
-    opacity:
-        calc(
-            var(--core-glow-strength) *
-            0.74
-        );
-    animation:
-        coreEnergyBreathe
-        3.8s
-        ease-in-out
-        infinite;
+    opacity: calc(var(--core-glow-strength) * 0.74);
+    animation: coreEnergyBreathe 3.8s ease-in-out infinite;
 }
 
 .oes-core__surface {
@@ -1146,14 +926,8 @@ IMPORTANT RULES:
     pointer-events: none;
     user-select: none;
     filter:
-        drop-shadow(
-            0 0 24px
-            rgba(56, 189, 248, 0.7)
-        )
-        drop-shadow(
-            0 0 48px
-            rgba(34, 197, 94, 0.18)
-        );
+        drop-shadow(0 0 24px rgba(56, 189, 248, 0.7))
+        drop-shadow(0 0 48px rgba(34, 197, 94, 0.18));
 }
 
 .oes-core__shine {
@@ -1167,15 +941,9 @@ IMPORTANT RULES:
     pointer-events: none;
     opacity: 0.44;
     background:
-        linear-gradient(
-            120deg,
-            rgba(255, 255, 255, 0.48),
-            transparent 72%
-        );
+        linear-gradient(120deg, rgba(255, 255, 255, 0.48), transparent 72%);
     filter: blur(4px);
-    transform:
-        rotate(-24deg)
-        translateZ(30px);
+    transform: rotate(-24deg) translateZ(30px);
 }
 
 .oes-core__pulse {
@@ -1184,18 +952,71 @@ IMPORTANT RULES:
     border: 2px solid rgba(125, 211, 252, 0.3);
     border-radius: 50%;
     pointer-events: none;
-    animation:
-        corePulseRing
-        3s
-        ease-out
-        infinite;
+    animation: corePulseRing 3s ease-out infinite;
 }
 
 .oes-core--activated .oes-core__pulse {
+    animation: coreActivationPulse 1.2s ease-out;
+}
+
+/* ==========================================================================
+   STRONGER LIVING CORE STATES
+========================================================================== */
+
+.oes-core-stage--tracking .oes-core {
+    filter:
+        drop-shadow(
+            0 0 24px
+            var(--awareness-glow, rgba(56, 189, 248, 0.48))
+        );
+}
+
+.oes-core-stage--focused .oes-core {
+    filter:
+        drop-shadow(
+            0 0 38px
+            var(--awareness-glow, rgba(56, 189, 248, 0.7))
+        );
+}
+
+.oes-core-stage--focused .oes-core__surface,
+.oes-core--dragging .oes-core__surface {
+    border-color: var(--awareness-primary, #38bdf8);
+    box-shadow:
+        0 0 58px var(--awareness-glow, rgba(56, 189, 248, 0.45)),
+        0 0 115px rgba(37, 99, 235, 0.22),
+        inset 0 0 80px rgba(56, 189, 248, 0.13),
+        inset -22px -26px 48px rgba(0, 0, 0, 0.36);
+}
+
+.oes-core-stage--curious .oes-core__shine {
+    animation: coreVisibleBlink 1.05s ease-in-out;
+}
+
+.oes-core-stage--impatient .oes-core {
+    animation: coreVisibleImpatience 1.65s ease-in-out;
+}
+
+.oes-core-stage--observing .oes-core__energy {
     animation:
-        coreActivationPulse
-        1.2s
-        ease-out;
+        coreEnergyBreathe 2.2s ease-in-out infinite,
+        coreObservationGlow 2.2s ease-in-out;
+}
+
+.oes-core-stage--idle-pulse::before {
+    animation: stageIdlePulse 1.5s ease-out;
+}
+
+.oes-core-stage--section-change .core-data-ring span {
+    animation: coreSectionTextFlash 1.1s ease-out;
+}
+
+.oes-core--heartbeat {
+    animation: coreVisibleHeartbeat 1.25s ease-in-out;
+}
+
+.oes-core--dragging {
+    cursor: grabbing;
 }
 
 /* ==========================================================================
@@ -1245,34 +1066,21 @@ IMPORTANT RULES:
 .core-orbit--outer {
     width: min(590px, 78vw);
     aspect-ratio: 1;
-    animation:
-        coreOrbitOuter
-        22s
-        linear
-        infinite;
+    animation: coreOrbitOuter 22s linear infinite;
 }
 
 .core-orbit--middle {
     width: min(505px, 69vw);
     aspect-ratio: 1;
     border-color: rgba(34, 197, 94, 0.22);
-    animation:
-        coreOrbitMiddle
-        16s
-        linear
-        infinite
-        reverse;
+    animation: coreOrbitMiddle 16s linear infinite reverse;
 }
 
 .core-orbit--inner {
     width: min(455px, 63vw);
     aspect-ratio: 1;
     border-color: rgba(192, 132, 252, 0.18);
-    animation:
-        coreOrbitInner
-        12s
-        linear
-        infinite;
+    animation: coreOrbitInner 12s linear infinite;
 }
 
 /* ==========================================================================
@@ -1287,11 +1095,7 @@ IMPORTANT RULES:
     width: min(600px, 79vw);
     aspect-ratio: 1;
     pointer-events: none;
-    animation:
-        dataRingRotate
-        30s
-        linear
-        infinite;
+    animation: dataRingRotate 30s linear infinite;
 }
 
 .core-data-ring--two {
@@ -1306,29 +1110,13 @@ IMPORTANT RULES:
     font-size: 8px;
     font-weight: 1000;
     letter-spacing: 0.18em;
-    text-shadow:
-        0 0 10px rgba(56, 189, 248, 0.55);
+    text-shadow: 0 0 10px rgba(56, 189, 248, 0.55);
 }
 
-.core-data-ring span:nth-child(1) {
-    top: 1%;
-    left: 50%;
-}
-
-.core-data-ring span:nth-child(2) {
-    top: 50%;
-    right: -1%;
-}
-
-.core-data-ring span:nth-child(3) {
-    bottom: 1%;
-    left: 48%;
-}
-
-.core-data-ring span:nth-child(4) {
-    top: 50%;
-    left: -1%;
-}
+.core-data-ring span:nth-child(1) { top: 1%; left: 50%; }
+.core-data-ring span:nth-child(2) { top: 50%; right: -1%; }
+.core-data-ring span:nth-child(3) { bottom: 1%; left: 48%; }
+.core-data-ring span:nth-child(4) { top: 50%; left: -1%; }
 
 /* ==========================================================================
    CORE SHADOW AND MESSAGE
@@ -1383,13 +1171,16 @@ IMPORTANT RULES:
 
 .core-message--changing {
     opacity: 0.45;
-    transform:
-        translateX(-50%)
-        translateY(3px);
+    transform: translateX(-50%) translateY(3px);
 }
 
-.oes-core-stage--engaged .core-message {
-    border-color: rgba(125, 211, 252, 0.52);
+.oes-core-stage--engaged .core-message,
+.oes-core-stage--focused .core-message {
+    color: #ffffff;
+    border-color: var(--awareness-primary, #38bdf8);
+    box-shadow:
+        0 14px 34px rgba(0, 0, 0, 0.28),
+        0 0 24px var(--awareness-glow, rgba(56, 189, 248, 0.3));
 }
 
 /* ==========================================================================
@@ -1410,11 +1201,7 @@ IMPORTANT RULES:
     border-radius: 12px;
     color: #dbeafe;
     background:
-        linear-gradient(
-            145deg,
-            rgba(7, 23, 39, 0.72),
-            rgba(2, 6, 23, 0.82)
-        );
+        linear-gradient(145deg, rgba(7, 23, 39, 0.72), rgba(2, 6, 23, 0.82));
     box-shadow:
         0 16px 34px rgba(0, 0, 0, 0.26),
         inset 0 1px 0 rgba(255, 255, 255, 0.04);
@@ -1448,9 +1235,7 @@ IMPORTANT RULES:
             transparent
         );
     transform: skewX(-15deg);
-    transition:
-        left 0.55s ease,
-        opacity 0.25s ease;
+    transition: left 0.55s ease, opacity 0.25s ease;
 }
 
 .hologram-link:hover::before,
@@ -1464,11 +1249,7 @@ IMPORTANT RULES:
 .hologram-link--active {
     border-color: rgba(125, 211, 252, 0.68);
     background:
-        linear-gradient(
-            145deg,
-            rgba(8, 47, 73, 0.76),
-            rgba(2, 6, 23, 0.86)
-        );
+        linear-gradient(145deg, rgba(8, 47, 73, 0.76), rgba(2, 6, 23, 0.86));
     box-shadow:
         0 20px 44px rgba(0, 0, 0, 0.34),
         0 0 28px rgba(56, 189, 248, 0.17);
@@ -1551,18 +1332,9 @@ IMPORTANT RULES:
     width: 1px;
     height: 42px;
     overflow: hidden;
-    background:
-        linear-gradient(
-            180deg,
-            #38bdf8,
-            transparent
-        );
+    background: linear-gradient(180deg, #38bdf8, transparent);
     transform-origin: top;
-    animation:
-        heroScrollLine
-        2s
-        ease-in-out
-        infinite;
+    animation: heroScrollLine 2s ease-in-out infinite;
 }
 
 /* ==========================================================================
@@ -1575,10 +1347,7 @@ IMPORTANT RULES:
 }
 
 .hero-scene--core-activated .detroit-world {
-    animation:
-        sceneActivationFlash
-        1.3s
-        ease-out;
+    animation: sceneActivationFlash 1.3s ease-out;
 }
 
 .oes-core-stage--activated .core-orbit {
@@ -1598,12 +1367,10 @@ IMPORTANT RULES:
 ========================================================================== */
 
 @keyframes heroStatusPulse {
-    0%,
-    100% {
+    0%, 100% {
         opacity: 0.45;
         transform: scale(0.88);
     }
-
     50% {
         opacity: 1;
         transform: scale(1.1);
@@ -1611,68 +1378,41 @@ IMPORTANT RULES:
 }
 
 @keyframes citySignPulse {
-    0% {
-        filter: brightness(1);
-    }
-
+    0%, 100% { filter: brightness(1); }
     45% {
         filter: brightness(2);
         box-shadow:
             0 0 45px rgba(56, 189, 248, 0.55),
             inset 0 0 24px rgba(56, 189, 248, 0.2);
     }
-
-    100% {
-        filter: brightness(1);
-    }
 }
 
 @keyframes clubLightPulse {
-    0%,
-    100% {
+    0%, 100% {
         opacity: 0.36;
-        transform:
-            translateX(-50%)
-            scale(0.92);
+        transform: translateX(-50%) scale(0.92);
     }
-
     50% {
         opacity: 0.82;
-        transform:
-            translateX(-50%)
-            scale(1.15);
+        transform: translateX(-50%) scale(1.15);
     }
 }
 
 @keyframes explorerLight {
-    0%,
-    100% {
-        opacity: 0.35;
-    }
-
-    50% {
-        opacity: 1;
-    }
+    0%, 100% { opacity: 0.35; }
+    50% { opacity: 1; }
 }
 
 @keyframes streetReflectionPulse {
-    0% {
-        opacity: 0.35;
-    }
-
+    0%, 100% { opacity: 0.35; }
     40% {
         opacity: 0.95;
         filter: blur(12px) brightness(1.4);
     }
-
-    100% {
-        opacity: 0.35;
-    }
 }
 
 @keyframes steamRise {
-    0%,
-    100% {
+    0%, 100% {
         opacity: 0.07;
         transform:
             translateX(var(--steam-drift))
@@ -1680,7 +1420,6 @@ IMPORTANT RULES:
             scale(0.8)
             rotate(-8deg);
     }
-
     50% {
         opacity: 0.16;
         transform:
@@ -1692,16 +1431,19 @@ IMPORTANT RULES:
 }
 
 @keyframes coreEnergyBreathe {
-    0%,
-    100% {
+    0%, 100% {
         opacity: 0.46;
         transform: scale(0.95);
     }
-
     50% {
         opacity: 0.82;
         transform: scale(1.08);
     }
+}
+
+@keyframes coreObservationGlow {
+    0%, 100% { filter: blur(22px) brightness(1); }
+    50% { filter: blur(18px) brightness(1.45); }
 }
 
 @keyframes corePulseRing {
@@ -1709,9 +1451,7 @@ IMPORTANT RULES:
         opacity: 0.5;
         transform: scale(0.76);
     }
-
-    78%,
-    100% {
+    78%, 100% {
         opacity: 0;
         transform: scale(1.18);
     }
@@ -1723,7 +1463,6 @@ IMPORTANT RULES:
         border-color: rgba(255, 255, 255, 0.92);
         transform: scale(0.75);
     }
-
     100% {
         opacity: 0;
         border-color: rgba(125, 211, 252, 0);
@@ -1731,35 +1470,106 @@ IMPORTANT RULES:
     }
 }
 
+@keyframes coreVisibleBlink {
+    0%, 18%, 38%, 100% {
+        opacity: 0.62;
+        transform: rotate(-24deg) translateZ(30px) scaleY(1);
+    }
+    23% {
+        opacity: 0.1;
+        transform: rotate(-24deg) translateZ(30px) scaleY(0.04);
+    }
+    28% {
+        opacity: 0.78;
+        transform: rotate(-24deg) translateZ(30px) scaleY(1);
+    }
+    43% {
+        opacity: 0.08;
+        transform: rotate(-24deg) translateZ(30px) scaleY(0.06);
+    }
+    50% {
+        opacity: 0.65;
+        transform: rotate(-24deg) translateZ(30px) scaleY(1);
+    }
+}
+
+@keyframes coreVisibleImpatience {
+    0%, 100% {
+        translate: 0 0;
+        scale: 1;
+    }
+    18% {
+        translate: -10px 2px;
+        scale: 1.025;
+    }
+    34% {
+        translate: 12px -4px;
+        scale: 1.035;
+    }
+    52% {
+        translate: -7px 1px;
+        scale: 1.02;
+    }
+    70% {
+        translate: 8px -2px;
+        scale: 1.028;
+    }
+}
+
+@keyframes coreVisibleHeartbeat {
+    0%, 100% { scale: 1; }
+    16% { scale: 1.06; }
+    27% { scale: 0.988; }
+    40% { scale: 1.045; }
+    55% { scale: 1; }
+}
+
+@keyframes stageIdlePulse {
+    0% {
+        opacity: 0.25;
+        transform: translate(-50%, -50%) scale(0.82);
+    }
+    48% {
+        opacity: 0.86;
+        transform: translate(-50%, -50%) scale(1.12);
+    }
+    100% {
+        opacity: 0.34;
+        transform: translate(-50%, -50%) scale(1);
+    }
+}
+
+@keyframes coreSectionTextFlash {
+    0% {
+        color: rgba(186, 230, 253, 0.38);
+        text-shadow: none;
+    }
+    42% {
+        color: #ffffff;
+        text-shadow:
+            0 0 14px var(--awareness-primary, #38bdf8),
+            0 0 28px var(--awareness-glow, rgba(56, 189, 248, 0.5));
+    }
+    100% {
+        color: rgba(186, 230, 253, 0.64);
+    }
+}
+
 @keyframes coreOrbitOuter {
     from {
-        transform:
-            translate(-50%, -50%)
-            rotateZ(0deg)
-            rotateX(68deg);
+        transform: translate(-50%, -50%) rotateZ(0deg) rotateX(68deg);
     }
-
     to {
-        transform:
-            translate(-50%, -50%)
-            rotateZ(360deg)
-            rotateX(68deg);
+        transform: translate(-50%, -50%) rotateZ(360deg) rotateX(68deg);
     }
 }
 
 @keyframes coreOrbitMiddle {
     from {
-        transform:
-            translate(-50%, -50%)
-            rotateZ(0deg)
-            rotateY(64deg);
+        transform: translate(-50%, -50%) rotateZ(0deg) rotateY(64deg);
     }
-
     to {
-        transform:
-            translate(-50%, -50%)
-            rotateZ(360deg)
-            rotateY(64deg);
+        transform: translate(-50%, -50%) rotateZ(360deg) rotateY(64deg);
     }
 }
 
@@ -1771,7 +1581,6 @@ IMPORTANT RULES:
             rotateX(28deg)
             rotateY(48deg);
     }
-
     to {
         transform:
             translate(-50%, -50%)
@@ -1782,39 +1591,22 @@ IMPORTANT RULES:
 }
 
 @keyframes dataRingRotate {
-    from {
-        transform:
-            translate(-50%, -50%)
-            rotate(0deg);
-    }
-
-    to {
-        transform:
-            translate(-50%, -50%)
-            rotate(360deg);
-    }
+    from { transform: translate(-50%, -50%) rotate(0deg); }
+    to { transform: translate(-50%, -50%) rotate(360deg); }
 }
 
 @keyframes stageActivationGlow {
     0% {
         opacity: 0.5;
-        transform:
-            translate(-50%, -50%)
-            scale(0.84);
+        transform: translate(-50%, -50%) scale(0.84);
     }
-
     55% {
         opacity: 1;
-        transform:
-            translate(-50%, -50%)
-            scale(1.18);
+        transform: translate(-50%, -50%) scale(1.18);
     }
-
     100% {
         opacity: 0.35;
-        transform:
-            translate(-50%, -50%)
-            scale(1);
+        transform: translate(-50%, -50%) scale(1);
     }
 }
 
@@ -1823,32 +1615,19 @@ IMPORTANT RULES:
         opacity: 0;
         transform: scaleY(0);
     }
-
     40% {
         opacity: 1;
         transform: scaleY(1);
     }
-
     100% {
         opacity: 0;
-        transform:
-            translateY(18px)
-            scaleY(0.4);
+        transform: translateY(18px) scaleY(0.4);
     }
 }
 
 @keyframes sceneActivationFlash {
-    0% {
-        filter: brightness(1);
-    }
-
-    38% {
-        filter: brightness(1.38);
-    }
-
-    100% {
-        filter: brightness(1);
-    }
+    0%, 100% { filter: brightness(1); }
+    38% { filter: brightness(1.38); }
 }
 
 /* ==========================================================================
@@ -1857,38 +1636,16 @@ IMPORTANT RULES:
 
 @media (min-width: 1700px) {
     .hero-scene__content {
-        grid-template-columns:
-            minmax(0, 0.9fr)
-            minmax(620px, 1.1fr);
+        grid-template-columns: minmax(0, 0.9fr) minmax(620px, 1.1fr);
     }
 
-    .oes-core-stage {
-        min-height: 780px;
-    }
-
-    .oes-core {
-        width: 470px;
-    }
-
-    .core-orbit--outer {
-        width: 670px;
-    }
-
-    .core-orbit--middle {
-        width: 575px;
-    }
-
-    .core-orbit--inner {
-        width: 505px;
-    }
-
-    .core-data-ring {
-        width: 680px;
-    }
-
-    .core-data-ring--two {
-        width: 590px;
-    }
+    .oes-core-stage { min-height: 780px; }
+    .oes-core { width: 470px; }
+    .core-orbit--outer { width: 670px; }
+    .core-orbit--middle { width: 575px; }
+    .core-orbit--inner { width: 505px; }
+    .core-data-ring { width: 680px; }
+    .core-data-ring--two { width: 590px; }
 }
 
 /* ==========================================================================
@@ -1897,19 +1654,12 @@ IMPORTANT RULES:
 
 @media (max-width: 1280px) {
     .hero-scene__content {
-        grid-template-columns:
-            minmax(0, 0.9fr)
-            minmax(430px, 1.1fr);
+        grid-template-columns: minmax(0, 0.9fr) minmax(430px, 1.1fr);
         gap: 40px;
     }
 
-    .oes-core-stage {
-        min-height: 620px;
-    }
-
-    .hologram-link {
-        width: 150px;
-    }
+    .oes-core-stage { min-height: 620px; }
+    .hologram-link { width: 150px; }
 
     .hologram-link--products,
     .hologram-link--government {
@@ -1929,11 +1679,7 @@ IMPORTANT RULES:
 @media (max-width: 1020px) {
     .hero-scene {
         min-height: auto;
-        padding-top:
-            calc(
-                var(--oes-header-height) +
-                78px
-            );
+        padding-top: calc(var(--oes-header-height, 82px) + 78px);
     }
 
     .hero-scene__content {
@@ -1960,26 +1706,27 @@ IMPORTANT RULES:
         margin-left: auto;
     }
 
-    .hero-actions {
-        justify-content: center;
-    }
+    .hero-actions { justify-content: center; }
 
     .hero-status {
         margin-right: auto;
         margin-left: auto;
     }
 
-    .oes-core-stage {
-        min-height: 650px;
-    }
+    .oes-core-stage { min-height: 650px; }
 
     .alley-wall {
         width: 36%;
         opacity: 0.68;
     }
 
-    .detroit-building {
-        opacity: 0.46;
+    .detroit-building { opacity: 0.46; }
+
+    .city-mural {
+        left: 3%;
+        bottom: 3%;
+        width: 46%;
+        opacity: 0.72;
     }
 }
 
@@ -1989,10 +1736,7 @@ IMPORTANT RULES:
 
 @media (max-width: 760px) {
     .hero-scene {
-        padding:
-            145px
-            20px
-            86px;
+        padding: 145px 20px 86px;
     }
 
     .hero-copy-block {
@@ -2004,17 +1748,9 @@ IMPORTANT RULES:
         line-height: 0.92;
     }
 
-    .hero-introduction {
-        font-size: 18px;
-    }
-
-    .hero-belief {
-        font-size: 15px;
-    }
-
-    .hero-actions {
-        justify-content: flex-start;
-    }
+    .hero-introduction { font-size: 18px; }
+    .hero-belief { font-size: 15px; }
+    .hero-actions { justify-content: flex-start; }
 
     .hero-status {
         width: 100%;
@@ -2027,29 +1763,12 @@ IMPORTANT RULES:
         margin-top: 10px;
     }
 
-    .oes-core {
-        width: min(330px, 82vw);
-    }
-
-    .core-orbit--outer {
-        width: min(445px, 108vw);
-    }
-
-    .core-orbit--middle {
-        width: min(385px, 94vw);
-    }
-
-    .core-orbit--inner {
-        width: min(350px, 86vw);
-    }
-
-    .core-data-ring {
-        width: min(450px, 110vw);
-    }
-
-    .core-data-ring--two {
-        width: min(390px, 96vw);
-    }
+    .oes-core { width: min(330px, 82vw); }
+    .core-orbit--outer { width: min(445px, 108vw); }
+    .core-orbit--middle { width: min(385px, 94vw); }
+    .core-orbit--inner { width: min(350px, 86vw); }
+    .core-data-ring { width: min(450px, 110vw); }
+    .core-data-ring--two { width: min(390px, 96vw); }
 
     .hologram-link {
         width: 130px;
@@ -2057,29 +1776,12 @@ IMPORTANT RULES:
         padding: 10px 11px;
     }
 
-    .hologram-link__value {
-        font-size: 10px;
-    }
+    .hologram-link__value { font-size: 10px; }
 
-    .hologram-link--products {
-        top: 8%;
-        left: -3%;
-    }
-
-    .hologram-link--services {
-        top: 13%;
-        right: -3%;
-    }
-
-    .hologram-link--government {
-        bottom: 19%;
-        left: -2%;
-    }
-
-    .hologram-link--research {
-        right: -2%;
-        bottom: 15%;
-    }
+    .hologram-link--products { top: 8%; left: -3%; }
+    .hologram-link--services { top: 13%; right: -3%; }
+    .hologram-link--government { bottom: 19%; left: -2%; }
+    .hologram-link--research { right: -2%; bottom: 15%; }
 
     .core-message {
         bottom: 1%;
@@ -2092,21 +1794,9 @@ IMPORTANT RULES:
     }
 
     .city-sign,
-    .city-mural small,
+    .city-mural,
     .public-safety-silhouette {
         display: none;
-    }
-
-    .city-mural {
-        left: 9%;
-        bottom: 22%;
-        width: 80%;
-        min-height: 70px;
-        padding: 11px;
-    }
-
-    .city-mural span {
-        font-size: 26px;
     }
 
     .club-sign {
@@ -2129,51 +1819,27 @@ IMPORTANT RULES:
 ========================================================================== */
 
 @media (max-width: 480px) {
-    .hero-scene {
-        padding-top: 158px;
-    }
+    .hero-scene { padding-top: 158px; }
 
     .hero-status__divider,
     .hero-status__text:last-child {
         display: none;
     }
 
-    .oes-core-stage {
-        min-height: 500px;
-    }
-
-    .oes-core {
-        width: min(290px, 82vw);
-    }
-
-    .core-orbit--outer {
-        width: min(385px, 108vw);
-    }
-
-    .core-orbit--middle {
-        width: min(335px, 94vw);
-    }
-
-    .core-orbit--inner {
-        width: min(305px, 86vw);
-    }
-
-    .core-data-ring {
-        display: none;
-    }
+    .oes-core-stage { min-height: 500px; }
+    .oes-core { width: min(290px, 82vw); }
+    .core-orbit--outer { width: min(385px, 108vw); }
+    .core-orbit--middle { width: min(335px, 94vw); }
+    .core-orbit--inner { width: min(305px, 86vw); }
+    .core-data-ring { display: none; }
 
     .hologram-link {
         width: 112px;
         min-height: 58px;
     }
 
-    .hologram-link__label {
-        font-size: 7px;
-    }
-
-    .hologram-link__value {
-        font-size: 9px;
-    }
+    .hologram-link__label { font-size: 7px; }
+    .hologram-link__value { font-size: 9px; }
 
     .core-message {
         min-width: 170px;
@@ -2196,7 +1862,13 @@ IMPORTANT RULES:
     .club-door__light,
     .public-safety-silhouette__light,
     .steam,
-    .hero-scroll-cue__line {
+    .hero-scroll-cue__line,
+    .oes-core-stage--curious .oes-core__shine,
+    .oes-core-stage--impatient .oes-core,
+    .oes-core-stage--observing .oes-core__energy,
+    .oes-core-stage--idle-pulse::before,
+    .oes-core-stage--section-change .core-data-ring span,
+    .oes-core--heartbeat {
         animation: none !important;
         transition: none !important;
     }
@@ -2211,8 +1883,7 @@ IMPORTANT RULES:
 
     .core-orbit,
     .core-data-ring {
-        transform:
-            translate(-50%, -50%);
+        transform: translate(-50%, -50%);
     }
 
     .hero-scroll-cue {
