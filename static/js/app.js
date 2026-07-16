@@ -77,6 +77,9 @@ import {
 import {
     initializeSectionAwareness
 } from "./section-awareness.js";
+import {
+    initializeDWFLogoShowcase
+} from "./dwf-logo.js";
 
 /* ============================================================================
    Mobile navigation
@@ -328,6 +331,7 @@ document.addEventListener(
         initializeOESCore();
         initializeDetroitScene();
         initializeSectionAwareness();
+        initializeDWFLogoShowcase();
 
         setupCardTilt();
         setupChaseMoney(chaseCard);
