@@ -84,14 +84,14 @@ const CORE_3D_CONFIG = {
     desktopSphereSegments: 96,
     mobileSphereSegments: 56,
 
-    cameraFieldOfView: 34,
-    cameraZ: 5.35,
+    cameraFieldOfView: 50,
+    cameraZ: 9.00,
 
-    canvasExpansion: 0.34,
+    canvasExpansion: 0.58,
 
-    sphereRadius: 1.22,
-    innerSphereRadius: 1.15,
-    shellRadius: 1.27,
+    sphereRadius: 1.18,
+    innerSphereRadius: 1.11,
+    shellRadius: 1.23,
 
     irisRadius: 0.53,
     pupilRadius: 0.22,
@@ -102,7 +102,6 @@ const CORE_3D_CONFIG = {
     cameraParallaxX: 0.13,
     cameraParallaxY: 0.09,
 
-    dragRotationSpeed: 0.0085,
     dragVelocityStrength: 0.0034,
     dragVelocityDamping: 0.925,
 
@@ -625,6 +624,8 @@ function createCanvas() {
                 `${100 + expansion * 2}%`,
             height:
                 `${100 + expansion * 2}%`,
+            maxWidth: "none",
+            maxHeight: "none",
             display: "block",
             pointerEvents: "none",
             zIndex: "12",
@@ -645,7 +646,8 @@ function createRenderer() {
             antialias: !mobileLayout,
             powerPreference:
                 "high-performance",
-            premultipliedAlpha: true
+            premultipliedAlpha: true,
+            preserveDrawingBuffer: true
         });
 
     renderer.setClearColor(
@@ -1813,14 +1815,42 @@ function createParticles() {
 
 function handlePointerMove(event) {
     if (
-        !stage ||
+        !coreButton ||
         reducedMotion
     ) {
         return;
     }
 
     const rect =
-        stage.getBoundingClientRect();
+        coreButton.getBoundingClientRect();
+
+    const centerX =
+        rect.left + rect.width / 2;
+
+    const centerY =
+        rect.top + rect.height / 2;
+
+    const influenceRadius =
+        Math.max(
+            rect.width,
+            rect.height,
+            1
+        ) * 1.35;
+
+    const distanceFromCore =
+        Math.hypot(
+            event.clientX - centerX,
+            event.clientY - centerY
+        );
+
+    if (
+        distanceFromCore >
+        influenceRadius
+    ) {
+        pointerTargetX = 0;
+        pointerTargetY = 0;
+        return;
+    }
 
     const normalizedX =
         clamp(
@@ -1950,15 +1980,29 @@ function handleCorePointerMove(event) {
         event.clientY -
         dragPreviousY;
 
+    const interactionRect =
+        coreButton.getBoundingClientRect();
+
+    const interactionDiameter =
+        Math.max(
+            Math.min(
+                interactionRect.width,
+                interactionRect.height
+            ),
+            280
+        );
+
+    const responsiveRotationSpeed =
+        Math.PI /
+        interactionDiameter;
+
     const rotationDeltaY =
         deltaX *
-        CORE_3D_CONFIG
-            .dragRotationSpeed;
+        responsiveRotationSpeed;
 
     const rotationDeltaX =
         deltaY *
-        CORE_3D_CONFIG
-            .dragRotationSpeed;
+        responsiveRotationSpeed;
 
     userRotationY +=
         rotationDeltaY;
@@ -2189,19 +2233,35 @@ function updateDragMomentum() {
 ============================================================================ */
 
 function updateBehaviorInputs() {
-    externalRotationX =
-        readAngleVariable(
-            stage,
-            "--core-rotate-x",
-            0
+    const companionMode =
+        coreButton?.classList.contains(
+            "oes-core--companion"
         );
 
+    /*
+    The stage variables describe attention relative to the hero layout. Once
+    the Core moves into its fixed companion, those coordinates no longer
+    describe the visible object and pull its face away from the companion's
+    highlighted center.
+    */
+
+    externalRotationX =
+        companionMode
+            ? 0
+            : readAngleVariable(
+                stage,
+                "--core-rotate-x",
+                0
+            );
+
     externalRotationY =
-        readAngleVariable(
-            stage,
-            "--core-rotate-y",
-            0
-        );
+        companionMode
+            ? 0
+            : readAngleVariable(
+                stage,
+                "--core-rotate-y",
+                0
+            );
 
     targetScale =
         readNumberVariable(
@@ -2336,20 +2396,21 @@ function resizeRenderer() {
     if (
         !canvas ||
         !renderer ||
-        !camera
+        !camera ||
+        !scene
     ) {
         return;
     }
 
     const width =
         Math.max(
-            canvas.clientWidth,
+            canvas.getBoundingClientRect().width,
             1
         );
 
     const height =
         Math.max(
-            canvas.clientHeight,
+            canvas.getBoundingClientRect().height,
             1
         );
 
@@ -2363,6 +2424,11 @@ function resizeRenderer() {
         width / height;
 
     camera.updateProjectionMatrix();
+
+    renderer.render(
+        scene,
+        camera
+    );
 }
 
 /* ==========================================================================
@@ -2532,15 +2598,28 @@ function updateActivation(time) {
 ============================================================================ */
 
 function updateCamera() {
+    const allowCameraParallax =
+        !isDragging &&
+        !coreButton?.classList.contains(
+            "oes-core--companion"
+        );
+
+    const parallaxStrength =
+        allowCameraParallax
+            ? 0.35
+            : 0;
+
     const targetCameraX =
         pointerCurrentX *
         CORE_3D_CONFIG
-            .cameraParallaxX;
+            .cameraParallaxX *
+        parallaxStrength;
 
     const targetCameraY =
         -pointerCurrentY *
         CORE_3D_CONFIG
-            .cameraParallaxY;
+            .cameraParallaxY *
+        parallaxStrength;
 
     camera.position.x =
         lerp(
@@ -2723,7 +2802,7 @@ function updateCoreMotion(
             .pointerRotationY;
 
     const pointerRotationX =
-        -pointerCurrentY *
+        pointerCurrentY *
         CORE_3D_CONFIG
             .pointerRotationX;
 
@@ -2969,32 +3048,62 @@ function createObservers() {
         "IntersectionObserver" in window
     ) {
         visibilityObserver =
-            new IntersectionObserver(
-                (entries) => {
-                    const entry =
-                        entries[0];
+    new IntersectionObserver(
+        (entries) => {
+            const entry =
+                entries[0];
 
-                    visible =
-                        Boolean(
-                            entry?.isIntersecting
-                        );
+            visible =
+                Boolean(
+                    entry?.isIntersecting
+                );
 
-                    if (
-                        visible &&
-                        !running &&
-                        !reducedMotion
-                    ) {
-                        startRendering();
-                    }
-                },
-                {
-                    threshold: 0.02
+            if (visible) {
+                resizeRenderer();
+
+                if (
+                    renderer &&
+                    scene &&
+                    camera
+                ) {
+                    renderer.render(
+                        scene,
+                        camera
+                    );
+
+                    window.requestAnimationFrame(
+                        () => {
+                            if (
+                                !destroyed &&
+                                renderer &&
+                                scene &&
+                                camera
+                            ) {
+                                renderer.render(
+                                    scene,
+                                    camera
+                                );
+                            }
+                        }
+                    );
                 }
-            );
 
-        visibilityObserver.observe(
-            stage
-        );
+                if (
+                    !running &&
+                    !reducedMotion
+                ) {
+                    startRendering();
+                }
+            }
+        },
+        {
+            threshold: 0.02
+        }
+    );
+
+visibilityObserver.observe(
+    coreButton
+);
     }
 }
 
@@ -3261,6 +3370,15 @@ function activateWebGLPresentation() {
         "oes-core--webgl"
     );
 
+    /*
+    The legacy CSS Core rotated the entire DOM button. WebGL now rotates the
+    sphere around its own origin, so allowing both systems to rotate would
+    make the canvas feel hinged to a point outside the object.
+    */
+
+    coreButton.style.transform =
+        "translate3d(var(--core-translate-x), var(--core-translate-y), 0)";
+
     surface?.classList.add(
         "oes-core__surface--webgl"
     );
@@ -3344,6 +3462,10 @@ export function destroyOESCore3D() {
     coreButton?.classList.remove(
         "oes-core--webgl",
         "oes-core--webgl-dragging"
+    );
+
+    coreButton?.style.removeProperty(
+        "transform"
     );
 
     surface?.classList.remove(

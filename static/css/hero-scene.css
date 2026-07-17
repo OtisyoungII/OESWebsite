@@ -783,11 +783,23 @@ IMPORTANT RULES:
 ========================================================================== */
 
 .oes-core-stage {
+    --core-object-size: clamp(380px, 28vw, 470px);
+    --core-orbit-outer-size: clamp(570px, 42vw, 680px);
+    --core-orbit-middle-size: clamp(500px, 36vw, 590px);
+    --core-orbit-inner-size: clamp(450px, 32vw, 520px);
+    --core-data-outer-size: clamp(480px, 34vw, 540px);
+    --core-data-inner-size: clamp(420px, 29vw, 470px);
+
     position: relative;
     z-index: 30;
-    min-height: 690px;
+    min-width: 0;
+    min-height: max(
+        690px,
+        calc(var(--core-orbit-outer-size) + 90px)
+    );
     display: grid;
     place-items: center;
+    isolation: isolate;
     perspective: 1200px;
     transform-style: preserve-3d;
 }
@@ -797,7 +809,8 @@ IMPORTANT RULES:
     position: absolute;
     top: 50%;
     left: 50%;
-    width: min(620px, 78vw);
+    width: var(--core-orbit-outer-size);
+    max-width: 92vw;
     aspect-ratio: 1;
     border-radius: 50%;
     pointer-events: none;
@@ -832,7 +845,8 @@ IMPORTANT RULES:
 .oes-core {
     position: relative;
     z-index: 20;
-    width: min(410px, 61vw);
+    width: var(--core-object-size);
+    max-width: 100%;
     aspect-ratio: 1;
     display: grid;
     place-items: center;
@@ -1064,20 +1078,20 @@ IMPORTANT RULES:
 }
 
 .core-orbit--outer {
-    width: min(590px, 78vw);
+    width: var(--core-orbit-outer-size);
     aspect-ratio: 1;
     animation: coreOrbitOuter 22s linear infinite;
 }
 
 .core-orbit--middle {
-    width: min(505px, 69vw);
+    width: var(--core-orbit-middle-size);
     aspect-ratio: 1;
     border-color: rgba(34, 197, 94, 0.22);
     animation: coreOrbitMiddle 16s linear infinite reverse;
 }
 
 .core-orbit--inner {
-    width: min(455px, 63vw);
+    width: var(--core-orbit-inner-size);
     aspect-ratio: 1;
     border-color: rgba(192, 132, 252, 0.18);
     animation: coreOrbitInner 12s linear infinite;
@@ -1092,14 +1106,14 @@ IMPORTANT RULES:
     z-index: 16;
     top: 50%;
     left: 50%;
-    width: min(600px, 79vw);
+    width: var(--core-data-outer-size);
     aspect-ratio: 1;
     pointer-events: none;
     animation: dataRingRotate 30s linear infinite;
 }
 
 .core-data-ring--two {
-    width: min(520px, 70vw);
+    width: var(--core-data-inner-size);
     animation-duration: 22s;
     animation-direction: reverse;
 }
@@ -1113,10 +1127,29 @@ IMPORTANT RULES:
     text-shadow: 0 0 10px rgba(56, 189, 248, 0.55);
 }
 
-.core-data-ring span:nth-child(1) { top: 1%; left: 50%; }
-.core-data-ring span:nth-child(2) { top: 50%; right: -1%; }
-.core-data-ring span:nth-child(3) { bottom: 1%; left: 48%; }
-.core-data-ring span:nth-child(4) { top: 50%; left: -1%; }
+.core-data-ring span:nth-child(1) {
+    top: 0;
+    left: 50%;
+    transform: translate(-50%, -50%);
+}
+
+.core-data-ring span:nth-child(2) {
+    top: 50%;
+    right: 0;
+    transform: translate(50%, -50%);
+}
+
+.core-data-ring span:nth-child(3) {
+    bottom: 0;
+    left: 50%;
+    transform: translate(-50%, 50%);
+}
+
+.core-data-ring span:nth-child(4) {
+    top: 50%;
+    left: 0;
+    transform: translate(-50%, -50%);
+}
 
 /* ==========================================================================
    CORE SHADOW AND MESSAGE
@@ -1639,13 +1672,15 @@ IMPORTANT RULES:
         grid-template-columns: minmax(0, 0.9fr) minmax(620px, 1.1fr);
     }
 
-    .oes-core-stage { min-height: 780px; }
-    .oes-core { width: 470px; }
-    .core-orbit--outer { width: 670px; }
-    .core-orbit--middle { width: 575px; }
-    .core-orbit--inner { width: 505px; }
-    .core-data-ring { width: 680px; }
-    .core-data-ring--two { width: 590px; }
+    .oes-core-stage {
+        --core-object-size: 470px;
+        --core-orbit-outer-size: 670px;
+        --core-orbit-middle-size: 575px;
+        --core-orbit-inner-size: 505px;
+        --core-data-outer-size: 560px;
+        --core-data-inner-size: 490px;
+        min-height: 780px;
+    }
 }
 
 /* ==========================================================================
@@ -1658,7 +1693,15 @@ IMPORTANT RULES:
         gap: 40px;
     }
 
-    .oes-core-stage { min-height: 620px; }
+    .oes-core-stage {
+        --core-object-size: clamp(350px, 32vw, 420px);
+        --core-orbit-outer-size: clamp(525px, 45vw, 610px);
+        --core-orbit-middle-size: clamp(465px, 39vw, 535px);
+        --core-orbit-inner-size: clamp(420px, 35vw, 480px);
+        --core-data-outer-size: clamp(450px, 38vw, 490px);
+        --core-data-inner-size: clamp(395px, 33vw, 430px);
+        min-height: 650px;
+    }
     .hologram-link { width: 150px; }
 
     .hologram-link--products,
@@ -1713,7 +1756,15 @@ IMPORTANT RULES:
         margin-left: auto;
     }
 
-    .oes-core-stage { min-height: 650px; }
+    .oes-core-stage {
+        --core-object-size: min(420px, 62vw);
+        --core-orbit-outer-size: min(620px, 88vw);
+        --core-orbit-middle-size: min(540px, 78vw);
+        --core-orbit-inner-size: min(485px, 70vw);
+        --core-data-outer-size: min(520px, 76vw);
+        --core-data-inner-size: min(450px, 66vw);
+        min-height: 680px;
+    }
 
     .alley-wall {
         width: 36%;
@@ -1759,16 +1810,18 @@ IMPORTANT RULES:
     }
 
     .oes-core-stage {
+        --core-object-size: min(350px, 82vw);
+        --core-orbit-outer-size: min(470px, 108vw);
+        --core-orbit-middle-size: min(405px, 94vw);
+        --core-orbit-inner-size: min(365px, 86vw);
+        --core-data-outer-size: min(410px, 96vw);
+        --core-data-inner-size: min(360px, 84vw);
         min-height: 560px;
+        width: calc(100% + 40px);
         margin-top: 10px;
+        margin-right: -20px;
+        margin-left: -20px;
     }
-
-    .oes-core { width: min(330px, 82vw); }
-    .core-orbit--outer { width: min(445px, 108vw); }
-    .core-orbit--middle { width: min(385px, 94vw); }
-    .core-orbit--inner { width: min(350px, 86vw); }
-    .core-data-ring { width: min(450px, 110vw); }
-    .core-data-ring--two { width: min(390px, 96vw); }
 
     .hologram-link {
         width: 130px;
@@ -1826,11 +1879,13 @@ IMPORTANT RULES:
         display: none;
     }
 
-    .oes-core-stage { min-height: 500px; }
-    .oes-core { width: min(290px, 82vw); }
-    .core-orbit--outer { width: min(385px, 108vw); }
-    .core-orbit--middle { width: min(335px, 94vw); }
-    .core-orbit--inner { width: min(305px, 86vw); }
+    .oes-core-stage {
+        --core-object-size: min(305px, 82vw);
+        --core-orbit-outer-size: min(405px, 108vw);
+        --core-orbit-middle-size: min(350px, 94vw);
+        --core-orbit-inner-size: min(320px, 86vw);
+        min-height: 520px;
+    }
     .core-data-ring { display: none; }
 
     .hologram-link {

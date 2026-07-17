@@ -92,10 +92,10 @@ IMPORTANT RULES:
 ============================================================================ */
 
 const COMPANION_CONFIG = {
-    desktopSize: 224,
-    tabletSize: 190,
-    mobileSize: 156,
-    smallMobileSize: 136,
+    desktopSize: 330,
+    tabletSize: 280,
+    mobileSize: 230,
+    smallMobileSize: 200,
 
     viewportMarginDesktop: 28,
     viewportMarginMobile: 14,
@@ -184,7 +184,6 @@ let portal = null;
 let visualHost = null;
 let movementHandle = null;
 let movementHandleIcon = null;
-let returnButton = null;
 
 let heroObserver = null;
 let resizeObserver = null;
@@ -408,7 +407,7 @@ function installCompanionStyles() {
 
     style.textContent = `
         .oes-core-companion {
-            --companion-size: 224px;
+            --companion-size: 330px;
             --companion-x: 0px;
             --companion-y: 0px;
 
@@ -433,7 +432,29 @@ function installCompanionStyles() {
                 opacity 240ms ease,
                 visibility 240ms ease,
                 filter 240ms ease;
-            contain: layout style;
+        }
+
+        .oes-core-companion::before {
+            content: "";
+            position: absolute;
+            inset: 7%;
+            border-radius: 50%;
+            pointer-events: none;
+            opacity: 0.62;
+            background:
+                radial-gradient(
+                    circle,
+                    var(
+                        --awareness-glow,
+                        rgba(56, 189, 248, 0.24)
+                    ),
+                    transparent 68%
+                );
+            filter: blur(24px);
+            transform: scale(0.92);
+            transition:
+                opacity 320ms ease,
+                transform 420ms ease;
         }
 
         .oes-core-companion--active {
@@ -447,6 +468,11 @@ function installCompanionStyles() {
                     0
                 )
                 scale(1);
+        }
+
+        .oes-core-companion--active::before {
+            opacity: 0.82;
+            transform: scale(1);
         }
 
         .oes-core-companion--moving {
@@ -483,8 +509,8 @@ function installCompanionStyles() {
         }
 
         .oes-core-companion__visual-host > .oes-core {
-            width: 100% !important;
-            height: 100% !important;
+            width: 78% !important;
+            height: 78% !important;
             max-width: none !important;
             min-width: 0 !important;
             margin: 0 !important;
@@ -504,8 +530,8 @@ function installCompanionStyles() {
         .oes-core-companion__movement-handle {
             position: absolute;
             z-index: 90;
-            right: -9px;
-            bottom: 10%;
+            right: 4%;
+            bottom: 13%;
             width: 42px;
             height: 42px;
             display: grid;
@@ -611,58 +637,6 @@ function installCompanionStyles() {
             height: 18px;
         }
 
-        .oes-core-companion__return-button {
-            position: absolute;
-            z-index: 90;
-            top: 8%;
-            left: -5px;
-            width: 34px;
-            height: 34px;
-            display: grid;
-            place-items: center;
-            padding: 0;
-            border:
-                1px solid
-                rgba(148, 163, 184, 0.28);
-            border-radius: 50%;
-            color: #cbd5e1;
-            background:
-                rgba(2, 8, 23, 0.82);
-            box-shadow:
-                0 8px 22px
-                rgba(0, 0, 0, 0.36);
-            backdrop-filter: blur(10px);
-            -webkit-backdrop-filter:
-                blur(10px);
-            cursor: pointer;
-            opacity: 0.72;
-            transition:
-                opacity 180ms ease,
-                transform 180ms ease,
-                border-color 180ms ease;
-        }
-
-        .oes-core-companion__return-button:hover,
-        .oes-core-companion__return-button:focus-visible {
-            opacity: 1;
-            border-color:
-                rgba(125, 211, 252, 0.68);
-            transform: scale(1.08);
-        }
-
-        .oes-core-companion__return-button:focus-visible {
-            outline:
-                2px solid
-                #7dd3fc;
-            outline-offset: 4px;
-        }
-
-        .oes-core-companion__return-button::before {
-            content: "↺";
-            font-size: 18px;
-            line-height: 1;
-        }
-
         .oes-core-companion-placeholder {
             width: 100%;
             aspect-ratio: 1;
@@ -676,19 +650,18 @@ function installCompanionStyles() {
         }
 
         @media (max-width: 760px) {
+            .oes-core-companion__visual-host > .oes-core {
+                width: 82% !important;
+                height: 82% !important;
+            }
+
             .oes-core-companion__movement-handle {
-                right: -4px;
-                bottom: 5%;
+                right: 3%;
+                bottom: 10%;
                 width: 40px;
                 height: 40px;
             }
 
-            .oes-core-companion__return-button {
-                top: 5%;
-                left: -2px;
-                width: 32px;
-                height: 32px;
-            }
         }
 
         @media (max-width: 480px) {
@@ -713,8 +686,7 @@ function installCompanionStyles() {
 
         @media (prefers-reduced-motion: reduce) {
             .oes-core-companion,
-            .oes-core-companion__movement-handle,
-            .oes-core-companion__return-button {
+            .oes-core-companion__movement-handle {
                 transition: none !important;
             }
         }
@@ -791,31 +763,9 @@ function createPortal() {
         movementHandleIcon
     );
 
-    returnButton =
-        document.createElement(
-            "button"
-        );
-
-    returnButton.type =
-        "button";
-
-    returnButton.className =
-        "oes-core-companion__return-button";
-
-    returnButton.setAttribute(
-        "aria-label",
-        "Return the OES Core to its automatic position"
-    );
-
-    returnButton.setAttribute(
-        "title",
-        "Return to automatic position"
-    );
-
     portal.append(
         visualHost,
-        movementHandle,
-        returnButton
+        movementHandle
     );
 
     document.body.appendChild(
@@ -2172,11 +2122,6 @@ function attachListeners() {
         }
     );
 
-    returnButton.addEventListener(
-        "click",
-        resetAutomaticPosition
-    );
-
     window.addEventListener(
         "resize",
         handleResize,
@@ -2230,11 +2175,6 @@ function detachListeners() {
     movementHandle?.removeEventListener(
         "pointercancel",
         endMovementDrag
-    );
-
-    returnButton?.removeEventListener(
-        "click",
-        resetAutomaticPosition
     );
 
     window.removeEventListener(
@@ -2546,7 +2486,7 @@ export function initializeOESCoreCompanion() {
                 move:
                     "drag-outer-handle",
                 reset:
-                    "return-button"
+                    "public-api"
             }
         }
     );
