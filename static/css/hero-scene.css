@@ -1831,10 +1831,10 @@ IMPORTANT RULES:
 
     .hologram-link__value { font-size: 10px; }
 
-    .hologram-link--products { top: 8%; left: -3%; }
-    .hologram-link--services { top: 13%; right: -3%; }
-    .hologram-link--government { bottom: 19%; left: -2%; }
-    .hologram-link--research { right: -2%; bottom: 15%; }
+    .hologram-link--products { top: 8%; left: 24px; }
+    .hologram-link--services { top: 13%; right: 24px; }
+    .hologram-link--government { bottom: 19%; left: 24px; }
+    .hologram-link--research { right: 24px; bottom: 15%; }
 
     .core-message {
         bottom: 1%;
