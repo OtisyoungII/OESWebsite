@@ -1903,6 +1903,95 @@ IMPORTANT RULES:
 }
 
 /* ==========================================================================
+   PHONE LANDSCAPE
+========================================================================== */
+
+@media
+    (max-height: 560px) and
+    (orientation: landscape) and
+    (pointer: coarse) {
+    .hero-scene {
+        min-height: auto;
+        padding:
+            calc(var(--oes-header-height, 70px) + 22px)
+            24px
+            34px;
+    }
+
+    .hero-scene__content {
+        min-height: 330px;
+        grid-template-columns:
+            minmax(0, 1fr)
+            minmax(300px, 0.92fr);
+        gap: 20px;
+        align-items: center;
+    }
+
+    .hero-copy-block {
+        max-width: 520px;
+        margin: 0;
+        padding: 8px 0;
+        text-align: left;
+    }
+
+    .hero-copy-block h1 {
+        max-width: 520px;
+        margin-right: 0;
+        margin-left: 0;
+        font-size: clamp(38px, 6.6vw, 58px);
+        line-height: 0.9;
+    }
+
+    .hero-introduction {
+        margin-top: 18px;
+        font-size: 14px;
+        line-height: 1.45;
+    }
+
+    .hero-belief,
+    .hero-status,
+    .hero-scroll-cue {
+        display: none;
+    }
+
+    .hero-actions {
+        margin-top: 18px;
+        justify-content: flex-start;
+    }
+
+    .oes-core-stage {
+        --core-object-size: min(270px, 35vw);
+        --core-orbit-outer-size: min(375px, 46vw);
+        --core-orbit-middle-size: min(330px, 41vw);
+        --core-orbit-inner-size: min(295px, 37vw);
+        --core-data-outer-size: min(360px, 44vw);
+        --core-data-inner-size: min(315px, 39vw);
+        width: 100%;
+        min-height: 330px;
+        margin: 0;
+    }
+
+    .hologram-link {
+        width: 96px;
+        min-height: 48px;
+        padding: 8px;
+    }
+
+    .hologram-link__label {
+        font-size: 6px;
+    }
+
+    .hologram-link__value {
+        font-size: 8px;
+    }
+
+    .core-message {
+        bottom: 0;
+        min-width: 150px;
+    }
+}
+
+/* ==========================================================================
    REDUCED MOTION
 ========================================================================== */
 

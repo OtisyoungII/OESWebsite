@@ -207,6 +207,7 @@ let movingLight = null;
 let resizeObserver = null;
 let visibilityObserver = null;
 let animationFrameId = null;
+let viewportFrameId = null;
 
 let blinkTimer = null;
 let blinkAnimationFrameId = null;
@@ -1906,10 +1907,13 @@ function handlePointerLeaveStage() {
 
 function handleCorePointerDown(event) {
     if (
-        reducedMotion ||
         !coreButton
     ) {
         return;
+    }
+
+    if (event.pointerType === "touch") {
+        event.preventDefault();
     }
 
     isDragging = true;
@@ -1960,6 +1964,10 @@ function handleCorePointerMove(event) {
             dragPointerId
     ) {
         return;
+    }
+
+    if (event.pointerType === "touch") {
+        event.preventDefault();
     }
 
     const now =
@@ -2125,10 +2133,7 @@ function handleCorePointerUp(event) {
 }
 
 function updateDragMomentum() {
-    if (
-        isDragging ||
-        reducedMotion
-    ) {
+    if (isDragging) {
         return;
     }
 
@@ -2381,11 +2386,52 @@ function handleVisibilityChange() {
 
     if (
         visible &&
-        !running &&
-        !reducedMotion
+        !running
     ) {
         startRendering();
     }
+}
+
+function handleViewportChange() {
+    if (destroyed) {
+        return;
+    }
+
+    if (viewportFrameId) {
+        window.cancelAnimationFrame(
+            viewportFrameId
+        );
+    }
+
+    viewportFrameId =
+        window.requestAnimationFrame(
+            () => {
+                viewportFrameId = null;
+
+                mobileLayout =
+                    detectMobileLayout();
+
+                renderer?.setPixelRatio(
+                    Math.min(
+                        window.devicePixelRatio || 1,
+                        mobileLayout
+                            ? CORE_3D_CONFIG
+                                .mobilePixelRatio
+                            : CORE_3D_CONFIG
+                                .maximumPixelRatio
+                    )
+                );
+
+                pointerTargetX = 0;
+                pointerTargetY = 0;
+
+                resizeRenderer();
+
+                window.requestAnimationFrame(
+                    resizeRenderer
+                );
+            }
+        );
 }
 
 /* ==========================================================================
@@ -3089,8 +3135,7 @@ function createObservers() {
                 }
 
                 if (
-                    !running &&
-                    !reducedMotion
+                    !running
                 ) {
                     startRendering();
                 }
@@ -3161,11 +3206,28 @@ function attachListeners() {
 
     window.addEventListener(
         "resize",
-        resizeRenderer,
+        handleViewportChange,
         {
             passive: true
         }
     );
+
+    window.addEventListener(
+        "orientationchange",
+        handleViewportChange,
+        {
+            passive: true
+        }
+    );
+
+    window.visualViewport
+        ?.addEventListener(
+            "resize",
+            handleViewportChange,
+            {
+                passive: true
+            }
+        );
 
     document.addEventListener(
         "visibilitychange",
@@ -3221,8 +3283,19 @@ function detachListeners() {
 
     window.removeEventListener(
         "resize",
-        resizeRenderer
+        handleViewportChange
     );
+
+    window.removeEventListener(
+        "orientationchange",
+        handleViewportChange
+    );
+
+    window.visualViewport
+        ?.removeEventListener(
+            "resize",
+            handleViewportChange
+        );
 
     document.removeEventListener(
         "visibilitychange",
@@ -3440,6 +3513,14 @@ export function destroyOESCore3D() {
         );
     }
 
+    if (viewportFrameId) {
+        window.cancelAnimationFrame(
+            viewportFrameId
+        );
+
+        viewportFrameId = null;
+    }
+
     resizeObserver?.disconnect();
     visibilityObserver?.disconnect();
 
@@ -3612,15 +3693,11 @@ export function initializeOESCore3D() {
 
         if (reducedMotion) {
             updateEyelidGeometry(0);
-
-            renderer.render(
-                scene,
-                camera
-            );
         } else {
             scheduleBlink();
-            startRendering();
         }
+
+        startRendering();
 
         dispatchCore3DEvent(
             "oes:core3dready",
