@@ -2021,6 +2021,20 @@ function handleResize() {
     });
 }
 
+function handleCompanionViewportChange() {
+    handleResize();
+
+    window.requestAnimationFrame(
+        () => {
+            handleLegacyScroll();
+
+            window.requestAnimationFrame(
+                handleLegacyScroll
+            );
+        }
+    );
+}
+
 /* ==========================================================================
    OBSERVERS
 ============================================================================ */
@@ -2168,7 +2182,7 @@ function attachListeners() {
 
     window.addEventListener(
         "orientationchange",
-        handleResize,
+        handleCompanionViewportChange,
         {
             passive: true
         }
@@ -2177,11 +2191,27 @@ function attachListeners() {
     window.visualViewport
         ?.addEventListener(
             "resize",
-            handleResize,
+            handleCompanionViewportChange,
             {
                 passive: true
             }
         );
+
+    window.addEventListener(
+        "scrollend",
+        handleLegacyScroll,
+        {
+            passive: true
+        }
+    );
+
+    window.addEventListener(
+        "pageshow",
+        handleLegacyScroll,
+        {
+            passive: true
+        }
+    );
 
     document.addEventListener(
         "oes:core3dready",
@@ -2237,14 +2267,24 @@ function detachListeners() {
 
     window.removeEventListener(
         "orientationchange",
-        handleResize
+        handleCompanionViewportChange
     );
 
     window.visualViewport
         ?.removeEventListener(
             "resize",
-            handleResize
+            handleCompanionViewportChange
         );
+
+    window.removeEventListener(
+        "scrollend",
+        handleLegacyScroll
+    );
+
+    window.removeEventListener(
+        "pageshow",
+        handleLegacyScroll
+    );
 
     window.removeEventListener(
         "scroll",

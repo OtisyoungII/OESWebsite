@@ -852,6 +852,54 @@ canvas {
     }
 }
 
+@media
+    (max-width: 900px) and
+    (max-height: 560px) and
+    (orientation: landscape) and
+    (pointer: coarse) {
+    .section-shell {
+        width: min(100%, 720px);
+        margin-inline: auto;
+    }
+
+    .section-heading,
+    .section-heading--left {
+        max-width: 680px;
+    }
+
+    .product-grid {
+        width: 100%;
+        max-width: 680px;
+        margin-inline: auto;
+    }
+
+    .product-card {
+        width: 100%;
+        padding: 34px 38px;
+    }
+
+    .product-card__description,
+    .product-card__features {
+        max-width: 590px;
+    }
+
+    .client-spotlight {
+        width: 100%;
+        max-width: 700px;
+        margin-inline: auto;
+        padding: 36px 40px;
+    }
+
+    .client-spotlight__content {
+        max-width: 620px;
+    }
+
+    .client-spotlight__content > p,
+    .client-spotlight__details {
+        max-width: 590px;
+    }
+}
+
 /* ==========================================================================
    REDUCED MOTION
 ========================================================================== */
