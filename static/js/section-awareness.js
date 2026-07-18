@@ -321,6 +321,7 @@ let currentInterest = null;
 let messageTimer = null;
 let hoverIntentTimer = null;
 let temporaryResetTimer = null;
+let sectionScrollFrame = null;
 
 const sectionVisits = new Map();
 const interestInteractions = new Map();
@@ -721,6 +722,69 @@ function handleSectionIntersections(entries) {
     if (section) {
         setCurrentSection(section);
     }
+}
+
+function selectSectionAtViewportFocus() {
+    const sections =
+        Array.from(
+            document.querySelectorAll(
+                ".hero-scene[id], .section[id]"
+            )
+        );
+
+    const focusY =
+        window.innerHeight * 0.42;
+
+    let nearestSection = null;
+    let nearestDistance = Infinity;
+
+    sections.forEach((section) => {
+        const rect =
+            section.getBoundingClientRect();
+
+        if (
+            rect.top <= focusY &&
+            rect.bottom >= focusY
+        ) {
+            nearestSection = section;
+            nearestDistance = 0;
+            return;
+        }
+
+        if (nearestDistance === 0) {
+            return;
+        }
+
+        const distance =
+            Math.min(
+                Math.abs(rect.top - focusY),
+                Math.abs(rect.bottom - focusY)
+            );
+
+        if (distance < nearestDistance) {
+            nearestDistance = distance;
+            nearestSection = section;
+        }
+    });
+
+    return nearestSection;
+}
+
+function handleSectionScroll() {
+    if (sectionScrollFrame) {
+        return;
+    }
+
+    sectionScrollFrame =
+        window.requestAnimationFrame(
+            () => {
+                sectionScrollFrame = null;
+
+                setCurrentSection(
+                    selectSectionAtViewportFocus()
+                );
+            }
+        );
 }
 
 function initializeSectionObserver() {
@@ -1522,6 +1586,14 @@ export function initializeSectionAwareness() {
     applyCardAwarenessMetadata();
 
     initializeSectionObserver();
+
+    window.addEventListener(
+        "scroll",
+        handleSectionScroll,
+        {
+            passive: true
+        }
+    );
 
     document.addEventListener(
         "pointerover",

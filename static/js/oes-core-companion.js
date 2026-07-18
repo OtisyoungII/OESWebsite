@@ -1804,6 +1804,31 @@ function handleHeroVisibility(entries) {
     latestHeroRatio =
         entry.intersectionRatio;
 
+    const stageRect =
+        originalStage
+            ?.getBoundingClientRect();
+
+    const stageInHomeZone =
+        Boolean(
+            stageRect &&
+            stageRect.top <
+                window.innerHeight * 0.78 &&
+            stageRect.bottom >
+                getHeaderClearance()
+        );
+
+    if (
+        window.scrollY <= 120 ||
+        stageInHomeZone
+    ) {
+        restoreCoreToOriginalStage({
+            reason:
+                "hero-home-zone"
+        });
+
+        return;
+    }
+
     if (
         latestHeroRatio <=
             COMPANION_CONFIG
@@ -1818,16 +1843,6 @@ function handleHeroVisibility(entries) {
         return;
     }
 
-    if (
-        latestHeroRatio >=
-            COMPANION_CONFIG
-                .heroReturnRatio
-    ) {
-        restoreCoreToOriginalStage({
-            reason:
-                "hero-return"
-        });
-    }
 }
 
 /* ==========================================================================
@@ -2036,15 +2051,21 @@ function createObservers() {
         heroObserver.observe(
             heroSection
         );
-    } else {
-        window.addEventListener(
-            "scroll",
-            handleLegacyScroll,
-            {
-                passive: true
-            }
-        );
     }
+
+    /*
+    Intersection ratios alone cannot return the Core on a portrait phone when
+    the hero is taller than the viewport. Layout sampling keeps the stage's
+    actual home zone authoritative during touch and inertial scrolling.
+    */
+
+    window.addEventListener(
+        "scroll",
+        handleLegacyScroll,
+        {
+            passive: true
+        }
+    );
 
     if (
         "ResizeObserver" in window &&
