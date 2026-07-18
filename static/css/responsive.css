@@ -858,18 +858,18 @@ canvas {
     (orientation: landscape) and
     (pointer: coarse) {
     .section-shell {
-        width: min(100%, 720px);
+        width: min(100%, 660px);
         margin-inline: auto;
     }
 
     .section-heading,
     .section-heading--left {
-        max-width: 680px;
+        max-width: 620px;
     }
 
     .product-grid {
         width: 100%;
-        max-width: 680px;
+        max-width: 600px;
         margin-inline: auto;
     }
 
@@ -880,23 +880,23 @@ canvas {
 
     .product-card__description,
     .product-card__features {
-        max-width: 590px;
+        max-width: 520px;
     }
 
     .client-spotlight {
         width: 100%;
-        max-width: 700px;
+        max-width: 620px;
         margin-inline: auto;
         padding: 36px 40px;
     }
 
     .client-spotlight__content {
-        max-width: 620px;
+        max-width: 540px;
     }
 
     .client-spotlight__content > p,
     .client-spotlight__details {
-        max-width: 590px;
+        max-width: 520px;
     }
 }
 
