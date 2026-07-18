@@ -95,6 +95,7 @@ const COMPANION_CONFIG = {
     desktopSize: 330,
     tabletSize: 280,
     mobileSize: 230,
+    landscapeMobileSize: 200,
     smallMobileSize: 200,
 
     viewportMarginDesktop: 28,
@@ -269,6 +270,15 @@ function isMobileViewport() {
     return window.innerWidth <= 760;
 }
 
+function isLandscapeMobileViewport() {
+    return (
+        window.innerHeight <= 560 &&
+        window.innerWidth >
+            window.innerHeight &&
+        navigator.maxTouchPoints > 0
+    );
+}
+
 function isSmallMobileViewport() {
     return window.innerWidth <= 480;
 }
@@ -333,6 +343,11 @@ function dispatchCompanionEvent(
 ============================================================================ */
 
 function getCompanionSize() {
+    if (isLandscapeMobileViewport()) {
+        return COMPANION_CONFIG
+            .landscapeMobileSize;
+    }
+
     if (isSmallMobileViewport()) {
         return COMPANION_CONFIG
             .smallMobileSize;
@@ -2130,6 +2145,23 @@ function attachListeners() {
         }
     );
 
+    window.addEventListener(
+        "orientationchange",
+        handleResize,
+        {
+            passive: true
+        }
+    );
+
+    window.visualViewport
+        ?.addEventListener(
+            "resize",
+            handleResize,
+            {
+                passive: true
+            }
+        );
+
     document.addEventListener(
         "oes:core3dready",
         handleCore3DReady
@@ -2181,6 +2213,17 @@ function detachListeners() {
         "resize",
         handleResize
     );
+
+    window.removeEventListener(
+        "orientationchange",
+        handleResize
+    );
+
+    window.visualViewport
+        ?.removeEventListener(
+            "resize",
+            handleResize
+        );
 
     window.removeEventListener(
         "scroll",
@@ -2438,6 +2481,10 @@ export function initializeOESCoreCompanion() {
 
     applySize(
         getCompanionSize()
+    );
+
+    window.requestAnimationFrame(
+        handleResize
     );
 
     attachListeners();
