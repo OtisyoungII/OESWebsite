@@ -6,7 +6,7 @@ PURPOSE:
     Shared HTML foundation for the Otis Execution Systems website.
 
 UPDATED:
-    July 14, 2026
+    August 2, 2026
 
 RESPONSIBILITIES:
     [x] Shared document structure
@@ -17,6 +17,7 @@ RESPONSIBILITIES:
     [x] Mobile navigation controls
     [x] Accessibility foundations
     [x] Shared footer
+    [x] Privacy Policy link
 
 ARCHITECTURE:
     Individual pages extend this template.
@@ -24,6 +25,9 @@ ARCHITECTURE:
     Page templates provide:
         {% block title %}{% endblock %}
         {% block description %}{% endblock %}
+        {% block og_title %}{% endblock %}
+        {% block og_description %}{% endblock %}
+        {% block body_class %}{% endblock %}
         {% block page_styles %}{% endblock %}
         {% block content %}{% endblock %}
         {% block page_scripts %}{% endblock %}
@@ -39,6 +43,7 @@ IMPORTANT RULES:
 
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
 
@@ -105,19 +110,19 @@ IMPORTANT RULES:
     >
 
     <link
-    rel="stylesheet"
-    href="{{ url_for('static', filename='css/style.css') }}"
->
+        rel="stylesheet"
+        href="{{ url_for('static', filename='css/style.css') }}"
+    >
 
-<link
-    rel="stylesheet"
-    href="{{ url_for('static', filename='css/hero-scene.css') }}"
->
+    <link
+        rel="stylesheet"
+        href="{{ url_for('static', filename='css/hero-scene.css') }}"
+    >
 
-<link
-    rel="stylesheet"
-    href="{{ url_for('static', filename='css/dwf-logo.css') }}"
->
+    <link
+        rel="stylesheet"
+        href="{{ url_for('static', filename='css/dwf-logo.css') }}"
+    >
 
     {% block page_styles %}{% endblock %}
 </head>
@@ -292,6 +297,10 @@ IMPORTANT RULES:
             <a href="{{ url_for('home') }}#research">
                 Research
             </a>
+
+            <a href="{{ url_for('privacy') }}">
+                Privacy Policy
+            </a>
         </div>
 
         <div class="site-footer__contact">
@@ -311,9 +320,19 @@ IMPORTANT RULES:
             © 2026 Otis Execution Systems LLC. All rights reserved.
         </p>
 
-        <p>
-            Detroit built. Future focused.
-        </p>
+        <div class="site-footer__legal">
+            <a href="{{ url_for('privacy') }}">
+                Privacy Policy
+            </a>
+
+            <span aria-hidden="true">
+                •
+            </span>
+
+            <p>
+                Detroit built. Future focused.
+            </p>
+        </div>
     </div>
 </footer>
 
