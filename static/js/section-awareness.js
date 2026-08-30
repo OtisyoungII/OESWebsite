@@ -145,7 +145,7 @@ const INTEREST_CONFIG = {
 
     lottovate: {
         message: "Lottovate: Daily 3 and Daily 4 data made easier to explore.",
-        repeatedMessage: "Lottovate is in active iOS development, with more Michigan games on the roadmap.",
+        repeatedMessage: "Lottovate is in active TestFlight testing, with continued improvements and more Michigan games on the roadmap.",
         accent: "yellow"
     },
 
