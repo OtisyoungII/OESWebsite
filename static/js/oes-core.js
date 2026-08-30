@@ -140,7 +140,7 @@ const SECTION_BEHAVIORS = Object.freeze({
         orbitSpeed: 1.17,
         pulseSpeed: 1.12,
         message: "OES product systems active.",
-        longMessage: "Two products. One execution system.",
+        longMessage: "OES products and client applications are moving through active development and testing.",
         deepMessage: "Working systems reveal more than unfinished ideas."
     },
 

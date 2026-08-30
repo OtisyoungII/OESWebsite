@@ -1,4 +1,4 @@
-from flask import Flask, render_template
+from flask import Flask, redirect, render_template, url_for
 
 app = Flask(__name__)
 
@@ -10,17 +10,17 @@ def home():
 
 @app.route("/chaseingreen")
 def chaseingreen():
-    return render_template("chaseingreen.html")
+    return redirect(f"{url_for('home')}#products")
 
 
 @app.route("/lottovate")
 def lottovate():
-    return render_template("lottovate.html")
+    return redirect(f"{url_for('home')}#products")
 
 
 @app.route("/contact")
 def contact():
-    return render_template("contact.html")
+    return redirect(f"{url_for('home')}#contact")
 
 
 @app.route("/privacy")

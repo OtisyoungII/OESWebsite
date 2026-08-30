@@ -96,7 +96,7 @@ const SECTION_CONFIG = {
     },
 
     products: {
-        message: "Two OES products. Different problems. One execution system.",
+        message: "OES products and client software are actively being built, tested and delivered.",
         accent: "green"
     },
 
@@ -139,13 +139,13 @@ const SECTION_CONFIG = {
 const INTEREST_CONFIG = {
     chaseingreen: {
         message: "ChaseInGreen: market awareness, risk control and personal trading intelligence.",
-        repeatedMessage: "Trading keeps your attention. Open the ChaseInGreen beta when you are ready.",
+        repeatedMessage: "ChaseInGreen capabilities are being hardened and tested with invited users.",
         accent: "green"
     },
 
     lottovate: {
         message: "Lottovate: Daily 3 and Daily 4 data made easier to explore.",
-        repeatedMessage: "Watching Lottovate? The next iOS beta is being rebuilt.",
+        repeatedMessage: "Lottovate is in active iOS development, with more Michigan games on the roadmap.",
         accent: "yellow"
     },
 
