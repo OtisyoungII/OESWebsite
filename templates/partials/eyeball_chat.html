@@ -8,16 +8,16 @@
             <button type="button" class="eyeball-chat__close" data-chat-close aria-label="Close Eyeball Chat">Close <span aria-hidden="true">×</span></button>
         </header>
         <div class="eyeball-chat__access"><span>CORE ONLINE</span><span>PUBLIC ACCESS</span></div>
-        <p id="eyeball-chat-notice" class="eyeball-chat__notice">Local interface preview. AI connection is not enabled.</p>
-        <div class="eyeball-chat__transcript" role="log" aria-label="Eyeball conversation" aria-live="polite" aria-relevant="additions" data-chat-transcript>
+        <p id="eyeball-chat-notice" class="eyeball-chat__notice">Public AI assistant. Confirm important details with OES. Do not share private information.</p>
+        <div class="eyeball-chat__transcript" role="log" aria-label="Eyeball conversation" aria-live="polite" aria-relevant="additions text" data-chat-transcript>
             <div class="eyeball-chat__message"><p class="eyeball-chat__speaker">EYEBALL</p><p>What are you trying to accomplish?</p></div>
         </div>
-        <form class="eyeball-chat__composer" data-chat-form>
+        <form class="eyeball-chat__composer" data-chat-form data-chat-url="{{ url_for('chat.chat') }}">
             <label for="eyeball-chat-input">Your message</label>
-            <textarea id="eyeball-chat-input" name="message" rows="3" maxlength="2000" placeholder="Describe your objective…" aria-describedby="eyeball-chat-help" required></textarea>
-            <p id="eyeball-chat-help">Enter to send · Shift+Enter for a new line · 2,000 characters maximum</p>
+            <textarea id="eyeball-chat-input" name="message" rows="3" maxlength="4000" placeholder="Describe your objective…" aria-describedby="eyeball-chat-help" required></textarea>
+            <p id="eyeball-chat-help">Enter to send · Shift+Enter for a new line · 4,000 characters maximum</p>
             <div class="eyeball-chat__actions">
-                <p role="status" data-chat-status>Ready · local preview</p>
+                <p role="status" data-chat-status>Ready</p>
                 <button type="button" data-chat-stop disabled>Stop</button>
                 <button type="submit" data-chat-send>Send</button>
             </div>

@@ -1,6 +1,8 @@
 from flask import Flask, redirect, render_template, url_for
+from chat import init_chat
 
 app = Flask(__name__)
+init_chat(app)
 
 
 @app.route("/")
