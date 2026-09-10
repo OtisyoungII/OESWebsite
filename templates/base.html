@@ -42,7 +42,7 @@ IMPORTANT RULES:
 #}
 
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en"{% if config.DEBUG %} data-motion-debug="true"{% endif %}>
 
 <head>
     <meta charset="UTF-8">

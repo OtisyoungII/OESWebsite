@@ -1,3 +1,5 @@
+import { createMotionController } from './eyeball-motion.js';
+
 /*
 ===============================================================================
 FILE: static/js/oes-core-companion.js
@@ -166,6 +168,7 @@ const COMPANION_CONFIG = {
    MODULE STATE
 ============================================================================ */
 
+let motionController = null;
 let initialized = false;
 let destroyed = false;
 let companionActive = false;
@@ -1219,6 +1222,9 @@ function animateToPosition(
         side = currentSide
     } = {}
 ) {
+    if (motionController && !motionController.allowed(reason)) return;
+    if (!reason.startsWith("manual")) motionController?.relocated();
+
     const clamped =
         clampPosition(
             x,
@@ -1275,7 +1281,8 @@ function animateToPosition(
     function update(time) {
         if (
             destroyed ||
-            !companionActive
+            !companionActive ||
+            (motionController && !motionController.allowed(reason, true))
         ) {
             portal?.classList.remove(
                 "oes-core-companion--moving"
@@ -1913,7 +1920,7 @@ function handleInterestChange(event) {
     const element =
         event.detail?.element;
 
-    if (!(element instanceof Element)) {
+    if (!(element instanceof Element) || !motionController?.obstructed(element)) {
         return;
     }
 
@@ -2471,6 +2478,8 @@ export function destroyOESCoreCompanion() {
     heroObserver?.disconnect();
     resizeObserver?.disconnect();
 
+    motionController?.destroy();
+    motionController = null;
     detachListeners();
 
     restoreCoreToOriginalStage({
@@ -2548,6 +2557,9 @@ export function initializeOESCoreCompanion() {
         handleResize
     );
 
+    motionController = createMotionController(coreButton, portal, element => {
+        handleInterestChange({ detail: { element } });
+    });
     attachListeners();
     createObservers();
 
