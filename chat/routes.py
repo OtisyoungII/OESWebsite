@@ -3,14 +3,10 @@ import json
 from flask import Blueprint, Response, current_app, jsonify, request
 from werkzeug.exceptions import BadRequest, RequestEntityTooLarge
 from .service import ChatService, SAFE_ERROR
+from .observations import (validate_context, ObservationState, InitiationRestraint,
+                           decide_initiation, infer, log_observations)
 
 bp = Blueprint("chat", __name__)
-CONTEXT_VALUES = {
-    "section": {"home", "products", "client-work", "services", "government", "community", "research", "about", "contact"},
-    "project": {"chaseingreen", "lottovate", "drinkswithfriendz"},
-    "device": {"desktop", "tablet", "mobile"},
-    "interaction_mode": {"pointer", "touch", "keyboard"},
-}
 
 
 def validate(payload):
@@ -32,12 +28,7 @@ def validate(payload):
         cleaned.append({"role": item["role"], "content": item["content"].strip()})
     if sum(len(item["content"]) for item in cleaned) > 12000:
         raise ValueError("History exceeds the conversation limit.")
-    context = payload.get("context", {})
-    if not isinstance(context, dict) or set(context) - CONTEXT_VALUES.keys():
-        raise ValueError("Invalid context fields.")
-    for key, value in context.items():
-        if not isinstance(value, str) or value not in CONTEXT_VALUES[key]:
-            raise ValueError("Invalid context value.")
+    context = validate_context(payload.get("context", {}))
     return message.strip(), cleaned, context
 
 
@@ -73,3 +64,32 @@ def chat():
         "Cache-Control": "no-store", "X-Accel-Buffering": "no",
         "X-Content-Type-Options": "nosniff",
     })
+
+
+@bp.route('/api/chat/initiation', methods=['POST'])
+def initiation():
+    """Deterministic permission for an invitation; never calls a model."""
+    if request.mimetype != 'application/json':
+        return jsonify(message='Use application/json.'), 415
+    if (request.headers.get('Sec-Fetch-Site') == 'cross-site'
+            or (request.origin and request.origin != request.host_url.rstrip('/'))):
+        return jsonify(message='Same-origin requests only.'), 403
+    request.max_content_length = 4096
+    try:
+        payload = request.get_json()
+        if not isinstance(payload, dict) or set(payload) - {'context', 'restraint'}:
+            raise ValueError('Only context and restraint are accepted.')
+        observed = ObservationState.from_context(payload.get('context', {}))
+        restraint = InitiationRestraint.from_payload(payload.get('restraint', {}))
+    except RequestEntityTooLarge:
+        return jsonify(message='Request exceeds 4 KiB.'), 413
+    except BadRequest:
+        return jsonify(message='Invalid JSON request.'), 400
+    except ValueError as error:
+        return jsonify(message=str(error)), 400
+    decision = decide_initiation(observed, restraint)
+    if current_app.debug:
+        log_observations(current_app.logger, observed, infer(observed), decision)
+    response = jsonify(action=decision.action, reason=decision.reason)
+    response.headers['Cache-Control'] = 'no-store'
+    return response

@@ -1,4 +1,5 @@
 import { getAwarenessState } from './section-awareness.js';
+import { createObservationController } from './eyeball-observations.js';
 
 // Same-origin transport only; provider selection and policy stay on the server.
 export function initializeEyeballChat() {
@@ -17,6 +18,14 @@ export function initializeEyeballChat() {
     let activeRequest = null;
     let history = [];
     let interactionMode = 'pointer';
+    const observations = createObservationController({
+        invitation: document.querySelector('[data-eyeball-invitation]'),
+        endpoint: form.dataset.initiationUrl,
+        getSection: () => getAwarenessState().currentSectionId,
+        getContext: () => [window.innerWidth <= 760 ? 'mobile' : window.innerWidth <= 1020 ? 'tablet' : 'desktop', interactionMode],
+        openChat: requestChat,
+        onInteraction: mode => { interactionMode = mode; }
+    });
 
     function requestChat() {
         // Independent of oes:coreactivated, which also fires after dragging.
@@ -58,6 +67,7 @@ export function initializeEyeballChat() {
     });
     core.addEventListener('oes:chatrequest', () => {
         if (dialog.open) return;
+        observations.opened();
         dialog.showModal();
         core.setAttribute('aria-expanded', 'true');
         input.focus();
@@ -81,6 +91,7 @@ export function initializeEyeballChat() {
         dialog.close();
     });
     dialog.addEventListener('close', () => {
+        observations.closed();
         cancelResponse();
         core.setAttribute('aria-expanded', 'false');
         core.focus({ preventScroll: true });
@@ -103,18 +114,13 @@ export function initializeEyeballChat() {
         return body;
     }
     function browserContext() {
-        const section = getAwarenessState().currentSectionId;
-        const allowed = ['home', 'products', 'client-work', 'services', 'government', 'community', 'research', 'about', 'contact'];
-        return {
-            ...(allowed.includes(section) ? { section } : {}),
-            device: window.innerWidth <= 760 ? 'mobile' : window.innerWidth <= 1020 ? 'tablet' : 'desktop',
-            interaction_mode: interactionMode
-        };
+        return observations.snapshot();
     }
     form.addEventListener('submit', async (event) => {
         event.preventDefault();
         const text = input.value.trim();
         if (!text || text.length > 4000 || activeRequest) return;
+        observations.sent();
         const controller = new AbortController();
         activeRequest = controller;
         appendMessage('YOU', text, true);

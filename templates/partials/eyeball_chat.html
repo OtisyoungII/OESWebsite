@@ -12,7 +12,7 @@
         <div class="eyeball-chat__transcript" role="log" aria-label="Eyeball conversation" aria-live="polite" aria-relevant="additions text" data-chat-transcript>
             <div class="eyeball-chat__message"><p class="eyeball-chat__speaker">EYEBALL</p><p>What are you trying to accomplish?</p></div>
         </div>
-        <form class="eyeball-chat__composer" data-chat-form data-chat-url="{{ url_for('chat.chat') }}">
+        <form class="eyeball-chat__composer" data-chat-form data-chat-url="{{ url_for('chat.chat') }}" data-initiation-url="{{ url_for('chat.initiation') }}">
             <label for="eyeball-chat-input">Your message</label>
             <textarea id="eyeball-chat-input" name="message" rows="3" maxlength="4000" placeholder="Describe your objective…" aria-describedby="eyeball-chat-help" required></textarea>
             <p id="eyeball-chat-help">Enter to send · Shift+Enter for a new line · 4,000 characters maximum</p>
@@ -24,3 +24,7 @@
         </form>
     </div>
 </dialog>
+<aside class="eyeball-invitation" data-eyeball-invitation aria-label="Optional Eyeball invitation" hidden>
+    <button type="button" data-invitation-open>Questions about this product? Ask Eyeball.</button>
+    <button type="button" data-invitation-dismiss aria-label="Dismiss Eyeball invitation for this page visit">×</button>
+</aside>

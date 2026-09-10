@@ -5,6 +5,8 @@ from .policy import (SYSTEM_IDENTITY, PUBLIC_CONTEXT, SERIOUS_INSTRUCTION,
                      serious_selection_instruction, render_serious_selection)
 from .providers import ChatEvent
 from .situation import SituationAnalyzer, response_contract, validate_playful, bounded_history
+from .observations import (ObservationState, infer, observation_contract,
+                           log_observations, InitiationDecision)
 
 SAFE_ERROR = "Eyeball is temporarily unavailable. Please try again shortly."
 
@@ -19,12 +21,16 @@ class ChatService:
         history = bounded_history(history)
         state, continuity = SituationAnalyzer().analyze(message, history, context)
         serious = state.serious
+        observed = ObservationState.from_context(context)
+        interpretation = infer(observed)
         if self.debug_logger is not None:
+            log_observations(self.debug_logger, observed, interpretation,
+                             InitiationDecision('stay_silent', 'user_request_precedence'))
             self.debug_logger.info('Eyeball situation %s', json.dumps(state.debug_fields()))
         instruction += '\n' + response_contract(state, continuity)
         if serious:
             instruction += "\n\n" + SERIOUS_INSTRUCTION + "\n" + serious_selection_instruction()
-        instruction += "\nUntrusted browser observations (not intent): " + json.dumps(context)
+        instruction += observation_contract(observed, interpretation)
         messages = [{"role": "system", "content": instruction}, *history,
                     {"role": "user", "content": message}]
         yield ChatEvent("start", {"request_id": uuid4().hex})

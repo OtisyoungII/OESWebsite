@@ -82,6 +82,54 @@ bounded heuristic, not a universal semantic repetition or factuality guarantee.
 Flask debug mode logs only interaction_kind, tone, serious, facts_required,
 grounding_mode, response_action and certainty. It logs no message or draft text.
 
+## Website observation context (v2)
+
+`eyeball-observations.js` holds page-memory observations only and resets on reload.
+It consumes section awareness without changing it. Project selection means a click
+or keyboard focus within a known product card, not inferred intent or passive hover.
+Section dwell accumulates only while the document is visible. Details openings count
+only actual native `details` opening events within a product; the current homepage
+has no such expanders, so that count currently remains zero. TestFlight clicks match
+the three existing published CTA paths. Counts never imply emotion or purchase intent.
+
+Fields: section, project, device, interaction_mode, time_on_section_seconds (0–3600),
+details_opened_count (0–20, reset on project/section change), testflight_clicked
+(page-wide boolean), chat_open_count (0–20), chat_message_count (0–100). Server-side
+types and enums are checked; finite numeric values are clamped. No state/inference
+overrides are accepted. `observations.py` keeps ObservationState separate from
+InferenceState: possible_interest, needs_guidance, engagement_level, confidence,
+source_observations. Confidence is heuristic, not a calibrated probability;
+needs_guidance remains unknown because these observations cannot establish need.
+
+`POST /api/chat/initiation` is a same-origin, deterministic, 4 KiB decision endpoint;
+it never calls inference providers. It offers help only in products/client-work,
+with an observed project AND either 45s dwell plus two real details openings OR 90s
+dwell after a project selection. It stays silent after TestFlight is clicked, any
+manual chat use, dismissal, a prior offer in the visit, a repeated project suggestion,
+or within a 180s cooldown. It does not produce TestFlight suggestions. Other proactive
+actions (ask_question/mention_product) are intentionally not enabled.
+
+The client performs a one-shot eligibility check after qualifying interactions,
+not repeated polling. It rechecks restraint and section revision after the decision
+arrives. It never auto-opens the drawer, moves focus, or generates unsolicited model
+text: it reveals a small optional invitation using the existing chat-opening event.
+Closing chat or dismissing the invitation suppresses all invitations until reload.
+A section reentry is a new meaningful visit only after 15s away; duplicate suggestions
+remain suppressed across those visits. Requests after a declined/failed decision are
+not retried for that project/visit. Page-memory restraint is a UX rule, not an
+authentication boundary against a client forging requests.
+
+In Flask debug mode, the initiation endpoint and chat service log only the specified observation,
+inference and action/reason summaries; no messages, identifiers or inferred sensitive
+traits. Chat additionally retains its existing allowlisted situation debug fields;
+its initiation decision is always stay_silent because user requests take precedence.
+
+Client state tests (no dependencies):
+
+```powershell
+node --preserve-symlinks --preserve-symlinks-main tests/test_observation_client.cjs
+```
+
 ## Deployment boundary
 
 Loopback defaults and `python app.py` are local development settings. This pass

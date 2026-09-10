@@ -65,3 +65,29 @@
     .eyeball-chat__actions button { padding: 6px 12px; }
 }
 /* No motion is required, including when prefers-reduced-motion is enabled. */
+.eyeball-invitation {
+    position: fixed;
+    right: 16px;
+    bottom: max(16px, env(safe-area-inset-bottom));
+    z-index: 900;
+    display: flex;
+    max-width: min(340px, calc(100vw - 32px));
+    border: 1px solid #47758e;
+    border-radius: 10px;
+    background: #050d1d;
+    color: #e0f2fe;
+    box-shadow: 0 8px 24px #0006;
+}
+.eyeball-invitation[hidden] { display: none; }
+.eyeball-invitation button {
+    border: 0;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    font-size: 13px;
+    padding: 12px;
+    min-height: 44px;
+    cursor: pointer;
+    text-align: left;
+}
+.eyeball-invitation button:focus-visible { outline: 2px solid #7dd3fc; outline-offset: -3px; }
