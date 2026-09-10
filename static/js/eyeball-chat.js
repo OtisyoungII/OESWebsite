@@ -21,6 +21,8 @@ export function initializeEyeballChat() {
     const observations = createObservationController({
         invitation: document.querySelector('[data-eyeball-invitation]'),
         endpoint: form.dataset.initiationUrl,
+        generationEndpoint: form.dataset.invitationUrl,
+        getHistory: () => history,
         getSection: () => getAwarenessState().currentSectionId,
         getContext: () => [window.innerWidth <= 760 ? 'mobile' : window.innerWidth <= 1020 ? 'tablet' : 'desktop', interactionMode],
         openChat: requestChat,

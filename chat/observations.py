@@ -9,7 +9,7 @@ CONTEXT_VALUES = {
     'device': {'desktop', 'tablet', 'mobile'},
     'interaction_mode': {'pointer', 'touch', 'keyboard'},
 }
-NUMERIC_LIMITS = {'time_on_section_seconds': 3600, 'details_opened_count': 20,
+NUMERIC_LIMITS = {'time_on_section_seconds': 3600, 'details_opened_count': 20, 'product_interaction_count': 20,
                   'chat_open_count': 20, 'chat_message_count': 100}
 
 
@@ -46,6 +46,7 @@ class ObservationState:
     interaction_mode: str = 'pointer'
     time_on_section_seconds: int = 0
     details_opened_count: int = 0
+    product_interaction_count: int = 0
     testflight_clicked: bool = False
     chat_open_count: int = 0
     chat_message_count: int = 0
@@ -72,10 +73,13 @@ def infer(observed):
         sources.append('time_on_section_seconds=' + str(observed.time_on_section_seconds))
     if observed.details_opened_count >= 2:
         sources.append('details_opened_count=' + str(observed.details_opened_count))
+    if observed.product_interaction_count >= 2:
+        sources.append('product_interaction_count=' + str(observed.product_interaction_count))
     if observed.testflight_clicked:
         sources.append('testflight_clicked=true')
     combined = bool(observed.project and observed.time_on_section_seconds >= 45
-                    and (observed.details_opened_count >= 2 or observed.time_on_section_seconds >= 90))
+                    and (observed.product_interaction_count >= 2 or observed.details_opened_count >= 2
+                         or observed.time_on_section_seconds >= 90))
     # Confidence is a conservative heuristic, not a calibrated probability.
     return InferenceState('possibly_elevated' if combined else 'unknown',
                           'unknown', 'moderate' if combined else 'unknown',
@@ -138,7 +142,8 @@ def decide_initiation(observed, restraint):
         if blocked:
             return InitiationDecision('stay_silent', reason)
     enough = (observed.project and observed.time_on_section_seconds >= 45
-              and (observed.details_opened_count >= 2 or observed.time_on_section_seconds >= 90))
+              and (observed.product_interaction_count >= 2 or observed.details_opened_count >= 2
+                   or observed.time_on_section_seconds >= 90))
     return InitiationDecision('offer_help', 'combined_observations') if enough else InitiationDecision('stay_silent', 'insufficient_signals')
 
 

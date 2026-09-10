@@ -93,7 +93,7 @@ has no such expanders, so that count currently remains zero. TestFlight clicks m
 the three existing published CTA paths. Counts never imply emotion or purchase intent.
 
 Fields: section, project, device, interaction_mode, time_on_section_seconds (0–3600),
-details_opened_count (0–20, reset on project/section change), testflight_clicked
+product_interaction_count and details_opened_count (0–20 each, reset on project/section change), testflight_clicked
 (page-wide boolean), chat_open_count (0–20), chat_message_count (0–100). Server-side
 types and enums are checked; finite numeric values are clamped. No state/inference
 overrides are accepted. `observations.py` keeps ObservationState separate from
@@ -103,7 +103,7 @@ needs_guidance remains unknown because these observations cannot establish need.
 
 `POST /api/chat/initiation` is a same-origin, deterministic, 4 KiB decision endpoint;
 it never calls inference providers. It offers help only in products/client-work,
-with an observed project AND either 45s dwell plus two real details openings OR 90s
+with an observed project AND either 45s dwell plus two explicit product interactions at least 3s apart (or two future details openings) OR 90s
 dwell after a project selection. It stays silent after TestFlight is clicked, any
 manual chat use, dismissal, a prior offer in the visit, a repeated project suggestion,
 or within a 180s cooldown. It does not produce TestFlight suggestions. Other proactive
@@ -111,8 +111,8 @@ actions (ask_question/mention_product) are intentionally not enabled.
 
 The client performs a one-shot eligibility check after qualifying interactions,
 not repeated polling. It rechecks restraint and section revision after the decision
-arrives. It never auto-opens the drawer, moves focus, or generates unsolicited model
-text: it reveals a small optional invitation using the existing chat-opening event.
+arrives. It never auto-opens the drawer, moves focus, or auto-sends chat
+text: it reveals a validated model-worded optional invitation using the existing chat-opening event.
 Closing chat or dismissing the invitation suppresses all invitations until reload.
 A section reentry is a new meaningful visit only after 15s away; duplicate suggestions
 remain suppressed across those visits. Requests after a declined/failed decision are
@@ -129,6 +129,40 @@ Client state tests (no dependencies):
 ```powershell
 node --preserve-symlinks --preserve-symlinks-main tests/test_observation_client.cjs
 ```
+
+## Controlled initiative (v3)
+
+`initiative.py` derives a frozen `InitiationIntent`: action, target, reason,
+allowed_observations, allowed_public_facts, forbidden_inferences, tone, max_words
+and certainty. Only offer_help is enabled, with light_helpful tone, an 18-word cap
+and moderate classification certainty. Allowed facts contain only the product name.
+Observations never establish visitor motives. Details expanders are not required.
+
+After deterministic permission, `POST /api/chat/invitation` independently validates
+context, restraint, bounded history and at most three recent invitations (240
+characters each). The request limit is 8 KiB. Authorization is rechecked before
+provider construction. Browser-supplied intent/action/tone overrides are rejected.
+Serious/problem history, any prior conversation or uncertain target means silence.
+Normal `/api/chat` generation and the provider abstraction remain unchanged.
+
+`ChatService.invitation` buffers wording and validates length, optional help,
+detectable inferences, unsupported claims, pressure, disclaimers, serious language
+and repetition. One correction attempt is permitted; a second rejection or provider
+failure means silence. No canned production response is substituted. Validation is
+heuristic, not a universal semantic factuality guarantee.
+
+The browser retains wording only in page memory, rechecks eligibility and section
+revision before display, discards late responses after user interaction, and inserts
+accepted text with textContent. Clicks/keyboard focus use existing product cards and
+the client-work spotlight; paired focus/click events are deduped. Restraint, cooldown,
+dismissal, prior chat and TestFlight suppression remain software controlled.
+
+Debug-only v3 logs contain initiation action/target/reason and generation
+attempt/status/validator_reason, without visitor text or generated drafts.
+Browser observations and flags are not attestations: forged requests can fabricate
+eligibility. These UX controls do not replace server-side abuse limits. Browser
+abort does not guarantee immediate cancellation of an in-flight provider request.
+There is no persistence, new authentication or tool execution.
 
 ## Deployment boundary
 

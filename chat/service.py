@@ -16,6 +16,11 @@ class ChatService:
         self.provider = provider
         self.debug_logger = debug_logger
 
+    def invitation(self, intent, recent):
+        """Separate from public conversation; caller must authorize the typed intent."""
+        from .initiative import generate_invitation
+        return generate_invitation(self.provider, intent, recent, self.debug_logger)
+
     def stream(self, message, history, context):
         instruction = SYSTEM_IDENTITY + "\n\n" + PUBLIC_CONTEXT
         history = bounded_history(history)

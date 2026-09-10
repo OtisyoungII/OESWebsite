@@ -5,6 +5,7 @@ from werkzeug.exceptions import BadRequest, RequestEntityTooLarge
 from .service import ChatService, SAFE_ERROR
 from .observations import (validate_context, ObservationState, InitiationRestraint,
                            decide_initiation, infer, log_observations)
+from .initiative import authorize_intent
 
 bp = Blueprint("chat", __name__)
 
@@ -91,5 +92,53 @@ def initiation():
     if current_app.debug:
         log_observations(current_app.logger, observed, infer(observed), decision)
     response = jsonify(action=decision.action, reason=decision.reason)
+    response.headers['Cache-Control'] = 'no-store'
+    return response
+
+
+@bp.route('/api/chat/invitation', methods=['POST'])
+def invitation():
+    """Reauthorize in software before constructing a provider or generating wording."""
+    if request.mimetype != 'application/json':
+        return jsonify(message='Use application/json.'), 415
+    if (request.headers.get('Sec-Fetch-Site') == 'cross-site'
+            or (request.origin and request.origin != request.host_url.rstrip('/'))):
+        return jsonify(message='Same-origin requests only.'), 403
+    request.max_content_length = 8192
+    try:
+        payload = request.get_json()
+        if not isinstance(payload, dict) or set(payload) - {'context', 'restraint', 'history', 'recent_invitations'}:
+            raise ValueError('Invalid invitation request fields.')
+        _, history, context = validate({'message': 'invitation eligibility',
+                                       'history': payload.get('history', []),
+                                       'context': payload.get('context', {})})
+        observed = ObservationState.from_context(context)
+        restraint = InitiationRestraint.from_payload(payload.get('restraint', {}))
+        recent = payload.get('recent_invitations', [])
+        if (not isinstance(recent, list) or len(recent) > 3
+                or any(not isinstance(text, str) or len(text) > 240 for text in recent)):
+            raise ValueError('Recent invitations must be at most three bounded texts.')
+    except RequestEntityTooLarge:
+        return jsonify(message='Request exceeds 8 KiB.'), 413
+    except BadRequest:
+        return jsonify(message='Invalid JSON request.'), 400
+    except ValueError as error:
+        return jsonify(message=str(error)), 400
+    intent, reason = authorize_intent(observed, restraint, history)
+    logger = current_app.logger if current_app.debug else None
+    if logger is not None:
+        logger.info('Eyeball invitation initiation %s', json.dumps({
+            'action': intent.action if intent else 'stay_silent',
+            'target': intent.target if intent else None, 'reason': reason}))
+    result = {'action': 'stay_silent', 'reason': reason}
+    if intent is not None:
+        try:
+            provider = current_app.extensions['chat_provider_factory']()
+            text = ChatService(provider, debug_logger=logger).invitation(intent, recent)
+        except Exception:
+            text = None
+        result = ({'action': 'offer_help', 'reason': reason, 'text': text} if text
+                  else {'action': 'stay_silent', 'reason': 'generation_unavailable_or_rejected'})
+    response = jsonify(result)
     response.headers['Cache-Control'] = 'no-store'
     return response
