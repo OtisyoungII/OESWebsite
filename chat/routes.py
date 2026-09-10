@@ -62,9 +62,12 @@ def chat():
     except Exception:
         return jsonify(message=SAFE_ERROR), 503
 
+    # Capture configuration before streaming; no request content enters debug logs.
+    debug_logger = current_app.logger if current_app.debug else None
+
     def generate():
         yield from (f"event: {event.kind}\ndata: {json.dumps(event.data)}\n\n"
-                    for event in ChatService(provider).stream(*args))
+                    for event in ChatService(provider, debug_logger=debug_logger).stream(*args))
 
     return Response(generate(), mimetype="text/event-stream", headers={
         "Cache-Control": "no-store", "X-Accel-Buffering": "no",

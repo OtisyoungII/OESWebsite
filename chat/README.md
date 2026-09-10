@@ -63,6 +63,25 @@ response when the WSGI server detects a disconnect; this is not guaranteed immed
 model cancellation while an upstream read is blocked. Closing chat also aborts.
 Interrupted answers are not added to request history.
 
+## Situation Intelligence
+
+`situation.py` derives an immutable SituationState from the validated message,
+bounded in-request history and allowlisted observations. No state is accepted from
+the browser or persisted. Continuity retains at most three recent assistant texts
+inside the existing history bounds, and classifies recent tone without asserting
+visitor intent. `certainty` describes classification confidence, not factual truth.
+
+Serious policy wins over playful tone, including serious history and sensitive
+business terms. The approved-fact renderer remains unchanged. Ordinary replies
+stream normally. Short playful replies are buffered and checked for length,
+first-person voice, generic disclaimers, repeated four-word phrases/openings and
+some obvious repeated joke structures. One regeneration is allowed; two invalid
+drafts produce the existing safe error, not a canned joke. The validator is a
+bounded heuristic, not a universal semantic repetition or factuality guarantee.
+
+Flask debug mode logs only interaction_kind, tone, serious, facts_required,
+grounding_mode, response_action and certainty. It logs no message or draft text.
+
 ## Deployment boundary
 
 Loopback defaults and `python app.py` are local development settings. This pass
