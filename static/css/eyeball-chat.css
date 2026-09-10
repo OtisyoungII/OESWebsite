@@ -1,0 +1,67 @@
+/* Isolated UI; native modal top layer keeps the moving Core below controls. */
+.eyeball-chat {
+    position: fixed;
+    inset: 16px 16px 16px auto;
+    margin: 0;
+    padding: 0;
+    width: min(460px, calc(100vw - 32px));
+    height: calc(100vh - 32px);
+    height: calc(100dvh - 32px);
+    max-width: none;
+    max-height: none;
+    color: #e2e8f0;
+    background: #050d1d;
+    border: 1px solid #356482;
+    border-radius: 18px;
+    box-shadow: 0 24px 90px #0009, inset 0 1px #7dd3fc22;
+    overflow: hidden;
+    font-family: inherit;
+}
+.eyeball-chat::backdrop { background: #02061766; }
+.eyeball-chat__shell { display: flex; flex-direction: column; height: 100%; min-height: 0; }
+.eyeball-chat__header { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 24px 22px 16px; }
+.eyeball-chat h2 { margin: 0; font-size: 22px; letter-spacing: .12em; color: #f8fafc; }
+.eyeball-chat__subtitle { margin: 5px 0 0; font-size: 10px; letter-spacing: .18em; color: #7dd3fc; }
+.eyeball-chat button { font: inherit; color: #e0f2fe; border: 1px solid #47758e; border-radius: 8px; padding: 9px 12px; background: #10253b; cursor: pointer; }
+.eyeball-chat button:hover:not(:disabled) { background: #193b55; }
+.eyeball-chat button:disabled { opacity: .45; cursor: default; }
+.eyeball-chat :focus-visible { outline: 2px solid #7dd3fc; outline-offset: 3px; }
+.eyeball-chat__access { display: flex; flex-wrap: wrap; gap: 12px; padding: 0 22px 14px; color: #86efac; font-size: 10px; letter-spacing: .1em; border-bottom: 1px solid #244057; }
+.eyeball-chat__access span:last-child { color: #a5c8df; }
+.eyeball-chat__notice { margin: 0; padding: 12px 22px; color: #a8bbcf; font-size: 12px; }
+.eyeball-chat__transcript { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 10px 22px 20px; }
+.eyeball-chat__message { padding: 14px; margin-bottom: 12px; border-left: 2px solid #38bdf8; background: #0d1c31; overflow-wrap: anywhere; }
+.eyeball-chat__message--user { border-color: #94a3b8; background: #172237; }
+.eyeball-chat__message p { margin: 0; white-space: pre-wrap; font-size: 14px; line-height: 1.6; }
+.eyeball-chat__message .eyeball-chat__speaker { margin-bottom: 6px; font-size: 10px; letter-spacing: .12em; color: #7dd3fc; }
+.eyeball-chat__composer { padding: 16px 22px 20px; border-top: 1px solid #244057; }
+.eyeball-chat__composer label { display: block; margin-bottom: 8px; font-size: 13px; }
+.eyeball-chat textarea { display: block; box-sizing: border-box; width: 100%; resize: none; border: 1px solid #47758e; border-radius: 8px; background: #020817; color: #f8fafc; padding: 12px; font: inherit; font-size: 16px; }
+.eyeball-chat__composer > p { color: #a8bbcf; font-size: 11px; margin: 8px 0 12px; }
+.eyeball-chat__actions { display: flex; align-items: center; gap: 8px; }
+.eyeball-chat__actions p { flex: 1; font-size: 11px; margin: 0; color: #a8bbcf; }
+@media (max-width: 760px) {
+    .eyeball-chat { inset: 8px; width: calc(100vw - 16px); height: calc(100vh - 16px); height: calc(100dvh - 16px); border-radius: 12px; }
+    .eyeball-chat__composer { padding-bottom: max(12px, env(safe-area-inset-bottom)); }
+}
+@media (max-width: 480px), (max-height: 560px) {
+    .eyeball-chat__header { padding: 12px 14px; }
+    .eyeball-chat h2 { font-size: 18px; }
+    .eyeball-chat__access, .eyeball-chat__notice { padding: 6px 14px; }
+    .eyeball-chat__transcript { padding: 8px 14px; }
+    .eyeball-chat__composer { padding: 10px 14px; }
+    .eyeball-chat textarea { height: 64px; }
+}
+@media (max-height: 560px) {
+    .eyeball-chat__shell { overflow-y: auto; }
+    .eyeball-chat__header { padding: 6px 12px; }
+    .eyeball-chat__subtitle { margin-top: 0; }
+    .eyeball-chat__access, .eyeball-chat__notice { padding: 3px 12px; }
+    .eyeball-chat__transcript { min-height: 70px; }
+    .eyeball-chat__composer { padding: 6px 12px; }
+    .eyeball-chat__composer label { margin-bottom: 3px; }
+    .eyeball-chat textarea { height: 44px; padding: 8px; }
+    .eyeball-chat__composer > p { margin: 3px 0; line-height: 1.2; }
+    .eyeball-chat__actions button { padding: 6px 12px; }
+}
+/* No motion is required, including when prefers-reduced-motion is enabled. */

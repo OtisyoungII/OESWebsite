@@ -56,7 +56,13 @@ systems, custom software, government capabilities and community technology progr
 home-page
 {% endblock %}
 
+{% block page_styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/eyeball-chat.css') }}">
+{% endblock %}
+
 {% block content %}
+
+{% include "partials/eyeball_chat.html" %}
 
 <!-- =========================================================================
      HERO / DETROIT NIGHT EXPERIENCE
@@ -245,7 +251,10 @@ home-page
             <button
                 class="oes-core"
                 type="button"
-                aria-label="Activate the interactive OES Core"
+                aria-label="Open OES Eyeball Chat"
+                aria-controls="eyeball-chat"
+                aria-expanded="false"
+                aria-haspopup="dialog"
                 data-oes-core
             >
                 <span

@@ -76,6 +76,8 @@ IMPORTANT RULES:
 ===============================================================================
 */
 
+import { initializeEyeballChat } from "./eyeball-chat.js";
+
 import {
     createCursorGlow,
     createParticleField
@@ -214,7 +216,10 @@ function setupMobileNavigation() {
         (event) => {
             if (
                 event.key !==
-                "Escape"
+                "Escape" ||
+                event.defaultPrevented ||
+                menuToggle.getAttribute("aria-expanded") !== "true" ||
+                document.querySelector("#eyeball-chat[open]")
             ) {
                 return;
             }
@@ -532,6 +537,11 @@ document.addEventListener(
         safelyInitialize(
             "Accessible anchor navigation",
             setupAccessibleAnchorNavigation
+        );
+
+        safelyInitialize(
+            "Eyeball Chat UI",
+            initializeEyeballChat
         );
 
         document.documentElement
