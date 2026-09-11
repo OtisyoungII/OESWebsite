@@ -6,6 +6,12 @@ app = Flask(__name__)
 init_chat(app)
 
 
+@app.get('/healthz')
+def healthz():
+    """Website liveness only. Never consult optional AI dependencies."""
+    return {'status': 'ok'}, 200, {'Cache-Control': 'no-store'}
+
+
 @app.route("/")
 def home():
     return render_template("index.html")

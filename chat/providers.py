@@ -180,6 +180,9 @@ class OpenAICompatibleProvider:
 
 
 def create_provider(config):
+    if config['OES_CHAT_PROVIDER'] == 'outbound_worker':
+        from .outbound_provider import OutboundWorkerProvider
+        return OutboundWorkerProvider(config)
     if config['OES_CHAT_PROVIDER'] == 'ollama':
         return OllamaProvider(config['OLLAMA_BASE_URL'], config['OLLAMA_MODEL'])
     if config['OES_CHAT_PROVIDER'] == 'openai_compatible':

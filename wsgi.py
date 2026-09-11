@@ -6,6 +6,8 @@ from app import app
 app.config.update(DEBUG=False, TESTING=False)
 # Production must explicitly select a provider; do not silently fall back to a laptop.
 app.config['OES_CHAT_PROVIDER'] = os.environ.get('OES_CHAT_PROVIDER', '')
+app.config['OES_AI_CHAT_ENABLED'] = os.environ.get('OES_AI_CHAT_ENABLED', 'false')
+app.config['OES_PROACTIVE_ENABLED'] = os.environ.get('OES_PROACTIVE_ENABLED', 'false')
 hops = int(os.environ.get('OES_TRUSTED_PROXY_HOPS', '0'))
 if not 0 <= hops <= 2:
     raise ValueError('OES_TRUSTED_PROXY_HOPS must be between zero and two')

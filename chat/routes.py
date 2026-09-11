@@ -54,6 +54,15 @@ def health():
                        proactive='enabled' if chat_on and enabled(config, 'OES_PROACTIVE_ENABLED') else 'disabled',
                        provider='configured' if configured else 'unconfigured', reachability='unchecked')
     response.status_code = 503 if chat_on and not configured else 200
+    if config.get('OES_CHAT_PROVIDER') == 'outbound_worker' and configured:
+        # Public status is deliberately coarse; machine diagnostics stay authenticated.
+        ready = current_app.extensions['worker_relay'].status()['LOCAL_WORKER_HEALTH'] == 'LOCAL_WORKER_HEALTHY'
+        body = response.get_json()
+        body['chat'] = ('ready' if ready else 'unavailable') if chat_on else 'disabled'
+        body['reachability'] = 'available' if ready else 'unavailable'
+        body['proactive'] = 'enabled' if ready and chat_on and enabled(config, 'OES_PROACTIVE_ENABLED') else 'disabled'
+        response.set_data(current_app.json.dumps(body))
+        response.status_code = 503 if chat_on and not ready else 200
     return response
 
 
@@ -110,6 +119,9 @@ def chat():
 
     def generate():
         stream = ChatService(provider, debug_logger=debug_logger).stream(*args)
+        from .outbound_provider import OutboundWorkerProvider, disconnect_aware
+        if isinstance(provider, OutboundWorkerProvider):
+            stream = disconnect_aware(stream, provider)
         try:
             for event in stream:
                 yield f"event: {event.kind}\ndata: {json.dumps(event.data)}\n\n"

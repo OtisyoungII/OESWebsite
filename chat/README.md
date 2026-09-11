@@ -250,6 +250,10 @@ system, new tool permission, private data access or motion control from model ou
 
 ### Production server and reverse proxy
 
+See [OUTBOUND_WORKER.md](OUTBOUND_WORKER.md) for the disabled outbound-worker beta,
+provider-independent `/healthz`, and the exact Render start command.
+
+
 On a Linux host with requirements installed:
 
 ```sh
