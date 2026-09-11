@@ -19,5 +19,7 @@ __pycache__/
 
 # Environment variables
 .env
+.env.*
+!.env.example
 # Generated logo-tracing files
 temp/

@@ -5,8 +5,8 @@ OllamaProvider → normalized SSE events → safe text transcript.
 
 `providers.py` owns inference HTTP details. Add future adapters behind
 `ChatProvider.stream(messages)`; never expose provider configuration to the client.
-No tools, retrieval, credentials, private documents, persistent storage or admin
-actions are available to the model. History stays in browser memory and is
+No tools, retrieval, private documents, persistent storage or admin actions are
+available to the model. Hosted credentials stay exclusively in the HTTP adapter. History stays in browser memory and is
 bounded again by the server. Assistant history is untrusted, not verified facts.
 
 ## Local run (PowerShell, repository root)
@@ -164,12 +164,141 @@ eligibility. These UX controls do not replace server-side abuse limits. Browser
 abort does not guarantee immediate cancellation of an in-flight provider request.
 There is no persistence, new authentication or tool execution.
 
-## Deployment boundary
+## Production runtime v1
 
-Loopback defaults and `python app.py` are local development settings. This pass
-does not establish production readiness: shared rate/concurrency limits, spending
-controls, HTTPS, production WSGI/proxy streaming and timeout configuration, and
-privacy/retention review remain deployment work. Origin checks are not user
-authentication or bot protection. Do not expose the development debug server.
-Review approved facts explicitly when website content changes; no repository
-scraping or automatic context ingestion occurs.
+The audit found no hosting vendor/deployment manifest or hosted-provider convention.
+`requirements.txt` already declares Flask and Gunicorn; no SDK or additional package
+is needed. The former development-only factory, missing kill switches/readiness,
+and unthrottled public inference were production blockers. `python app.py` remains
+a local development command; it defaults to loopback and debug on. OES_DEV_DEBUG=false
+turns off its debugger. HOST and PORT can override its development binding.
+
+### Provider selection
+
+`OES_CHAT_PROVIDER=ollama` retains local development at OLLAMA_BASE_URL and OLLAMA_MODEL.
+Do not expose Ollama's port publicly or use a laptop tunnel as production hosting.
+`OES_CHAT_PROVIDER=openai_compatible` uses OES_AI_BASE_URL, OES_AI_API_KEY and OES_AI_MODEL.
+All three are required. The base is the API root (for example a provider's `/v1`);
+the adapter appends `/chat/completions`. There is no default hosted vendor or model.
+Configure credentials through environment/host secret management, never browser code
+or committed files. Environment is loaded at process startup, not from .env files.
+
+The hosted adapter sends Chat Completions SSE with max_tokens=600 and accepts text
+choice 0, a normal stop finish, then [DONE]. It does not send tools, retry HTTP failures,
+or expose upstream error bodies. Only normalized delta/done events reach the service.
+Adapters requiring another token parameter, non-SSE output, different authentication
+or another API shape are not yet supported; test the chosen provider before launch.
+HTTPS is mandatory; credentials-in-URL, query/fragment, obvious private/local addresses
+and all redirects are rejected. DNS is controlled by the server operator; this is
+not a general-purpose SSRF proxy or a DNS-pinning mechanism. No browser payload can
+supply provider configuration. Existing serious rendering and invitation validators
+remain authoritative and unchanged.
+
+### Switches and health
+
+OES_EYEBALL_ENABLED=false disables all intelligent APIs. OES_AI_CHAT_ENABLED=false
+returns the existing safe 503 message for manual chat and silence for proactive paths.
+OES_PROACTIVE_ENABLED=false silences initiation/invitation without affecting manual
+chat. Switches default true for local compatibility; only true enables them (invalid
+values fail closed). Changing process environment requires restart/redeploy. They
+do not change Core/Three.js/motion or hide/redesign the drawer.
+
+GET /api/chat/health validates configuration without network calls or generation.
+It returns only enabled/disabled/ready/unavailable/configured/unconfigured states and
+reachability=unchecked. Valid configuration is NOT evidence of provider availability,
+valid credentials, sufficient quota or acceptable model quality. Missing configuration
+returns 503 when chat is enabled. Responses are no-store and omit URLs, model names,
+keys and prompts. Production must explicitly set OES_CHAT_PROVIDER; `wsgi.py` does
+not fall back to local Ollama if that variable is absent.
+
+### Limits, timeouts and failure
+
+Existing body caps remain 64 KiB chat / 4 KiB initiation / 8 KiB invitation. Messages
+are <=4000 characters; history <=10 entries / 12000 total characters. Output is
+<=16000 characters, with stricter existing playful/invitation validation. Both
+providers request at most 600 tokens and cap upstream bytes at 1 MiB, line/frame
+size at 64 KiB, socket operations at 30s and generation reading at 120s per attempt.
+Chunk reading prevents continuously trickled lines from evading deadline checks.
+A blocked read can extend an attempt by up to a socket timeout. DNS resolution is
+subject to the operating system resolver; these are not hard real-time guarantees.
+There are no HTTP retries. Existing policy permits at most one regeneration, so a
+request may use two calls. The browser gives up after 330s and clears busy state;
+Stop and stale-request checks remain effective. Provider error/timeout/malformed
+stream produces the existing safe error; rejected invitations stay silent.
+
+`runtime.py` applies process-local locked admission control:
+- OES_API_RATE_LIMIT=60 requests/client/minute across POST APIs, including invalid requests.
+- OES_CHAT_RATE_LIMIT=12 generation requests/client/minute (manual and proactive combined).
+- OES_PROACTIVE_RATE_LIMIT=3 generation requests/client/10 minutes.
+- Fixed 30 generation requests/process/minute, each allowing at most two existing policy attempts.
+- OES_AI_MAX_CONCURRENCY=2 generation requests, held through retries and streaming cleanup.
+- At most 2048 recently active client buckets; capacity exhaustion fails closed.
+
+Limits return safe 429/503 with Retry-After; there is no queue. Release is idempotent
+and handles completion, exceptions, client disconnect and unstarted closed responses.
+Addresses are keyed using an ephemeral process HMAC; message contents are not stored
+by the limiter. Buckets expire after inactivity; all limits reset on restart/deploy
+and multiply with worker/replica count. NAT users share limits. These are small-beta
+protections, not distributed bot defense, billing controls or authentication. Set
+provider-side spending caps and configure edge protections before public launch.
+
+Buffered invitation requests can finish after browser cancellation. Normal streamed
+requests close upstream when the WSGI server detects disconnection, which may wait
+for the next provider read/yield. Slow downstream clients can retain a worker slot;
+proxy read/send/client-body timeouts are required. There is no persistent account
+system, new tool permission, private data access or motion control from model output.
+
+### Production server and reverse proxy
+
+On a Linux host with requirements installed:
+
+```sh
+gunicorn -c gunicorn.conf.py wsgi:app
+```
+
+`wsgi.py` forces debug/testing off. The supplied beta profile uses one gthread worker,
+eight threads, a 360s worker timeout and a 30s graceful shutdown. Gunicorn is a Unix
+server; this Windows session verifies Flask/provider behavior, not a Linux launch.
+HOST defaults to 127.0.0.1 and PORT to 8000; a container platform may require
+HOST=0.0.0.0 and an injected PORT. Do not expose the development server in production.
+
+SSE responses set X-Accel-Buffering=no and Cache-Control=no-store, no-transform.
+These headers alone do not prove proxy/CDN compatibility. Configure `/api/chat`
+streaming with response buffering/caching/compression disabled and upstream read
+and client send timeouts sufficient for the 330s browser budget (or choose a host
+supporting it). For nginx, use proxy_buffering off and proxy_read_timeout 360s;
+set appropriate request-body/client timeouts and preserve the public Host header.
+Do not enable proxy_ignore_client_abort. Validate actual chunk arrival and Stop
+through the deployed proxy; some serverless hosts impose shorter hard deadlines.
+See [Gunicorn deployment guidance](https://gunicorn.org/deploy/) and
+[worker guidance](https://gunicorn.org/design/).
+
+By default forwarded client IP/scheme headers are ignored. Set
+OES_TRUSTED_PROXY_HOPS only after verifying the exact number (0�2) of trusted,
+header-sanitizing proxies, and firewall the origin against direct public traffic.
+It enables ProxyFix for client IP and scheme only. An incorrect value permits
+spoofed client identity/rate-limit bypass; leaving it zero behind a proxy groups
+visitors under the proxy's address and may reject HTTPS Origin checks. Configure
+TLS, public host validation, access-log retention and secret injection at the host.
+
+### Verification and launch boundary
+
+The complete suite includes tests/test_runtime.py (mocked hosted HTTP, no credentials)
+and existing policy/motion tests. tests/test_runtime_browser.cjs uses running local
+servers on 5055 (enabled) and 5057 (chat disabled); its Stop/timeout checks use explicit
+transport fixtures. PLAYWRIGHT_MODULE can select an already-installed Playwright.
+No test installs dependencies or invokes a paid hosted API by default.
+
+Real local Ollama verification passed for manual casual chat, serious fabricated
+certification grounding and proactive generation. Proactive-off preserved manual
+chat, chat-off failed gracefully, and enabled configuration restored responses.
+Hosted HTTP is tested with fixtures only: no hosted credentials were available.
+
+Before a cellular/public test, Otis must supply the hosting target/OS/start command,
+public domain/TLS and proxy/CDN topology, hosted API root/model and securely injected
+key, provider quota/spending limits, and expected beta traffic/retention requirements.
+Then verify Linux startup, provider authentication/model behavior, proxy streaming,
+client-IP attribution and cancellation from an external network. The repository is
+host-compatible but is NOT a deployed, publicly verified service and is not ready
+for Gooch until those checks pass. Keep approved public facts explicitly reviewed;
+no repository scraping or private-document ingestion occurs.

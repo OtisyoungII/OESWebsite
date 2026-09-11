@@ -6,8 +6,55 @@ from .service import ChatService, SAFE_ERROR
 from .observations import (validate_context, ObservationState, InitiationRestraint,
                            decide_initiation, infer, log_observations)
 from .initiative import authorize_intent
+from .runtime import enabled
+from .providers import create_provider
 
 bp = Blueprint("chat", __name__)
+
+
+def unavailable(status=503):
+    response = jsonify(message=SAFE_ERROR)
+    response.status_code = status
+    response.headers['Retry-After'] = '60' if status == 429 else '5'
+    return response
+
+
+@bp.before_request
+def runtime_gate():
+    if request.method != 'POST':
+        return None
+    config = current_app.config
+    manual = request.endpoint == 'chat.chat'
+    live = enabled(config, 'OES_EYEBALL_ENABLED') and enabled(config, 'OES_AI_CHAT_ENABLED')
+    if not live or (not manual and not enabled(config, 'OES_PROACTIVE_ENABLED')):
+        return unavailable() if manual else jsonify(action='stay_silent', reason='disabled')
+    if not current_app.extensions['chat_admission'].request_allowed(request.remote_addr):
+        return unavailable(429)
+
+
+@bp.after_request
+def private_response(response):
+    response.headers['Cache-Control'] = 'no-store, no-transform'
+    response.headers['X-Content-Type-Options'] = 'nosniff'
+    return response
+
+
+@bp.route('/api/chat/health', methods=['GET'])
+def health():
+    config = current_app.config
+    live = enabled(config, 'OES_EYEBALL_ENABLED')
+    chat_on = live and enabled(config, 'OES_AI_CHAT_ENABLED')
+    try:
+        create_provider(config)  # Validate only; no DNS, health probe or generation.
+        configured = True
+    except Exception:
+        configured = False
+    response = jsonify(eyeball='enabled' if live else 'disabled',
+                       chat=('ready' if configured else 'unavailable') if chat_on else 'disabled',
+                       proactive='enabled' if chat_on and enabled(config, 'OES_PROACTIVE_ENABLED') else 'disabled',
+                       provider='configured' if configured else 'unconfigured', reachability='unchecked')
+    response.status_code = 503 if chat_on and not configured else 200
+    return response
 
 
 def validate(payload):
@@ -49,22 +96,35 @@ def chat():
         return jsonify(message="Invalid JSON request."), 400
     except ValueError as error:
         return jsonify(message=str(error)), 400
+    release, status = current_app.extensions['chat_admission'].acquire(request.remote_addr)
+    if release is None:
+        return unavailable(status)
     try:
         provider = current_app.extensions["chat_provider_factory"]()
     except Exception:
+        release()
         return jsonify(message=SAFE_ERROR), 503
 
     # Capture configuration before streaming; no request content enters debug logs.
     debug_logger = current_app.logger if current_app.debug else None
 
     def generate():
-        yield from (f"event: {event.kind}\ndata: {json.dumps(event.data)}\n\n"
-                    for event in ChatService(provider, debug_logger=debug_logger).stream(*args))
+        stream = ChatService(provider, debug_logger=debug_logger).stream(*args)
+        try:
+            for event in stream:
+                yield f"event: {event.kind}\ndata: {json.dumps(event.data)}\n\n"
+        finally:
+            try:
+                stream.close()
+            finally:
+                release()
 
-    return Response(generate(), mimetype="text/event-stream", headers={
+    response = Response(generate(), mimetype="text/event-stream", headers={
         "Cache-Control": "no-store", "X-Accel-Buffering": "no",
         "X-Content-Type-Options": "nosniff",
     })
+    response.call_on_close(release)  # Also covers a response closed before iteration.
+    return response
 
 
 @bp.route('/api/chat/initiation', methods=['POST'])
@@ -132,11 +192,16 @@ def invitation():
             'target': intent.target if intent else None, 'reason': reason}))
     result = {'action': 'stay_silent', 'reason': reason}
     if intent is not None:
+        release, status = current_app.extensions['chat_admission'].acquire(request.remote_addr, proactive=True)
+        if release is None:
+            return unavailable(status)
         try:
             provider = current_app.extensions['chat_provider_factory']()
             text = ChatService(provider, debug_logger=logger).invitation(intent, recent)
         except Exception:
             text = None
+        finally:
+            release()
         result = ({'action': 'offer_help', 'reason': reason, 'text': text} if text
                   else {'action': 'stay_silent', 'reason': 'generation_unavailable_or_rejected'})
     response = jsonify(result)

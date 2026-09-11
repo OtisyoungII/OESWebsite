@@ -133,12 +133,16 @@ export function initializeEyeballChat() {
         let body;
         let answer = '';
         let complete = false;
+        let timedOut = false;
+        // Two bounded provider/validation attempts plus transport allowance.
+        const requestTimer = setTimeout(() => { timedOut = true; controller.abort(); }, 330000);
         try {
             const response = await fetch(form.dataset.chatUrl, {
                 method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'text/event-stream' },
                 credentials: 'same-origin', signal: controller.signal,
                 body: JSON.stringify({ message: text, history, context: browserContext() })
             });
+            if (controller.signal.aborted || activeRequest !== controller) return;
             if (!response.ok || !response.body || !response.headers.get('Content-Type')?.includes('text/event-stream')) {
                 throw new Error('request failed');
             }
@@ -147,7 +151,7 @@ export function initializeEyeballChat() {
             let buffer = '';
             while (!complete) {
                 const { value, done } = await reader.read();
-                if (controller.signal.aborted) return;
+                if (controller.signal.aborted || activeRequest !== controller) return;
                 buffer += decoder.decode(value, { stream: !done });
                 if (buffer.length > 65536) throw new Error('oversized event');
                 let boundary;
@@ -175,16 +179,17 @@ export function initializeEyeballChat() {
             history.push({ role: 'user', content: text }, { role: 'assistant', content: answer.slice(0, 4000) });
             while (history.length > 10 || history.reduce((sum, item) => sum + item.content.length, 0) > 12000) history.splice(0, 2);
         } catch (error) {
-            if (!controller.signal.aborted) {
+            if (activeRequest === controller && (!controller.signal.aborted || timedOut)) {
                 appendMessage('EYEBALL', 'Eyeball is temporarily unavailable. Please try again shortly.');
             }
         } finally {
-            try { await reader?.cancel(); } catch { /* Request may already be aborted. */ }
+            clearTimeout(requestTimer);
             if (activeRequest === controller) {
                 activeRequest = null;
                 setBusy(false);
                 if (!complete) status.textContent = 'Response interrupted. You can try again.';
             }
+            try { await reader?.cancel(); } catch { /* Request may already be aborted. */ }
         }
     });
     input.addEventListener('keydown', (event) => {
