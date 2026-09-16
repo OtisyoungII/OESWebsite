@@ -17,7 +17,7 @@ def init_chat(app):
                          "OES_CHAT_RATE_LIMIT": "12", "OES_PROACTIVE_RATE_LIMIT": "3",
                          "OES_AI_MAX_CONCURRENCY": "2", "OES_WORKER_ENABLED": "false",
                          "OES_WORKER_ID": "", "OES_WORKER_KEY_ID": "",
-                         "OES_WORKER_SHARED_KEY": ""}.items():
+                         "OES_WORKER_SHARED_KEY": "", "OES_PUBLIC_ORIGIN": ""}.items():
         app.config.setdefault(key, os.environ.get(key, default))
     relay = WorkerRelay(app.config)
     app.extensions['worker_relay'] = relay

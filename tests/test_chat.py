@@ -83,6 +83,32 @@ class ChatTests(unittest.TestCase):
         self.assertIn(PUBLIC_CONTEXT,self.provider.calls[0][0]['content'])
         self.assertTrue(self.provider.closed)
 
+    def test_explicit_public_origin_behind_proxy(self):
+        self.app.config['OES_PUBLIC_ORIGIN'] = 'https://otisexecutionsystems.com'
+        accepted = self.post({'message': 'hello'}, headers={
+            'Origin': 'https://otisexecutionsystems.com',
+            'Host': 'internal-render-service',
+            'X-Forwarded-Host': 'attacker.example',
+            'X-Forwarded-Proto': 'http',
+        })
+        self.assertEqual(accepted.status_code, 200)
+
+    def test_explicit_public_origin_rejects_cross_origin_and_proxy_bypass(self):
+        self.app.config['OES_PUBLIC_ORIGIN'] = 'https://otisexecutionsystems.com'
+        for headers in [
+            {'Origin': 'https://attacker.example'},
+            {'Origin': 'https://attacker.example', 'Host': 'attacker.example',
+             'X-Forwarded-Host': 'otisexecutionsystems.com', 'X-Forwarded-Proto': 'https'},
+            {'Origin': 'https://otisexecutionsystems.com', 'Sec-Fetch-Site': 'cross-site'},
+            {'Origin': 'not an origin'},
+        ]:
+            with self.subTest(headers=headers):
+                self.assertEqual(self.post({'message': 'hello'}, headers=headers).status_code, 403)
+
+    def test_missing_origin_preserves_existing_non_browser_policy(self):
+        self.app.config['OES_PUBLIC_ORIGIN'] = 'https://otisexecutionsystems.com'
+        self.assertEqual(self.post({'message': 'hello'}).status_code, 200)
+
     def test_provider_error(self):
         self.provider.fail=True
         body=self.post({'message':'hello'}).get_data(as_text=True)

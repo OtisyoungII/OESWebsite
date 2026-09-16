@@ -12,6 +12,18 @@ from .providers import create_provider
 bp = Blueprint("chat", __name__)
 
 
+def same_origin_request():
+    """Use the configured browser origin without trusting proxy-supplied hosts."""
+    if request.headers.get("Sec-Fetch-Site") == "cross-site":
+        return False
+    if not request.origin:
+        return True
+    expected = current_app.config.get("OES_PUBLIC_ORIGIN", "").strip()
+    if not expected:
+        expected = request.host_url.rstrip("/")
+    return request.origin == expected
+
+
 def unavailable(status=503):
     response = jsonify(message=SAFE_ERROR)
     response.status_code = status
@@ -93,8 +105,7 @@ def validate(payload):
 def chat():
     if request.mimetype != "application/json":
         return jsonify(message="Use application/json."), 415
-    if (request.headers.get("Sec-Fetch-Site") == "cross-site"
-            or (request.origin and request.origin != request.host_url.rstrip("/"))):
+    if not same_origin_request():
         return jsonify(message="Same-origin requests only."), 403
     request.max_content_length = 65536
     try:
@@ -144,8 +155,7 @@ def initiation():
     """Deterministic permission for an invitation; never calls a model."""
     if request.mimetype != 'application/json':
         return jsonify(message='Use application/json.'), 415
-    if (request.headers.get('Sec-Fetch-Site') == 'cross-site'
-            or (request.origin and request.origin != request.host_url.rstrip('/'))):
+    if not same_origin_request():
         return jsonify(message='Same-origin requests only.'), 403
     request.max_content_length = 4096
     try:
@@ -173,8 +183,7 @@ def invitation():
     """Reauthorize in software before constructing a provider or generating wording."""
     if request.mimetype != 'application/json':
         return jsonify(message='Use application/json.'), 415
-    if (request.headers.get('Sec-Fetch-Site') == 'cross-site'
-            or (request.origin and request.origin != request.host_url.rstrip('/'))):
+    if not same_origin_request():
         return jsonify(message='Same-origin requests only.'), 403
     request.max_content_length = 8192
     try:
