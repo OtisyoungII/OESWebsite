@@ -1,9 +1,9 @@
 # OES Eyeball public beta release-candidate evidence
 
-Date: 2026-09-15  
-Base commit: `24ba540929c426fe0836e4b6d4ce565e356a6e88` (`Add secure outbound Eyeball inference worker`)  
-Branch: `main`  
-Candidate state: uncommitted bounded character/grounding changes plus this report  
+Date: 2026-09-15
+Base commit: `24ba540929c426fe0836e4b6d4ce565e356a6e88` (`Add secure outbound Eyeball inference worker`)
+Branch: `main`
+Candidate state: uncommitted bounded character/grounding changes plus this report
 Decision: **PUBLIC BETA CANDIDATE — GO**; personality safe-failure rate accepted as a beta limitation
 
 ## Scope and architecture exercised
@@ -14,7 +14,7 @@ initiative policy, runtime admission controls, outbound-worker protocol tests, b
 Stop behavior, Core/chat UI and motion arbitration. It did not activate proactive AI,
 start the production worker, deploy, push, or use production credentials.
 
-Local model: `llama3.2:latest`  
+Local model: `llama3.2:latest`
 Model digest: `a80c4f17acd55265feec403c7aef86be0c25983ab279d83f3bcd3abbcb5b8b72`
 
 ## Candidate changes
