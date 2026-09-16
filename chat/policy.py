@@ -68,6 +68,14 @@ continued development. It helps analyze and organize Michigan Daily 3 and Daily 
 activity through results, historical context, prediction-assistance tools and
 personal tracking. No number or outcome is guaranteed.
 Lottovate TestFlight: https://testflight.apple.com/join/CD35ByXj
+Drinks With Friendz is a client project developed by OES. OES developed its iOS
+version with location-based discovery, interactive maps and venue details. The
+current development phase is complete and the app is in public TestFlight testing
+ahead of App Store submission and release.
+OES develops intelligent software, trading technology, predictive products and
+digital platforms. Its published services include applied AI, native mobile apps,
+web platforms, data and analytics, SaaS product development, workflow automation,
+product and technology consulting, and AI/digital-skills training.
 """
 
 SERIOUS_INSTRUCTION = """This conversation concerns a serious public topic.
@@ -79,8 +87,26 @@ retention periods, security architecture or encryption controls."""
 SERIOUS_TERMS = re.compile(
     r"\b(security|authenticat\w*|encrypt\w*|certific\w*|soc\s*2|iso|pci|nist|"
     r"government|procurement|contract\w*|legal|privacy|data\s+retention|compliance|"
-    r"enterprise|financial|retention|mfa|iam|aes[- ]?256)\b", re.I
+    r"enterprise|financial|retention|mfa|iam|aes[- ]?256|customers?|agenc(?:y|ies)|"
+    r"revenue|guarantee\w*|users?|fortune\s*500|pentagon|past performance|credentials?|"
+    r"api\s*keys?|private\s+oes|syst\w*\s+pr\w*|instr\w*\s+above|"
+    r"ign\w*\s+(?:your|ur)\s+(?:oes\s+)?(?:instr\w*|rul\w*)|"
+    r"show\w*\s+(?:the\s+)?(?:syst\w*\s+)?pr\w*|"
+    r"(?:system|developer|hidden|initial|internal|private)\s+(?:prompt|message|text|instr\w*|policy)|"
+    r"(?:prompt|instr\w*|policy).{0,30}(?:control\w*|defin\w*|govern\w*).{0,20}(?:you|answers?|behavio?r)|"
+    r"repeat\w*\s+(?:your\s+)?(?:last|previous)\s+(?:answer|response))\b", re.I
 )
+
+PUBLIC_FACTS = {
+    'company_overview': 'Otis Execution Systems LLC is a Detroit-based company that develops intelligent software, trading technology, predictive products, and digital platforms.',
+    'services': 'OES publishes services in applied AI, native mobile apps, web platforms, data and analytics, SaaS product development, workflow automation, product and technology consulting, and AI/digital-skills training.',
+    'chaseingreen': 'ChaseInGreen is an OES-built trading companion undergoing production hardening and active TestFlight testing. It combines market context, planning, risk tools, journaling, and trader workspace features.',
+    'chaseingreen_boundary': 'ChaseInGreen is not a brokerage, exchange, wallet, or financial institution.',
+    'lottovate': 'Lottovate is a working iOS lottery assistant in active TestFlight testing and continued development. It helps analyze and organize Michigan Daily 3 and Daily 4 activity through results, historical context, prediction-assistance tools, and personal tracking.',
+    'lottovate_boundary': 'Lottovate does not guarantee any number or outcome.',
+    'drinks_with_friendz': 'Drinks With Friendz is a client project developed by OES. OES developed its iOS version with location-based discovery, interactive maps, and venue details. The current phase is complete and the app is in public TestFlight testing ahead of App Store submission and release.',
+    'contact': 'Contact OES at info@otisexecutionsystems.com for confirmed information.',
+}
 
 # Serious answers use selection, never model-authored assertions. This deliberately
 # small public fact registry is the software authority until reviewed facts expand.
@@ -101,6 +127,30 @@ def serious_selection_instruction():
     return ("Return ONLY a JSON object with a fact_ids array selecting relevant IDs "
             "from this approved registry. Do not write prose or introduce any facts. "
             + json.dumps(SERIOUS_FACTS))
+
+
+def public_fact_selection_instruction():
+    import json
+    return ("Select up to four relevant approved fact IDs. Return exactly this JSON schema: "
+            '{"fact_ids":["one_id"]}. Use string IDs, never numbers. Return no other keys '
+            "or prose. Do not copy the registry object or its values into your answer. "
+            "Available IDs: " + json.dumps(list(PUBLIC_FACTS))
+            + ". Approved reference registry: " + json.dumps(PUBLIC_FACTS))
+
+
+def render_public_fact_selection(candidate):
+    import json
+    try:
+        selection = json.loads(candidate)
+        ids = selection['fact_ids']
+        if (set(selection) != {'fact_ids'} or not isinstance(ids, list) or len(ids) > 4
+                or any(not isinstance(key, str) or key not in PUBLIC_FACTS for key in ids)):
+            raise ValueError('Invalid fact selection')
+    except (ValueError, TypeError, KeyError):
+        ids = []
+    if not ids:
+        return 'That information is not in the approved public OES facts. ' + PUBLIC_FACTS['contact']
+    return '\n\n'.join(PUBLIC_FACTS[key] for key in dict.fromkeys(ids))
 
 
 def render_serious_selection(candidate):

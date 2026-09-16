@@ -5,7 +5,8 @@ from flask import Flask
 from chat import init_chat
 from chat.providers import ChatEvent
 from chat.service import ChatService
-from chat.situation import SituationAnalyzer, validate_playful, response_contract
+from chat.situation import (SituationAnalyzer, validate_playful, validate_character,
+                            response_contract, character_style_instruction)
 
 
 class DraftProvider:
@@ -61,6 +62,14 @@ class SituationTests(unittest.TestCase):
         self.assertTrue(state.serious)
         self.assertTrue(continuity.recent_serious)
 
+    def test_character_directed_turn_continues_into_short_followup(self):
+        history = [{'role': 'user', 'content': "you're back"},
+                   {'role': 'assistant', 'content': 'Finally.'}]
+        state, continuity = self.analyze('unfortunately', history)
+        self.assertEqual(state.interaction_kind, 'character_followup')
+        self.assertEqual(state.response_action, 'character_reply')
+        self.assertTrue(continuity.recent_playful)
+
     def test_history_is_bounded_and_request_local(self):
         history = [{'role':'user','content':'security'}] + [{'role':'user','content':'hello'}]*10
         state, _ = self.analyze(history=history)
@@ -74,6 +83,7 @@ class SituationTests(unittest.TestCase):
             ('Are you an AI?', 'explain_identity', 'high'),
             ('What does ChaseInGreen do?', 'answer', 'high'),
             ('security', 'grounded_answer', 'high'),
+            ('you again?', 'character_reply', 'medium'),
             ('?', 'clarify', 'low'), ('hello', 'answer', 'medium')]:
             state, continuity = self.analyze(message)
             self.assertEqual(state.response_action, action)
@@ -90,6 +100,64 @@ class SituationTests(unittest.TestCase):
             ('I ' + 'look '*40, 'length')]:
             self.assertIn(reason, validate_playful(text, continuity))
         self.assertEqual(validate_playful("I call this look unforgettable.", continuity), ())
+
+    def test_character_banter_contract_and_validator(self):
+        state, continuity = self.analyze('you again?')
+        self.assertEqual(state.interaction_kind, 'character_banter')
+        self.assertTrue(state.humor_allowed)
+        self.assertEqual(state.grounding_mode, 'character_no_new_facts')
+        self.assertIn('Do not reintroduce yourself', response_contract(state, continuity))
+        for text, reason in [
+            ("I'm OES Eyeball. What's on your mind?", 'self_introduction'),
+            ('How can I assist you today?', 'customer_service'),
+            ('I saw you clicking around the site.', 'visitor_narration'),
+            ('I represent a trusted provider of secure solutions.', 'unsupported_claim'),
+            ('ChaseInGreen is moving along nicely.', 'unsupported_claim'),
+            ('Ready to chat?', 'customer_service'),
+            ('I am a good chatbot, observing and learning.', 'identity_explanation'),
+            ('My gaze is fixed on the page.', 'visitor_narration'),
+            ("I'm just a collection of code and data.", 'identity_explanation'),
+            ("I'm just a digital interface.", 'identity_explanation')]:
+            self.assertIn(reason, validate_character(text, continuity))
+        self.assertEqual(validate_character(
+            "Unfortunately for everyone involved, I'm back.", continuity), ())
+
+    def test_small_character_mode_hints_contain_no_canned_reply(self):
+        cases = [('hey eyeball', 'greeting'), ('why trust you?', 'trust'),
+                 ('what have you been doing?', 'playful activity'), ("you're back", 'presence')]
+        for message, mode in cases:
+            with self.subTest(message=message):
+                hint = character_style_instruction(message)
+                self.assertIn('Banter mode: ' + mode, hint)
+                self.assertNotIn('Unfortunately for everyone involved', hint)
+
+    def test_character_reply_regenerates_once(self):
+        provider = DraftProvider(["I'm OES Eyeball. How can I assist you today?",
+                                  "Unfortunately for everyone involved, I'm back."])
+        events = list(ChatService(provider).stream("you're back", [], {}))
+        self.assertEqual(len(provider.calls), 2)
+        self.assertEqual([e.kind for e in events], ['start', 'delta', 'done'])
+        self.assertNotIn('assist', ''.join(e.data.get('text', '') for e in events))
+        self.assertIn('fresh reaction under 20 words',
+                      provider.calls[-1][0]['content'])
+
+    def test_oes_facts_take_precedence_over_character_banter(self):
+        state, _ = self.analyze('what do you know about ChaseInGreen?')
+        self.assertEqual(state.interaction_kind, 'oes_question')
+        self.assertTrue(state.requires_oes_facts)
+
+    def test_looking_question_is_character_banter_not_identity(self):
+        state, _ = self.analyze('what are you looking at?')
+        self.assertEqual(state.response_action, 'character_reply')
+
+    def test_context_product_and_unknown_reason(self):
+        state, _ = self.analyze('What can you tell me about this product?',
+                                context={'section': 'products', 'project': 'chaseingreen'})
+        self.assertTrue(state.requires_oes_facts)
+        state, _ = self.analyze('Why am I looking at this?',
+                                context={'section': 'products', 'project': 'lottovate'})
+        self.assertEqual(state.interaction_kind, 'unknown_visitor_reason')
+        self.assertEqual(state.grounding_mode, 'no_assumptions')
 
     def test_anti_repetition(self):
         _, continuity = self.analyze(history=[{'role':'assistant','content':"I may not be handsome, but I am memorable."}])

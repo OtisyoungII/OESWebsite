@@ -2,9 +2,12 @@
 import json
 from uuid import uuid4
 from .policy import (SYSTEM_IDENTITY, PUBLIC_CONTEXT, SERIOUS_INSTRUCTION,
-                     serious_selection_instruction, render_serious_selection)
+                     serious_selection_instruction, render_serious_selection,
+                     public_fact_selection_instruction, render_public_fact_selection)
 from .providers import ChatEvent
-from .situation import SituationAnalyzer, response_contract, validate_playful, bounded_history
+from .situation import (SituationAnalyzer, response_contract, validate_playful,
+                        validate_character, character_correction, character_style_instruction,
+                        bounded_history)
 from .observations import (ObservationState, infer, observation_contract,
                            log_observations, InitiationDecision)
 
@@ -32,17 +35,26 @@ class ChatService:
             log_observations(self.debug_logger, observed, interpretation,
                              InitiationDecision('stay_silent', 'user_request_precedence'))
             self.debug_logger.info('Eyeball situation %s', json.dumps(state.debug_fields()))
+        instruction += observation_contract(observed, interpretation)
         instruction += '\n' + response_contract(state, continuity)
+        if state.response_action == 'character_reply':
+            instruction += '\n' + character_style_instruction(message)
         if serious:
             instruction += "\n\n" + SERIOUS_INSTRUCTION + "\n" + serious_selection_instruction()
-        instruction += observation_contract(observed, interpretation)
-        messages = [{"role": "system", "content": instruction}, *history,
+        elif state.requires_oes_facts:
+            instruction += "\n\n" + public_fact_selection_instruction()
+        model_history = [] if state.requires_oes_facts and not serious else history
+        messages = [{"role": "system", "content": instruction}, *model_history,
                     {"role": "user", "content": message}]
         yield ChatEvent("start", {"request_id": uuid4().hex})
+        if state.interaction_kind == 'unknown_visitor_reason':
+            yield ChatEvent('delta', {'text': "I can't know why you're here. What caught your eye?"})
+            yield ChatEvent('done', {})
+            return
         stream = None
         try:
-            if state.response_action == 'playful_reply':
-                # Hold short playful replies until validated. Never release a failed draft.
+            if state.response_action in ('playful_reply', 'character_reply'):
+                # Hold casual character replies until validated. Never release a failed draft.
                 for attempt in range(2):
                     candidate = ''
                     finished = False
@@ -67,18 +79,22 @@ class ChatService:
                         stream = None
                     if not finished:
                         raise ValueError('Incomplete stream')
-                    failures = validate_playful(candidate, continuity)
+                    validator = validate_playful if state.response_action == 'playful_reply' else validate_character
+                    failures = validator(candidate, continuity)
                     if not failures:
                         yield ChatEvent('delta', {'text': candidate})
                         yield ChatEvent('done', {})
                         return
                     if attempt == 0:
-                        # Only validator codes enter the contract; rejected text is untrusted.
+                        # Only bounded correction instructions enter; rejected text stays untrusted.
+                        correction = ('Regenerate once. Fix: ' + ', '.join(failures)
+                                      + '. Follow the response contract; do not explain the correction.'
+                                      if state.response_action == 'playful_reply'
+                                      else character_correction())
                         messages = [{
                             'role': 'system',
-                            'content': instruction + '\nRegenerate once. Fix: ' + ', '.join(failures)
-                            + '. Follow the response contract; do not explain the correction.'
-                        }, *history, {'role': 'user', 'content': message}]
+                            'content': instruction + '\n' + correction
+                        }, *model_history, {'role': 'user', 'content': message}]
                 raise ValueError('Playful response failed validation twice')
             stream = self.provider.stream(messages)
             size = 0
@@ -91,13 +107,15 @@ class ChatService:
                     size += len(text)
                     if size > 16000:
                         raise ValueError("Output limit exceeded")
-                    if serious:
+                    if serious or state.requires_oes_facts:
                         candidate += text
                     else:
                         yield ChatEvent("delta", {"text": text})
                 elif event.kind == "done":
-                    if serious:
-                        yield ChatEvent("delta", {"text": render_serious_selection(candidate)})
+                    if serious or state.requires_oes_facts:
+                        rendered = (render_serious_selection(candidate) if serious
+                                    else render_public_fact_selection(candidate))
+                        yield ChatEvent("delta", {"text": rendered})
                     yield ChatEvent("done", {})
                     return
                 else:
