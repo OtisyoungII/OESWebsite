@@ -11,11 +11,11 @@ from urllib.parse import urlsplit
 from urllib.request import Request, build_opener, ProxyHandler, HTTPSHandler
 
 from chat.providers import NoRedirect, bounded_lines, open_response
-from chat.worker_protocol import (MAX_BODY, MAX_OUTPUT, canonical, decode, fields,
-                                  messages_valid, settings, signature, signed_headers, token)
+from chat.worker_protocol import (CONTEXT_BUDGET, MAX_BODY, MAX_OUTPUT, canonical,
+                                  context_cost, decode, fields, messages_valid, settings,
+                                  signature, signed_headers, token)
 
 LOG = logging.getLogger('oes.worker')
-CONTEXT = 8192
 RPC_SECONDS = 27
 
 
@@ -150,7 +150,7 @@ class OutboundWorker:
             raise ValueError('Invalid job deadline')
         # Conservative byte-based upper bound, including chat-template allowance.
         # Refuse oversized prompts; never silently trim authoritative instructions.
-        if sum(len(m['content'].encode('utf-8')) + 128 for m in job['messages']) + 600 > CONTEXT:
+        if context_cost(job['messages']) > CONTEXT_BUDGET:
             raise ValueError('Context budget exceeded')
         if not self.model_ready():
             raise ValueError('Expected model unavailable')
@@ -174,7 +174,7 @@ class OutboundWorker:
                 self.cancelled.wait(0.1)
 
         payload = canonical({'model': 'llama3.2', 'messages': job['messages'], 'stream': True,
-                             'options': {'num_predict': 600, 'num_ctx': CONTEXT}})
+                             'options': {'num_predict': 600, 'num_ctx': CONTEXT_BUDGET}})
         request = Request('http://127.0.0.1:11434/api/chat', data=payload,
                           headers={'Content-Type': 'application/json'})
         started = time.monotonic()

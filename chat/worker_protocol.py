@@ -12,6 +12,10 @@ LEASE_SECONDS = 15
 POLL_SECONDS = 10
 TOKEN = re.compile(r'^[a-zA-Z0-9_-]{1,80}$')
 
+CONTEXT_BUDGET = 8192
+CONTEXT_MESSAGE_ALLOWANCE = 128
+CONTEXT_OUTPUT_ALLOWANCE = 600
+
 
 def canonical(value):
     return json.dumps(value, sort_keys=True, separators=(',', ':'),
@@ -71,6 +75,18 @@ def signed_headers(config, path, raw, nonce, now=None):
     return {'Content-Type': 'application/json', 'X-OES-Worker': identity,
             'X-OES-Key': key_id, 'X-OES-Time': stamp, 'X-OES-Nonce': nonce,
             'X-OES-Signature': signature(key, 'request', path, identity, key_id, stamp, nonce, raw)}
+
+
+def context_cost(messages):
+    """Conservative byte-based context estimate shared with the outbound worker."""
+    if not isinstance(messages, list):
+        raise ValueError('Invalid messages')
+    total = CONTEXT_OUTPUT_ALLOWANCE
+    for item in messages:
+        if not isinstance(item, dict) or not isinstance(item.get('content'), str):
+            raise ValueError('Invalid message')
+        total += len(item['content'].encode('utf-8')) + CONTEXT_MESSAGE_ALLOWANCE
+    return total
 
 
 def messages_valid(messages):
