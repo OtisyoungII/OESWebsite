@@ -1,6 +1,7 @@
 """Single-process, single-job ephemeral relay. No provider policy lives here."""
 from collections import deque
 import hmac
+import logging
 import secrets
 import threading
 import time
@@ -13,10 +14,13 @@ from .worker_protocol import (MAX_BODY, MAX_OUTPUT, JOB_SECONDS, LEASE_SECONDS,
 
 bp = Blueprint('worker', __name__)
 PREFIX = '/api/worker/v1/'
+LOG = logging.getLogger('oes.relay')
 
 
 class RelayError(ValueError):
-    pass
+    def __init__(self, message, category='relay_ownership_lease'):
+        super().__init__(message)
+        self.category = category
 
 
 class WorkerRelay:
@@ -64,6 +68,8 @@ class WorkerRelay:
             self.session = None
         if self.job and (not self.session or now >= self.job['deadline'] or not self.live()):
             self.job['error'] = True
+            self.job['failure'] = ('job_deadline' if now >= self.job['deadline']
+                                   else 'relay_ownership_lease')
             self.cv.notify_all()
 
     def status(self):
@@ -119,32 +125,49 @@ class WorkerRelay:
                 if body['job'] is not None:
                     token(body['job'])
                 self.session['ollama'] = body['ollama']
-                self.session['job'] = body['job']
+                reported_active = bool(self.job and not self.job['error'] and not self.job['done']
+                                       and self.job['claimed'] and self.job['id'] == body['job'])
+                if reported_active:
+                    self.session['job'] = body['job']
+                elif (self.job and self.job['id'] == body['job']
+                      and (self.job['done'] or self.job['error'])):
+                    # A heartbeat captured before terminal acknowledgement cannot
+                    # resurrect a completed marker. A heartbeat for some other job
+                    # also cannot clear the current authoritative marker.
+                    self.session['job'] = None
+                elif body['job'] is None and not self.job:
+                    self.session['job'] = None
                 if body['ollama'] == 'unavailable' and self.job and body['job'] == self.job['id']:
                     self.job['error'] = True
+                    self.job['failure'] = 'model_readiness_digest'
+                    reported_active = False
                     self.cv.notify_all()
-                active = bool(self.job and not self.job['error'] and self.job['claimed']
-                              and self.job['id'] == body['job'])
+                active = reported_active
                 return {'active': active, 'health': self.health_model()}
             if action == 'result':
                 j = self.job
                 if (not j or j['error'] or not j['claimed'] or body['job'] != j['id']
                         or type(body['seq']) is not int or body['seq'] != j['seq'] or j['done']):
-                    raise RelayError('Obsolete or unordered result')
+                    raise RelayError('Obsolete or unordered result', 'result_rejection_obsolete')
                 if (not isinstance(body['text'], str) or len(body['text']) > 1024
                         or type(body['done']) is not bool or type(body['error']) is not bool
                         or (body['error'] and (body['text'] or not body['done']))):
-                    raise RelayError('Invalid result')
+                    raise RelayError('Invalid result', 'result_rejection_obsolete')
                 if j['total'] + len(body['text']) > MAX_OUTPUT:
                     j['error'] = True
                     self.cv.notify_all()
-                    raise RelayError('Output exceeded')
+                    raise RelayError('Output exceeded', 'output_limit')
                 if len(j['events']) >= 8:
                     return {'accepted': False, 'active': True}
                 j['seq'] += 1
                 j['total'] += len(body['text'])
                 j['events'].append((body['text'], body['done'], body['error']))
                 j['done'] = body['done']
+                # A successfully acknowledged terminal result proves this worker has
+                # finished the claimed job. Clear the session marker now so the
+                # service's one bounded regeneration can allocate the next job.
+                if body['done'] and not body['error']:
+                    self.session['job'] = None
                 self.cv.notify_all()
                 return {'accepted': True, 'active': True}
             if self.polling:
@@ -169,18 +192,26 @@ class WorkerRelay:
             finally:
                 self.polling = False
 
-    def stream(self, messages, cancelled=None):
+    def stream(self, messages, cancelled=None, request_id=None, attempt=1):
         from .providers import ChatEvent
-        messages_valid(messages)
+        try:
+            messages_valid(messages)
+        except (ValueError, TypeError, KeyError) as error:
+            LOG.warning('relay job failed request_id=%s attempt=%s category=input_message_bounds',
+                        request_id, attempt)
+            raise RelayError('Invalid messages', 'input_message_bounds') from error
         with self.cv:
             self._expire()
             if (not self.live() or self.job or not self.session or self.session['ollama'] != 'ready'
                     or self.session['job'] is not None
                     or (cancelled is not None and cancelled.is_set())):
-                raise RelayError('Worker unavailable')
+                LOG.warning('relay job failed request_id=%s attempt=%s category=worker_unavailable_busy',
+                            request_id, attempt)
+                raise RelayError('Worker unavailable', 'worker_unavailable_busy')
             j = {'id': secrets.token_hex(16), 'messages': messages,
                  'deadline': self.clock() + JOB_SECONDS, 'events': deque(),
-                 'claimed': False, 'error': False, 'done': False, 'total': 0, 'seq': 0}
+                 'claimed': False, 'error': False, 'done': False, 'total': 0, 'seq': 0,
+                 'failure': None, 'request_id': request_id, 'attempt': attempt}
             self.job = j
             self.cv.notify_all()
         try:
@@ -188,13 +219,19 @@ class WorkerRelay:
                 with self.cv:
                     self._expire()
                     if j['error'] or (cancelled is not None and cancelled.is_set()):
-                        raise RelayError('Inference interrupted')
+                        category = ('cancellation' if cancelled is not None and cancelled.is_set()
+                                    else j.get('failure') or 'result_rejection_obsolete')
+                        LOG.warning('relay job failed request_id=%s attempt=%s category=%s',
+                                    j['request_id'], j['attempt'], category)
+                        raise RelayError('Inference interrupted', category)
                     if not j['events']:
                         self.cv.wait(0.5)
                         continue
                     text, done, error = j['events'].popleft()
                 if error:
-                    raise RelayError('Inference failed')
+                    LOG.warning('relay job failed request_id=%s attempt=%s category=ollama_protocol_malformed_event',
+                                j['request_id'], j['attempt'])
+                    raise RelayError('Inference failed', 'ollama_protocol_malformed_event')
                 if text:
                     yield ChatEvent('delta', {'text': text})
                 if done:
@@ -220,7 +257,14 @@ def worker_request(action):
         return {'error': 'worker_unauthorized'}, 401
     try:
         result = relay.dispatch(action, decode(raw))
-    except (ValueError, TypeError, KeyError):
+    except (ValueError, TypeError, KeyError) as error:
+        category = getattr(error, 'category', 'relay_ownership_lease')
+        with relay.cv:
+            job = relay.job
+            request_id = job.get('request_id') if job else None
+            attempt = job.get('attempt') if job else None
+        LOG.warning('relay request rejected request_id=%s attempt=%s category=%s',
+                    request_id, attempt, category)
         return {'error': 'worker_request_rejected'}, 409
     output = canonical(result)
     identity, key_id, key = settings(current_app.config)

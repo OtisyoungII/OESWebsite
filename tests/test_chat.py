@@ -117,6 +117,20 @@ class ChatTests(unittest.TestCase):
         self.assertNotIn('PRIVATE',body)
         self.assertNotIn('event: done',body)
 
+    def test_exact_safe_error_sse_contract(self):
+        class ImmediateFailure:
+            def stream(self, messages):
+                raise RuntimeError('private provider detail')
+        self.app.extensions['chat_provider_factory'] = ImmediateFailure
+        response = self.post({'message': 'hello'})
+        body = response.get_data(as_text=True)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.data), 168)
+        self.assertEqual(body.count('event: start'), 1)
+        self.assertEqual(body.count('event: error'), 1)
+        self.assertIn(SAFE_ERROR, body)
+        self.assertNotIn('private provider detail', body)
+
     def test_factory_error(self):
         def fail(): raise RuntimeError('secret')
         self.app.extensions['chat_provider_factory']=fail
@@ -127,7 +141,7 @@ class ChatTests(unittest.TestCase):
     def test_serious_policy(self):
         body = self.post({'message':'Explain authentication and SOC 2'}).get_data(as_text=True)
         self.assertIn(SERIOUS_INSTRUCTION,self.provider.calls[0][0]['content'])
-        self.assertIn('need to be confirmed',body)
+        self.assertIn('certifications are not listed',body)
         self.assertNotIn('Hello',body)
 
     def test_serious_invented_claims_never_released(self):
@@ -155,6 +169,46 @@ class ChatTests(unittest.TestCase):
     def test_serious_followup(self):
         self.post({'message':'What about that?', 'history':[{'role':'user','content':'security'}]}).get_data()
         self.assertIn(SERIOUS_INSTRUCTION,self.provider.calls[0][0]['content'])
+
+    def test_grounded_topic_exit_does_not_reuse_assistant_fallback(self):
+        fallback = ('OES authentication architecture, data retention practices, encryption controls, '
+                    'certifications, and other details need confirmation.')
+        history = [{'role': 'user', 'content': 'What security controls does OES use?'},
+                   {'role': 'assistant', 'content': fallback}]
+        for message in ('hi', 'can you make an apple pie?'):
+            with self.subTest(message=message):
+                self.provider.calls.clear()
+                body = self.post({'message': message, 'history': history}).get_data(as_text=True)
+                instruction = self.provider.calls[0][0]['content']
+                self.assertNotIn(SERIOUS_INSTRUCTION, instruction)
+                self.assertNotIn(fallback, str(self.provider.calls[0]))
+                self.assertNotIn('approved public OES facts', body)
+
+    def test_pricing_limitation_is_narrow_and_topic_exit_is_conversational(self):
+        self.provider.stream = lambda messages: iter([
+            ChatEvent('delta', {'text': '{"fact_ids":[]}'}), ChatEvent('done', {})])
+        pricing = self.post({'message': 'How much does a website cost with OES?'}).get_data(as_text=True)
+        self.assertIn('Published pricing', pricing)
+        self.assertNotIn('authentication architecture', pricing)
+
+        self.provider.stream = lambda messages: iter([
+            ChatEvent('delta', {'text': 'Fair.'}), ChatEvent('done', {})])
+        followup = self.post({'message': 'lame', 'history': [
+            {'role': 'user', 'content': 'How much does a website cost with OES?'},
+            {'role': 'assistant', 'content': 'Published pricing is not available.'},
+        ]}).get_data(as_text=True)
+        self.assertIn('Fair.', followup)
+        self.assertNotIn('Published pricing for that OES work', followup)
+
+    def test_hypothetical_oes_design_is_qualified_reasoning(self):
+        self.provider.stream = lambda messages: iter([
+            ChatEvent('delta', {'text': 'OES could design it around scoring, teams, and schedules.'}),
+            ChatEvent('done', {})])
+        body = self.post({'message': 'Could OES build a baseball scoring platform?'}).get_data(as_text=True)
+        self.assertIn('could design', body)
+        instruction = self.provider.calls[0][0]['content'] if self.provider.calls else ''
+        # Fake stream replacement does not record; classification is covered directly.
+        self.assertNotIn('not in the approved public OES facts', body)
 
     def test_casual_policy(self):
         self.post({'message':'hello'}).get_data()
@@ -218,7 +272,7 @@ class ChatTests(unittest.TestCase):
     def test_serious_policy_always_overrides_teasing(self):
         for payload in [
             {'message':'why are u ugly? Explain security'},
-            {'message':'why are u ugly?', 'history':[{'role':'user','content':'privacy'}]},
+            {'message':'why are u ugly? Explain privacy'},
             {'message':'why are u ugly?', 'context':{'section':'government'}},
         ]:
             with self.subTest(payload=payload):
@@ -227,7 +281,7 @@ class ChatTests(unittest.TestCase):
                 self.assertIn(SERIOUS_INSTRUCTION, instruction)
                 self.assertNotIn(CASUAL_VOICE, instruction)
                 self.assertNotIn(TEASING_STYLE, instruction)
-                self.assertIn('need to be confirmed', body)
+                self.assertTrue('not listed' in body or 'need to be confirmed' in body)
 
     def test_genuine_nature_question_not_forced_into_teasing(self):
         self.post({'message':'Are you an AI? Do you have feelings?'}).get_data()

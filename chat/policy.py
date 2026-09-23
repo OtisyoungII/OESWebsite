@@ -120,6 +120,18 @@ UNCONFIRMED = (
     "certifications, and other details absent from the approved public context need "
     "to be confirmed directly with OES. I cannot verify those claims."
 )
+PRICING_UNCONFIRMED = (
+    "Published pricing for that OES work is not in the approved public facts. "
+    "Contact OES at info@otisexecutionsystems.com for a confirmed quote."
+)
+CERTIFICATION_UNCONFIRMED = (
+    "OES certifications are not listed in the approved public facts. "
+    "Contact OES at info@otisexecutionsystems.com for confirmed documentation."
+)
+SECURITY_UNCONFIRMED = (
+    "OES security controls and implementation details are not listed in the approved "
+    "public facts. Contact OES at info@otisexecutionsystems.com for confirmed documentation."
+)
 
 
 def serious_selection_instruction():
@@ -153,7 +165,18 @@ def render_public_fact_selection(candidate):
     return '\n\n'.join(PUBLIC_FACTS[key] for key in dict.fromkeys(ids))
 
 
-def render_serious_selection(candidate):
+def serious_limitation(message):
+    """Return a narrow deterministic limitation for the current factual topic."""
+    if re.search(r'\b(pricing|price|cost|charge|quote|payment)\b', message, re.I):
+        return PRICING_UNCONFIRMED
+    if re.search(r'\b(certific\w*|soc\s*2|iso|pci|nist|compliance)\b', message, re.I):
+        return CERTIFICATION_UNCONFIRMED
+    if re.search(r'\b(security|authenticat\w*|encrypt\w*|mfa|iam|retention)\b', message, re.I):
+        return SECURITY_UNCONFIRMED
+    return UNCONFIRMED
+
+
+def render_serious_selection(candidate, message=''):
     import json
     try:
         selection = json.loads(candidate)
@@ -164,10 +187,12 @@ def render_serious_selection(candidate):
     except (ValueError, TypeError, KeyError):
         ids = []
     # No model-authored text is released, even when selection fails.
-    return '\n\n'.join([UNCONFIRMED, *(SERIOUS_FACTS[key] for key in dict.fromkeys([*ids, 'contact']))])
+    return '\n\n'.join([serious_limitation(message),
+                        *(SERIOUS_FACTS[key] for key in dict.fromkeys([*ids, 'contact']))])
 
 
 def is_serious(message, history, context):
+    """Compatibility helper; callers choose whether history is classification input."""
     return context.get("section") == "government" or bool(SERIOUS_TERMS.search(
         "\n".join([message, *(item["content"] for item in history)])
     ))

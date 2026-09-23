@@ -24,6 +24,10 @@ class NoRedirect(HTTPRedirectHandler):
         return None
 
 
+class GenerationDeadline(TimeoutError):
+    pass
+
+
 def open_response(opener, request, timeout):
     try:
         return opener.open(request, timeout=timeout)
@@ -38,7 +42,7 @@ def bounded_lines(response, started, deadline):
     total = 0
     while True:
         if time.monotonic() - started > deadline:
-            raise TimeoutError('Generation deadline exceeded')
+            raise GenerationDeadline('Generation deadline exceeded')
         chunk = response.read1(4096)
         if not chunk:
             if buffer:

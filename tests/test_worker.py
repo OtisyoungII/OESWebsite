@@ -13,7 +13,7 @@ from chat.providers import create_provider
 from chat.service import ChatService
 from chat.worker_protocol import canonical, decode, messages_valid, signed_headers
 from chat.worker_relay import WorkerRelay, RelayError
-from worker.client import OutboundWorker
+from worker.client import OutboundWorker, WorkerFailure
 
 # Deliberately public fixture material; never suitable for deployment.
 CONFIG = {'OES_CHAT_PROVIDER': 'outbound_worker', 'OES_WORKER_ENABLED': 'true',
@@ -133,6 +133,55 @@ class RelayTests(unittest.TestCase):
         thread.join(2)
         self.assertEqual(output.get().data, {'text': 'Hello.'})
         self.assertEqual(output.get().kind, 'done')
+        self.assertIsNone(self.relay.job)
+
+    def test_character_regeneration_reuses_completed_worker_lifecycle(self):
+        owner = self.connect()
+        provider = create_provider(self.app.config)
+        output = queue.Queue()
+
+        def converse():
+            try:
+                output.put(list(ChatService(provider).stream("you're back", [], {})))
+            except Exception as error:
+                output.put(error)
+
+        thread = threading.Thread(target=converse)
+        thread.start()
+        self.streams.append((provider, thread))
+        for _ in range(100):
+            if self.relay.job:
+                break
+            time.sleep(.005)
+
+        first = self.claim(owner)
+        trace_id = self.relay.job['request_id']
+        self.assertIsNotNone(trace_id)
+        self.assertEqual(self.relay.job['attempt'], 1)
+        self.assertEqual(self.result(owner, first, text="I'm OES Eyeball. How can I assist you today?").status_code, 200)
+        self.assertIsNone(self.relay.session['job'])
+        stale_heartbeat = self.post('heartbeat', {**owner, 'job': first, 'ollama': 'ready'})
+        self.assertEqual(stale_heartbeat.status_code, 200)
+        self.assertFalse(stale_heartbeat.json['active'])
+        self.assertIsNone(self.relay.session['job'])
+
+        # The terminal result cannot be replayed, including while regeneration starts.
+        self.assertEqual(self.result(owner, first).status_code, 409)
+        second = self.claim(owner)
+        self.assertNotEqual(first, second)
+        self.assertEqual(self.relay.job['request_id'], trace_id)
+        self.assertEqual(self.relay.job['attempt'], 2)
+        self.assertEqual(self.relay.session['job'], second)
+        self.post('heartbeat', {**owner, 'job': first, 'ollama': 'ready'})
+        self.assertEqual(self.relay.session['job'], second)
+        self.assertEqual(self.result(owner, second,
+                         text="Unfortunately for everyone involved, I'm back.").status_code, 200)
+
+        thread.join(2)
+        self.assertFalse(thread.is_alive())
+        events = output.get()
+        self.assertIsInstance(events, list)
+        self.assertEqual([event.kind for event in events], ['start', 'delta', 'done'])
         self.assertIsNone(self.relay.job)
 
     def test_wrong_epoch_stale_lease_boot_and_sequence(self):
@@ -327,8 +376,9 @@ class WorkerTests(unittest.TestCase):
                          [MESSAGES[0],{'role':'user','content':'x','model':'x'}]):
             with self.assertRaises(ValueError): messages_valid(messages)
         huge = [{'role':'system','content':'x'*8000},MESSAGES[-1]]
-        with self.assertRaisesRegex(ValueError,'Context budget'):
+        with self.assertRaisesRegex(ValueError,'Context budget') as raised:
             worker.infer({'job':'j','messages':huge,'seconds':90},{})
+        self.assertEqual(raised.exception.category, 'context_budget')
 
     def test_model_unavailable_and_digest_mismatch(self):
         worker = OutboundWorker(self.config())
@@ -336,6 +386,22 @@ class WorkerTests(unittest.TestCase):
             self.assertFalse(worker.model_ready())
         with patch.object(worker.local,'open',return_value=io.BytesIO(b'{"models":[]}')):
             self.assertFalse(worker.model_ready())
+        with patch.object(worker, 'model_ready', return_value=False):
+            with self.assertRaises(WorkerFailure) as raised:
+                worker.infer({'job':'j','messages':MESSAGES,'seconds':90},{})
+        self.assertEqual(raised.exception.category, 'model_readiness_digest')
+
+    def test_normal_upstream_close_is_not_failure_category(self):
+        worker = OutboundWorker(self.config())
+        data = canonical({'model':'llama3.2','message':{'role':'assistant','content':'Hello'},
+                          'done':True}) + b'\n'
+        with patch.object(worker, 'model_ready', return_value=True), \
+             patch.object(worker.local, 'open', return_value=io.BytesIO(data)), \
+             patch.object(worker, 'rpc', return_value={'accepted':True,'active':True}), \
+             self.assertLogs('oes.worker', level='WARNING') as logs:
+            worker.infer({'job':'j','messages':MESSAGES,'seconds':90},{})
+        self.assertTrue(any('upstream stream closed' in line for line in logs.output))
+        self.assertFalse(any('category=' in line for line in logs.output))
 
     def test_malformed_timeout_and_cancelled_ollama(self):
         for data in (b'bad\n', b'{"model":"other"}\n', b'{"model":"llama3.2","message":{"role":"assistant","content":"x","tool_calls":[{}]},"done":true}\n'):

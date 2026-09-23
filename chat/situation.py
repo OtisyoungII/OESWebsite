@@ -33,19 +33,29 @@ class Continuity:
     recent_serious: bool
 
 
-BUSINESS_SENSITIVE = re.compile(r'\b(pricing|price|quote|nda|confidential|liability|warrant\w*|payment|sla|insurance)\b', re.I)
+BUSINESS_SENSITIVE = re.compile(r'\b(pricing|price|cost|charge|quote|nda|confidential|liability|warrant\w*|payment|sla|insurance)\b', re.I)
 IDENTITY = re.compile(
     r'\b(?:are (?:you|u) (?:an? )?(?:ai|human|bot)|(?:do|can) you (?:have feelings|feel))\b'
     r'|^\s*what are you(?:\s+really)?\s*[?.!]*\s*$', re.I)
-OES_FACTS = re.compile(r'\b(oes|otis|chaseingreen|lottovate|drinks with friendz|testflight|products?|services?|trading companion|lottery assistant)\b', re.I)
+OES_FACTS = re.compile(r'\b(oes|otis execution systems|chaseingreen|lottovate|drinks with friendz|trading companion|lottery assistant)\b', re.I)
+HYPOTHETICAL_OES = re.compile(
+    r'\b(?:could|would|can|should|might)\s+(?:oes|otis execution systems)\s+'
+    r'(?:build|make|develop|design|create)\b|\b(?:brainstorm|design|imagine|propose)\b.{0,80}\b(?:for\s+)?(?:oes|otis execution systems)\b',
+    re.I)
+USER_IDENTITY = re.compile(r"^\s*(?:my name is|i['’]?m|i am|call me)\s+[a-z][a-z .'-]{0,79}[.!?]*\s*$", re.I)
 CONTEXT_PRODUCT = re.compile(r'\b(this|that|current)\s+(product|project|app)\b', re.I)
 UNKNOWN_VISITOR_REASON = re.compile(r'\bwhy\s+(?:am i|did i|would i|do i)\b', re.I)
 PLAYFUL_FOLLOWUP = re.compile(r'^(?:lol|haha|ha ha|nice one|good one|try again|another one)[!.? ]*$', re.I)
 CHARACTER_BANTER = re.compile(
-    r"\b(?:eye(?:ball)?|trouble ?maker|you|u|you['’]re|you['’]ve|you been|got rid of you)\b", re.I)
+    r"\b(?:eye(?:ball)?|trouble ?maker|you again|you['’]?re back|you are back|"
+    r"got rid of you|trust you|you been doing|you working again|"
+    r"what are you looking at|what have you been doing)\b", re.I)
 CHARACTER_GREETING = re.compile(r'^\s*(?:hey|hi|hello|yo)(?:\s+there)?(?:\s+eye(?:ball)?)?[!.? ]*$', re.I)
 CHARACTER_TRUST = re.compile(r'\btrust\b', re.I)
 CHARACTER_ACTIVITY = re.compile(r'\b(?:looking at|been doing|behav\w*)\b', re.I)
+EXPLICIT_TOPIC_FOLLOWUP = re.compile(
+    r'^\s*(?:and\s+)?(?:what|how)\s+about\s+(?:that|it|the same(?: thing| topic)?)\s*[?.!]*\s*$'
+    r'|^\s*(?:does|is|was|would|could)\s+(?:that|it)\b', re.I)
 
 
 def bounded_history(history):
@@ -59,18 +69,47 @@ def bounded_history(history):
     return list(reversed(result))
 
 
+def conversational_history(history):
+    """Keep conversational continuity while excluding grounded-topic exchanges.
+
+    Classification authority remains with each user turn. An assistant response to
+    a factual/serious request is omitted with that request so deterministic fallback
+    language cannot steer a later unrelated generation.
+    """
+    result = []
+    suppress_assistant = False
+    for item in bounded_history(history):
+        if item['role'] == 'user':
+            suppress_assistant = bool(is_serious(item['content'], [], {})
+                                      or BUSINESS_SENSITIVE.search(item['content'])
+                                      or OES_FACTS.search(item['content']))
+            if not suppress_assistant:
+                result.append(item)
+        elif suppress_assistant:
+            suppress_assistant = False
+        else:
+            result.append(item)
+    return result
+
+
 class SituationAnalyzer:
     def analyze(self, message, history, context):
         history = bounded_history(history)
-        recent_serious = is_serious('', history, {}) or any(BUSINESS_SENSITIVE.search(x['content']) for x in history)
         user_messages = [x['content'] for x in history if x['role'] == 'user']
+        previous_user = user_messages[-1] if user_messages else ''
+        refers_to_previous = bool(previous_user and EXPLICIT_TOPIC_FOLLOWUP.search(message))
+        previous_serious = bool(is_serious(previous_user, [], {})
+                                or BUSINESS_SENSITIVE.search(previous_user))
+        inherited_serious = refers_to_previous and previous_serious
+        current_serious = bool(is_serious(message, [], context)
+                               or BUSINESS_SENSITIVE.search(message))
+        serious = current_serious or inherited_serious
         recent_playful = any(HARMLESS_TEASING.search(text) or CHARACTER_BANTER.search(text)
                              for text in user_messages[-3:])
         continuity = Continuity(
             tuple(x['content'] for x in history if x['role'] == 'assistant')[-3:],
-            'professional' if recent_serious else 'playful' if recent_playful else 'neutral',
-            recent_playful, bool(recent_serious))
-        serious = bool(is_serious(message, history, context) or recent_serious or BUSINESS_SENSITIVE.search(message))
+            'professional' if serious else 'playful' if recent_playful else 'neutral',
+            recent_playful, inherited_serious)
         if serious:
             state = SituationState('serious', True, 'professional', False, True,
                                    'approved_fact_selection', 'concise', False, 'grounded_answer', 'high')
@@ -82,6 +121,13 @@ class SituationAnalyzer:
             state = SituationState('teasing', False, 'playful', True, False,
                                    'character_no_new_facts', 'one_short_sentence', False, 'playful_reply',
                                    'high' if HARMLESS_TEASING.search(message) else 'medium')
+        elif USER_IDENTITY.fullmatch(message) and not OES_FACTS.search(message):
+            state = SituationState('conversation', False, 'neutral', False, False,
+                                   'truthful_no_new_oes_facts', 'concise', False, 'answer', 'high')
+        elif HYPOTHETICAL_OES.search(message):
+            state = SituationState('hypothetical_oes_design', False, 'thoughtful', False, False,
+                                   'hypothetical_no_current_state_claims', 'concise', False,
+                                   'reason_hypothetically', 'high')
         elif OES_FACTS.search(message) or (context.get('project') and CONTEXT_PRODUCT.search(message)):
             state = SituationState('oes_question', False, 'informative', False, True,
                                    'approved_public_context', 'concise', False, 'answer', 'high')
@@ -136,6 +182,11 @@ def response_contract(state, continuity):
                      'answer trust questions by encouraging verification without claiming authority.')
     elif state.response_action == 'clarify':
         contract += '\nAsk one brief clarifying question; do not guess the missing referent.'
+    elif state.response_action == 'reason_hypothetically':
+        contract += ('\nReason about the proposed system as a hypothetical. You may brainstorm, '
+                     'organize ideas, and discuss how it could be built. Clearly distinguish the '
+                     'proposal from actual OES customers, contracts, products, deployments, completed '
+                     'work, pricing, certifications, tools, actions, and private information.')
     return contract
 
 
@@ -176,7 +227,31 @@ def validate_playful(text, continuity):
 
 
 def validate_character(text, continuity):
-    """Bounded style/fact guard for character-directed casual conversation."""
+    """Combined review retained for callers; service separates safety from style."""
+    return tuple(dict.fromkeys((*validate_character_safety(text),
+                               *validate_character_style(text, continuity))))
+
+
+def validate_character_safety(text):
+    """Hard factual/observation/authority boundaries for character responses."""
+    failures = []
+    if re.search(r'\b(?:i (?:see|saw|noticed|watched|observed|tracked) you|'
+                 r'you (?:interacted|navigated|clicked|refreshed|changed your section)|'
+                 r'your interest (?:is|shows?|means?)|i (?:know|can tell) (?:why|that) you)\b', text, re.I):
+        failures.append('visitor_narration')
+    if re.search(r'\b(?:(?:oes|otis execution systems|chaseingreen|lottovate|drinks with friendz)\s+'
+                 r'(?:is|has|offers?|supports?|provides?|built|developed|uses?|can|will|guarantees?)|'
+                 r'trusted provider|secure solutions?|million users?|certified|soc\s*2)\b', text, re.I):
+        failures.append('unsupported_claim')
+    if re.search(r'\b(?:i (?:accessed|opened|sent|emailed|deleted|changed|executed|ran)|'
+                 r'i (?:can|will) (?:access|open|send|email|delete|change|execute|run)|'
+                 r'i have (?:admin|administrator|private|internal) access)\b', text, re.I):
+        failures.append('false_action_authority')
+    return tuple(dict.fromkeys(failures))
+
+
+def validate_character_style(text, continuity):
+    """Soft presentation preferences; these never make a safe response unavailable."""
     tokens = words(text)
     failures = []
     if not tokens or len(tokens) > 30 or len(text) > 240:
@@ -197,14 +272,9 @@ def validate_character(text, continuity):
     if re.search(r"\b(?:i am|i['’]m|this is) (?:the )?oes eyeball\b|"
                  r'\bpublic (?:intelligence )?interface for otis execution systems\b', text, re.I):
         failures.append('self_introduction')
-    if re.search(r'\b(?:i (?:see|saw|noticed|watch|observe|track)|you (?:interacted|navigated|clicked|'
-                 r'refreshed|changed your section)|your interest|fan of|visitors?|users?|browser|screen|'
-                 r'homepage|website|site|page|screen|interactions?|conversation|exchange)\b', text, re.I):
+    if re.search(r'\b(?:my gaze is fixed on the page|browser|screen|homepage|website|site|page|'
+                 r'interactions?|conversation|exchange)\b', text, re.I):
         failures.append('visitor_narration')
-    if re.search(r'\b(?:oes|otis execution systems|chaseingreen|lottovate|drinks with friendz|testflight|'
-                 r'trusted provider|secure solutions?|committed to|making progress|moving along|latest projects?|'
-                 r'running smoothly|new (?:features|tools)|behind the scenes|million users?)\b', text, re.I):
-        failures.append('unsupported_claim')
     if '?' in text:
         failures.append('customer_service')
     prior_tokens = [words(previous) for previous in continuity.recent_assistant_phrasing]

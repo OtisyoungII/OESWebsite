@@ -10,9 +10,14 @@ class OutboundWorkerProvider:
         if not self.relay.configured():
             raise ValueError('Worker disabled')
         self.cancelled = threading.Event()
+        self.request_id = None
+        self.attempt = 1
+
+    def set_trace(self, request_id, attempt):
+        self.request_id, self.attempt = request_id, attempt
 
     def stream(self, messages):
-        return self.relay.stream(messages, self.cancelled)
+        return self.relay.stream(messages, self.cancelled, self.request_id, self.attempt)
 
     def cancel(self):
         self.cancelled.set()

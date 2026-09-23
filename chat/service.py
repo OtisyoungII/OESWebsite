@@ -1,18 +1,27 @@
 """Policy assembly and provider-independent output boundary."""
 import json
+import logging
 from uuid import uuid4
 from .policy import (SYSTEM_IDENTITY, PUBLIC_CONTEXT, SERIOUS_INSTRUCTION,
                      serious_selection_instruction, render_serious_selection,
                      public_fact_selection_instruction, render_public_fact_selection)
 from .providers import ChatEvent
 from .situation import (SituationAnalyzer, response_contract, validate_playful,
-                        validate_character, character_correction, character_style_instruction,
-                        bounded_history)
+                        validate_character_style, validate_character_safety,
+                        character_correction, character_style_instruction, bounded_history,
+                        conversational_history)
 from .observations import (ObservationState, infer, observation_contract,
                            log_observations, InitiationDecision)
 from .worker_protocol import CONTEXT_BUDGET, context_cost
 
 SAFE_ERROR = "Eyeball is temporarily unavailable. Please try again shortly."
+LOG = logging.getLogger('oes.chat')
+
+
+class ServiceFailure(ValueError):
+    def __init__(self, category):
+        super().__init__(category)
+        self.category = category
 
 
 def fit_messages(instruction, history, message):
@@ -84,9 +93,14 @@ class ChatService:
         elif state.requires_oes_facts:
             instruction += "\n\n" + public_fact_selection_instruction()
 
-        model_history = [] if state.requires_oes_facts and not serious else history
+        # Grounded selection receives no untrusted conversation prose. Ordinary and
+        # hypothetical turns retain only conversational exchanges, excluding earlier
+        # grounded requests and their deterministic assistant fallbacks.
+        model_history = ([] if state.requires_oes_facts
+                         else conversational_history(history))
 
-        yield ChatEvent("start", {"request_id": uuid4().hex})
+        request_id = uuid4().hex
+        yield ChatEvent("start", {"request_id": request_id})
 
         if state.interaction_kind == 'unknown_visitor_reason':
             yield ChatEvent('delta', {'text': "I can't know why you're here. What caught your eye?"})
@@ -94,58 +108,97 @@ class ChatService:
             return
 
         stream = None
+        active_attempt = 1
+
+        def provider_candidate(provider_messages, attempt):
+            nonlocal stream
+            if hasattr(self.provider, 'set_trace'):
+                self.provider.set_trace(request_id, attempt)
+            candidate = ''
+            finished = False
+            stream = self.provider.stream(provider_messages)
+            try:
+                for event in stream:
+                    if event.kind == 'delta':
+                        try:
+                            text = event.data['text']
+                        except (KeyError, TypeError) as error:
+                            raise ServiceFailure('provider_event_protocol') from error
+                        if not isinstance(text, str):
+                            raise ServiceFailure('provider_event_protocol')
+                        candidate += text
+                        if len(candidate) > 16000:
+                            raise ServiceFailure('response_output_limit')
+                    elif event.kind == 'done':
+                        finished = True
+                        break
+                    else:
+                        raise ServiceFailure('provider_event_protocol')
+            finally:
+                if hasattr(stream, 'close'):
+                    stream.close()
+                stream = None
+            if not finished:
+                raise ServiceFailure('incomplete_provider_stream')
+            return candidate
+
+        def emit(text):
+            yield ChatEvent('delta', {'text': text})
+            yield ChatEvent('done', {})
 
         try:
             messages = fit_messages(instruction, model_history, message)
 
+            if state.response_action == 'reason_hypothetically':
+                active_attempt = 1
+                candidate = provider_candidate(messages, active_attempt)
+                hard_failures = validate_character_safety(candidate)
+                if hard_failures:
+                    LOG.warning('chat response review request_id=%s attempt=1 '
+                                'category=character_validation hard=True reasons=%s',
+                                request_id, ','.join(hard_failures))
+                    raise ServiceFailure('response_validation_exhausted')
+                yield from emit(candidate)
+                return
+
             if state.response_action in ('playful_reply', 'character_reply'):
-                # Hold casual character replies until validated. Never release a failed draft.
+                # Safety is blocking. Style is a best-effort quality pass and can
+                # never make a completed safe response unavailable.
+                best_safe = None
+                best_style = None
                 for attempt in range(2):
-                    candidate = ''
-                    finished = False
-                    stream = self.provider.stream(messages)
-
+                    active_attempt = attempt + 1
                     try:
-                        for event in stream:
-                            if event.kind == 'delta':
-                                text = event.data['text']
+                        candidate = provider_candidate(messages, attempt + 1)
+                    except Exception as error:
+                        if best_safe is not None and attempt == 1:
+                            category = getattr(error, 'category', 'provider_event_protocol')
+                            LOG.warning('chat correction skipped request_id=%s attempt=2 category=%s',
+                                        request_id, category)
+                            yield from emit(best_safe)
+                            return
+                        raise
 
-                                if not isinstance(text, str):
-                                    raise ValueError('Invalid text')
+                    hard_failures = validate_character_safety(candidate)
+                    soft_failures = (validate_playful(candidate, continuity)
+                                     if state.response_action == 'playful_reply'
+                                     else validate_character_style(candidate, continuity))
 
-                                candidate += text
+                    if hard_failures or soft_failures:
+                        LOG.warning('chat response review request_id=%s attempt=%s '
+                                    'category=character_validation hard=%s reasons=%s',
+                                    request_id, attempt + 1, bool(hard_failures),
+                                    ','.join((*hard_failures, *soft_failures)))
 
-                                if len(candidate) > 16000:
-                                    raise ValueError('Output limit exceeded')
-
-                            elif event.kind == 'done':
-                                finished = True
-                                break
-
-                            else:
-                                raise ValueError('Unexpected provider event')
-
-                    finally:
-                        if hasattr(stream, 'close'):
-                            stream.close()
-                        stream = None
-
-                    if not finished:
-                        raise ValueError('Incomplete stream')
-
-                    validator = (validate_playful
-                                 if state.response_action == 'playful_reply'
-                                 else validate_character)
-
-                    failures = validator(candidate, continuity)
-
-                    if not failures:
-                        yield ChatEvent('delta', {'text': candidate})
-                        yield ChatEvent('done', {})
-                        return
+                    if not hard_failures:
+                        if best_safe is None or len(soft_failures) < len(best_style):
+                            best_safe, best_style = candidate, soft_failures
+                        if not soft_failures:
+                            yield from emit(candidate)
+                            return
 
                     if attempt == 0:
-                        # Only bounded correction instructions enter; rejected text stays untrusted.
+                        failures = (*hard_failures, *soft_failures)
                         correction = (
                             'Regenerate once. Fix: ' + ', '.join(failures)
                             + '. Follow the response contract; do not explain the correction.'
@@ -157,29 +210,42 @@ class ChatService:
 
                         # Re-fit after adding correction text because the correction itself
                         # consumes worker context and may require dropping older history.
-                        messages = fit_messages(
-                            corrected_instruction,
-                            model_history,
-                            message,
-                        )
+                        try:
+                            messages = fit_messages(corrected_instruction, model_history, message)
+                        except ValueError as error:
+                            if best_safe is not None:
+                                LOG.warning('chat correction skipped request_id=%s attempt=2 '
+                                            'category=context_budget', request_id)
+                                yield from emit(best_safe)
+                                return
+                            raise ServiceFailure('context_budget') from error
 
-                raise ValueError('Playful response failed validation twice')
+                if best_safe is not None:
+                    yield from emit(best_safe)
+                    return
+                raise ServiceFailure('response_validation_exhausted')
 
+            active_attempt = 1
+            if hasattr(self.provider, 'set_trace'):
+                self.provider.set_trace(request_id, active_attempt)
             stream = self.provider.stream(messages)
             size = 0
             candidate = ""
 
             for event in stream:
                 if event.kind == "delta":
-                    text = event.data["text"]
+                    try:
+                        text = event.data["text"]
+                    except (KeyError, TypeError) as error:
+                        raise ServiceFailure('provider_event_protocol') from error
 
                     if not isinstance(text, str):
-                        raise ValueError("Invalid text")
+                        raise ServiceFailure('provider_event_protocol')
 
                     size += len(text)
 
                     if size > 16000:
-                        raise ValueError("Output limit exceeded")
+                        raise ServiceFailure('response_output_limit')
 
                     if serious or state.requires_oes_facts:
                         candidate += text
@@ -188,23 +254,28 @@ class ChatService:
 
                 elif event.kind == "done":
                     if serious or state.requires_oes_facts:
-                        rendered = (
-                            render_serious_selection(candidate)
-                            if serious
-                            else render_public_fact_selection(candidate)
-                        )
+                        try:
+                            rendered = (render_serious_selection(candidate, message) if serious
+                                        else render_public_fact_selection(candidate))
+                        except Exception as error:
+                            raise ServiceFailure('grounded_rendering') from error
                         yield ChatEvent("delta", {"text": rendered})
 
                     yield ChatEvent("done", {})
                     return
 
                 else:
-                    raise ValueError("Unexpected provider event")
+                    raise ServiceFailure('provider_event_protocol')
 
-            raise ValueError("Incomplete stream")
+            raise ServiceFailure('incomplete_provider_stream')
 
-        except Exception:
+        except Exception as error:
             # Never serialize provider exceptions, URLs, prompts or machine paths.
+            category = getattr(error, 'category', 'provider_event_protocol')
+            if str(error) == 'Mandatory prompt exceeds context budget':
+                category = 'context_budget'
+            LOG.warning('chat request failed request_id=%s attempt=%s category=%s',
+                        request_id, active_attempt, category)
             yield ChatEvent("error", {"message": SAFE_ERROR})
 
         finally:

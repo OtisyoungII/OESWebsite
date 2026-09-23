@@ -10,13 +10,24 @@ import time
 from urllib.parse import urlsplit
 from urllib.request import Request, build_opener, ProxyHandler, HTTPSHandler
 
-from chat.providers import NoRedirect, bounded_lines, open_response
+from chat.providers import GenerationDeadline, NoRedirect, bounded_lines, open_response
 from chat.worker_protocol import (CONTEXT_BUDGET, MAX_BODY, MAX_OUTPUT, canonical,
                                   context_cost, decode, fields, messages_valid, settings,
                                   signature, signed_headers, token)
 
 LOG = logging.getLogger('oes.worker')
 RPC_SECONDS = 27
+
+
+class WorkerFailure(ValueError):
+    """Content-free internal failure category safe for operational logs."""
+    def __init__(self, category, message=None):
+        super().__init__(message or category)
+        self.category = category
+
+
+class WorkerTimeout(WorkerFailure, TimeoutError):
+    pass
 
 
 class OutboundWorker:
@@ -55,15 +66,15 @@ class OutboundWorker:
 
     def rpc(self, action, body):
         if not self.rpc_slots.acquire(blocking=False):
-            raise TimeoutError('Relay transports occupied')
+            raise WorkerTimeout('transport_rpc_timeout')
         complete = threading.Event()
         outcome = []
 
         def perform():
             try:
                 outcome.append((True, self._rpc(action, body)))
-            except Exception:
-                outcome.append((False, None))
+            except Exception as error:
+                outcome.append((False, error))
             finally:
                 self.rpc_slots.release()
                 complete.set()
@@ -71,10 +82,16 @@ class OutboundWorker:
         threading.Thread(target=perform, daemon=True, name='oes-worker-https').start()
         if not complete.wait(RPC_SECONDS):
             # A late transport can close normally but its result cannot execute a job.
-            raise TimeoutError('Relay operation deadline')
+            raise WorkerTimeout('transport_rpc_timeout')
         success, value = outcome[0]
         if not success:
-            raise ValueError('Relay transport rejected or unavailable')
+            if isinstance(value, WorkerFailure):
+                raise value
+            if isinstance(value, TimeoutError):
+                raise WorkerTimeout('transport_rpc_timeout') from value
+            category = ('result_rejection_obsolete' if action == 'result'
+                        else 'relay_ownership_lease')
+            raise WorkerFailure(category) from value
         return value
 
     def _rpc(self, action, body):
@@ -88,7 +105,7 @@ class OutboundWorker:
             chunks, size = [], 0
             while True:
                 if time.monotonic() - started > 15:
-                    raise TimeoutError('Relay response deadline')
+                    raise WorkerTimeout('transport_rpc_timeout')
                 chunk = response.read1(4096)
                 if not chunk:
                     break
@@ -101,7 +118,7 @@ class OutboundWorker:
             expected = signature(key, 'response', path, identity, key_id,
                                  headers['X-OES-Time'], headers['X-OES-Nonce'], data)
             if not hmac.compare_digest(expected, response.headers.get('X-OES-Signature', '')):
-                raise ValueError('Unauthenticated relay response')
+                raise WorkerFailure('relay_ownership_lease')
             return decode(data)
 
     def model_ready(self):
@@ -143,17 +160,20 @@ class OutboundWorker:
                         self.owner = None
 
     def infer(self, job, owner):
-        fields(job, ('job', 'messages', 'seconds'))
-        token(job['job'])
-        messages_valid(job['messages'])
+        try:
+            fields(job, ('job', 'messages', 'seconds'))
+            token(job['job'])
+            messages_valid(job['messages'])
+        except (ValueError, TypeError, KeyError) as error:
+            raise WorkerFailure('input_message_bounds') from error
         if type(job['seconds']) is not int or not 1 <= job['seconds'] <= 90:
-            raise ValueError('Invalid job deadline')
+            raise WorkerFailure('job_deadline')
         # Conservative byte-based upper bound, including chat-template allowance.
         # Refuse oversized prompts; never silently trim authoritative instructions.
         if context_cost(job['messages']) > CONTEXT_BUDGET:
-            raise ValueError('Context budget exceeded')
+            raise WorkerFailure('context_budget', 'Context budget exceeded')
         if not self.model_ready():
-            raise ValueError('Expected model unavailable')
+            raise WorkerFailure('model_readiness_digest')
         deadline = time.monotonic() + job['seconds']
         sequence = 0
 
@@ -161,12 +181,21 @@ class OutboundWorker:
             nonlocal sequence
             while True:
                 if self.cancelled.is_set() or self.stop.is_set() or time.monotonic() >= deadline:
-                    raise ValueError('Obsolete inference')
-                result = self.rpc('result', {**owner, 'job': job['job'], 'seq': sequence,
-                                           'text': text, 'done': done, 'error': error})
+                    category = ('cancellation' if self.cancelled.is_set() or self.stop.is_set()
+                                else 'job_deadline')
+                    raise WorkerFailure(category)
+                try:
+                    result = self.rpc('result', {**owner, 'job': job['job'], 'seq': sequence,
+                                               'text': text, 'done': done, 'error': error})
+                except WorkerFailure as failure:
+                    if failure.category == 'transport_rpc_timeout':
+                        raise
+                    raise WorkerFailure('result_rejection_obsolete') from failure
+                except TimeoutError as failure:
+                    raise WorkerTimeout('transport_rpc_timeout') from failure
                 fields(result, ('accepted', 'active'))
                 if type(result['accepted']) is not bool or result['active'] is not True:
-                    raise ValueError('Invalid result acknowledgement')
+                    raise WorkerFailure('result_rejection_obsolete')
                 if result['accepted']:
                     sequence += 1
                     return
@@ -186,41 +215,55 @@ class OutboundWorker:
                 total, pending, last_send = 0, '', time.monotonic()
                 for line in bounded_lines(response, started, job['seconds']):
                     if self.cancelled.is_set() or self.stop.is_set() or time.monotonic() >= deadline:
-                        raise ValueError('Obsolete inference')
-                    value = json.loads(line)
+                        category = ('cancellation' if self.cancelled.is_set() or self.stop.is_set()
+                                    else 'job_deadline')
+                        raise WorkerFailure(category)
+                    try:
+                        value = json.loads(line)
+                    except (ValueError, TypeError) as error:
+                        raise WorkerFailure('ollama_protocol_malformed_event') from error
                     if (not isinstance(value, dict) or value.get('error')
                             or value.get('model') not in ('llama3.2', 'llama3.2:latest')):
-                        raise ValueError('Invalid model response')
+                        raise WorkerFailure('ollama_protocol_malformed_event')
                     message = value.get('message')
                     if (not isinstance(message, dict) or message.get('role') != 'assistant'
                             or message.get('tool_calls') or not isinstance(message.get('content'), str)
                             or type(value.get('done')) is not bool):
-                        raise ValueError('Invalid model event')
+                        raise WorkerFailure('ollama_protocol_malformed_event')
                     text = message['content']
                     total += len(text)
                     if total > MAX_OUTPUT:
-                        raise ValueError('Output exceeded')
+                        raise WorkerFailure('output_limit')
                     pending += text
                     while len(pending) >= 1024:
                         send(pending[:1024])
                         pending = pending[1024:]
                     if value['done']:
                         if value.get('done_reason') not in (None, 'stop'):
-                            raise ValueError('Incomplete generation')
+                            raise WorkerFailure('ollama_protocol_malformed_event')
                         send(pending, done=True)
                         return
                     if pending and time.monotonic() - last_send >= 0.1:
                         send(pending)
                         pending, last_send = '', time.monotonic()
-            raise ValueError('Incomplete stream')
-        except Exception:
-            LOG.warning('worker inference stopped reason=%s',
-                        'cancelled' if self.cancelled.is_set() or self.stop.is_set() else 'failed')
+            raise WorkerFailure('ollama_protocol_malformed_event')
+        except Exception as error:
+            if isinstance(error, WorkerFailure):
+                failure = error
+            elif isinstance(error, GenerationDeadline):
+                failure = WorkerFailure('job_deadline')
+            elif isinstance(error, TimeoutError):
+                failure = WorkerTimeout('ollama_timeout')
+            else:
+                failure = WorkerFailure('ollama_protocol_malformed_event')
+            LOG.warning('worker job failed category=%s', failure.category)
             try:
                 send('', done=True, error=True)
             except Exception:
                 pass
-            raise
+            if failure is error:
+                raise
+            raise failure from error
         finally:
             if opened:
                 LOG.warning('worker upstream stream closed')
@@ -264,12 +307,13 @@ class OutboundWorker:
                     finally:
                         with self.lock:
                             self.job = None
-                except Exception:
+                except Exception as error:
                     self.cancelled.set()
                     with self.lock:
                         self.owner = None
                         self.ready = False
-                    LOG.warning('worker unavailable or job rejected')
+                    category = getattr(error, 'category', 'relay_ownership_lease')
+                    LOG.warning('worker connection reset category=%s', category)
                     self.stop.wait(3)
         finally:
             self.cancelled.set()
