@@ -16,6 +16,16 @@ CONTEXT_BUDGET = 8192
 CONTEXT_MESSAGE_ALLOWANCE = 128
 CONTEXT_OUTPUT_ALLOWANCE = 600
 
+# Content-free categories allowed across the authenticated worker wire boundary.
+WORKER_FAILURE_CATEGORIES = frozenset({
+    'input_message_bounds', 'context_budget', 'worker_unavailable_busy',
+    'relay_ownership_lease', 'job_deadline', 'model_readiness_digest',
+    'ollama_connect_failure', 'ollama_cold_start_timeout', 'ollama_read_timeout',
+    'ollama_protocol_malformed_event', 'incomplete_ollama_stream',
+    'ollama_cleanup_recovery_failure', 'output_limit',
+    'result_rejection_obsolete', 'transport_rpc_timeout', 'cancellation',
+})
+
 
 def canonical(value):
     return json.dumps(value, sort_keys=True, separators=(',', ':'),

@@ -445,6 +445,152 @@ class WorkerTests(unittest.TestCase):
             self.assertTrue(response.closed)
             rpc.assert_not_called()
 
+    def test_terminal_worker_failure_clears_relay_idle_and_preserves_category(self):
+        relay = WorkerRelay(CONFIG)
+        connected = relay.dispatch('connect', {'boot':'boot-one', 'ollama':'ready'})
+        owner = {**connected, 'boot':'boot-one'}
+        from collections import deque
+        job = {'id':'failed-job', 'messages':MESSAGES, 'deadline':relay.clock()+90,
+               'events':deque(), 'claimed':True, 'error':False, 'done':False,
+               'total':0, 'seq':0, 'failure':None,
+               'request_id':'request-one', 'attempt':1}
+        relay.job = job
+        relay.session['job'] = job['id']
+        accepted = relay.dispatch('result', {**owner, 'job':job['id'], 'seq':0,
+                                  'text':'', 'done':True, 'error':True,
+                                  'failure':'ollama_read_timeout'})
+        self.assertTrue(accepted['accepted'])
+        self.assertIsNone(relay.session['job'])
+        self.assertTrue(job['done'])
+        self.assertEqual(job['failure'], 'ollama_read_timeout')
+        relay.job = None
+        self.assertEqual(relay.status()['LOCAL_WORKER_HEALTH'], 'LOCAL_WORKER_HEALTHY')
+
+    def test_timeout_then_next_inference_uses_clean_transport(self):
+        worker = OutboundWorker(self.config())
+        good = canonical({'model':'llama3.2',
+                          'message':{'role':'assistant','content':'Recovered'},
+                          'done':True}) + b'\n'
+        sent = []
+        def rpc(action, body):
+            sent.append((action, body.copy()))
+            return {'accepted': True, 'active': True}
+        original_local = worker.local
+        with patch.object(worker, 'model_ready', return_value=True), \
+             patch('worker.client.open_response', side_effect=[TimeoutError(), io.BytesIO(good)]), \
+             patch.object(worker, 'rpc', side_effect=rpc):
+            with self.assertRaises(WorkerFailure) as raised:
+                worker.infer({'job':'first','messages':MESSAGES,'seconds':90},{})
+            self.assertEqual(raised.exception.category, 'ollama_cold_start_timeout')
+            self.assertIsNot(worker.local, original_local)
+            worker.infer({'job':'second','messages':MESSAGES,'seconds':90},{})
+        self.assertEqual(sent[0][1]['failure'], 'ollama_cold_start_timeout')
+        self.assertTrue(sent[-1][1]['done'])
+        self.assertFalse(sent[-1][1]['error'])
+
+    def test_malformed_and_incomplete_streams_do_not_contaminate_next_inference(self):
+        valid_partial = canonical({'model':'llama3.2',
+                                   'message':{'role':'assistant','content':'partial'},
+                                   'done':False}) + b'\n'
+        good = canonical({'model':'llama3.2',
+                          'message':{'role':'assistant','content':'Recovered'},
+                          'done':True}) + b'\n'
+        for first, expected in ((b'bad\n', 'ollama_protocol_malformed_event'),
+                                (valid_partial, 'incomplete_ollama_stream')):
+            with self.subTest(category=expected):
+                worker = OutboundWorker(self.config())
+                sent = []
+                def rpc(action, body):
+                    sent.append(body.copy())
+                    return {'accepted': True, 'active': True}
+                first_response, next_response = io.BytesIO(first), io.BytesIO(good)
+                with patch.object(worker, 'model_ready', return_value=True), \
+                     patch('worker.client.open_response', side_effect=[first_response, next_response]), \
+                     patch.object(worker, 'rpc', side_effect=rpc):
+                    with self.assertRaises(WorkerFailure) as raised:
+                        worker.infer({'job':'first','messages':MESSAGES,'seconds':90},{})
+                    self.assertEqual(raised.exception.category, expected)
+                    self.assertTrue(first_response.closed)
+                    worker.infer({'job':'second','messages':MESSAGES,'seconds':90},{})
+                self.assertEqual(sent[0]['failure'], expected)
+                self.assertTrue(next_response.closed)
+                self.assertTrue(sent[-1]['done'])
+
+    def test_cancellation_then_next_inference_recovers(self):
+        worker = OutboundWorker(self.config())
+        good = canonical({'model':'llama3.2',
+                          'message':{'role':'assistant','content':'Recovered'},
+                          'done':True}) + b'\n'
+        first_response, next_response = io.BytesIO(good), io.BytesIO(good)
+        with patch.object(worker, 'model_ready', return_value=True), \
+             patch('worker.client.open_response', side_effect=[first_response, next_response]), \
+             patch.object(worker, 'rpc', return_value={'accepted':True,'active':True}):
+            worker.cancelled.set()
+            with self.assertRaises(WorkerFailure) as raised:
+                worker.infer({'job':'first','messages':MESSAGES,'seconds':90},{})
+            self.assertEqual(raised.exception.category, 'cancellation')
+            self.assertTrue(first_response.closed)
+            worker.cancelled.clear()
+            worker.infer({'job':'second','messages':MESSAGES,'seconds':90},{})
+        self.assertTrue(next_response.closed)
+
+    def test_delayed_first_ollama_event_within_deadline_succeeds(self):
+        data = canonical({'model':'llama3.2',
+                          'message':{'role':'assistant','content':'Loaded'},
+                          'done':True}) + b'\n'
+        class DelayedResponse(io.BytesIO):
+            def read1(self, size=-1):
+                time.sleep(.02)
+                return super().read1(size)
+        worker = OutboundWorker(self.config())
+        response = DelayedResponse(data)
+        with patch.object(worker, 'model_ready', return_value=True), \
+             patch('worker.client.open_response', return_value=response), \
+             patch.object(worker, 'rpc', return_value={'accepted':True,'active':True}):
+            worker.infer({'job':'cold','messages':MESSAGES,'seconds':2},{})
+        self.assertTrue(response.closed)
+
+    def test_ollama_timeout_is_bounded_and_fail_closed(self):
+        worker = OutboundWorker(self.config())
+        sent = []
+        with patch.object(worker, 'model_ready', return_value=True), \
+             patch('worker.client.open_response', side_effect=TimeoutError()), \
+             patch.object(worker, 'rpc', side_effect=lambda action, body:
+                          sent.append(body.copy()) or {'accepted':True,'active':True}):
+            started = time.monotonic()
+            with self.assertRaises(WorkerFailure) as raised:
+                worker.infer({'job':'timeout','messages':MESSAGES,'seconds':2},{})
+        self.assertLess(time.monotonic() - started, 1)
+        self.assertEqual(raised.exception.category, 'ollama_cold_start_timeout')
+        self.assertEqual(sent[-1]['failure'], 'ollama_cold_start_timeout')
+        self.assertTrue(sent[-1]['error'])
+
+    def test_ollama_read_timeout_and_connect_failure_are_distinct(self):
+        first = canonical({'model':'llama3.2',
+                           'message':{'role':'assistant','content':'partial'},
+                           'done':False}) + b'\n'
+        class ReadTimeout(io.BytesIO):
+            def read1(self, size=-1):
+                if self.tell() < len(self.getvalue()):
+                    return super().read1(size)
+                raise TimeoutError()
+        cases = [(ReadTimeout(first), 'ollama_read_timeout'),
+                 (OSError('loopback refused'), 'ollama_connect_failure')]
+        for upstream, expected in cases:
+            with self.subTest(category=expected):
+                worker = OutboundWorker(self.config())
+                sent = []
+                behavior = ({'return_value': upstream} if not isinstance(upstream, Exception)
+                            else {'side_effect': upstream})
+                with patch.object(worker, 'model_ready', return_value=True), \
+                     patch('worker.client.open_response', **behavior), \
+                     patch.object(worker, 'rpc', side_effect=lambda action, body:
+                                  sent.append(body.copy()) or {'accepted':True,'active':True}):
+                    with self.assertRaises(WorkerFailure) as raised:
+                        worker.infer({'job':'failed','messages':MESSAGES,'seconds':2},{})
+                self.assertEqual(raised.exception.category, expected)
+                self.assertEqual(sent[-1]['failure'], expected)
+
     def test_input_bounds(self):
         for messages in ([MESSAGES[0],*([MESSAGES[1]]*12)],
                          [MESSAGES[0],{'role':'user','content':'x'*4001}],

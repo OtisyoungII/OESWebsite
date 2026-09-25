@@ -8,6 +8,7 @@ import ssl
 import threading
 import time
 from urllib.parse import urlsplit
+from urllib.error import URLError
 from urllib.request import Request, build_opener, ProxyHandler, HTTPSHandler
 
 from chat.providers import GenerationDeadline, NoRedirect, bounded_lines, open_response
@@ -52,7 +53,7 @@ class OutboundWorker:
         if not context.check_hostname or context.verify_mode != ssl.CERT_REQUIRED:
             raise ValueError('Verified TLS required')
         self.remote = build_opener(ProxyHandler({}), NoRedirect(), HTTPSHandler(context=context))
-        self.local = build_opener(ProxyHandler({}), NoRedirect())
+        self.local = self._new_local()
         self.boot = secrets.token_hex(16)
         self.owner = None
         self.job = None
@@ -63,6 +64,14 @@ class OutboundWorker:
         # DNS resolution can outlive socket timeouts on some operating systems.
         # Bound caller wait and outstanding transports, including that case.
         self.rpc_slots = threading.BoundedSemaphore(2)
+
+    @staticmethod
+    def _new_local():
+        # A fresh opener contains no handler state from a failed Ollama request.
+        return build_opener(ProxyHandler({}), NoRedirect())
+
+    def _discard_local_transport(self):
+        self.local = self._new_local()
 
     def rpc(self, action, body):
         if not self.rpc_slots.acquire(blocking=False):
@@ -177,7 +186,7 @@ class OutboundWorker:
         deadline = time.monotonic() + job['seconds']
         sequence = 0
 
-        def send(text, done=False, error=False):
+        def send(text, done=False, error=False, failure=None):
             nonlocal sequence
             while True:
                 if self.cancelled.is_set() or self.stop.is_set() or time.monotonic() >= deadline:
@@ -185,14 +194,17 @@ class OutboundWorker:
                                 else 'job_deadline')
                     raise WorkerFailure(category)
                 try:
-                    result = self.rpc('result', {**owner, 'job': job['job'], 'seq': sequence,
-                                               'text': text, 'done': done, 'error': error})
-                except WorkerFailure as failure:
-                    if failure.category == 'transport_rpc_timeout':
+                    body = {**owner, 'job': job['job'], 'seq': sequence,
+                            'text': text, 'done': done, 'error': error}
+                    if error:
+                        body['failure'] = failure
+                    result = self.rpc('result', body)
+                except WorkerFailure as result_failure:
+                    if result_failure.category == 'transport_rpc_timeout':
                         raise
-                    raise WorkerFailure('result_rejection_obsolete') from failure
-                except TimeoutError as failure:
-                    raise WorkerTimeout('transport_rpc_timeout') from failure
+                    raise WorkerFailure('result_rejection_obsolete') from result_failure
+                except TimeoutError as result_failure:
+                    raise WorkerTimeout('transport_rpc_timeout') from result_failure
                 fields(result, ('accepted', 'active'))
                 if type(result['accepted']) is not bool or result['active'] is not True:
                     raise WorkerFailure('result_rejection_obsolete')
@@ -208,65 +220,83 @@ class OutboundWorker:
                           headers={'Content-Type': 'application/json'})
         started = time.monotonic()
         opened = False
+        response = None
+        completed = False
+        received_event = False
         try:
             # A stalled read fails within ten seconds, including during cancellation.
-            with open_response(self.local, request, 10) as response:
-                opened = True
-                total, pending, last_send = 0, '', time.monotonic()
-                for line in bounded_lines(response, started, job['seconds']):
-                    if self.cancelled.is_set() or self.stop.is_set() or time.monotonic() >= deadline:
-                        category = ('cancellation' if self.cancelled.is_set() or self.stop.is_set()
-                                    else 'job_deadline')
-                        raise WorkerFailure(category)
-                    try:
-                        value = json.loads(line)
-                    except (ValueError, TypeError) as error:
-                        raise WorkerFailure('ollama_protocol_malformed_event') from error
-                    if (not isinstance(value, dict) or value.get('error')
-                            or value.get('model') not in ('llama3.2', 'llama3.2:latest')):
+            response = open_response(self.local, request, 10)
+            opened = True
+            total, pending, last_send = 0, '', time.monotonic()
+            for line in bounded_lines(response, started, job['seconds']):
+                received_event = True
+                if self.cancelled.is_set() or self.stop.is_set() or time.monotonic() >= deadline:
+                    category = ('cancellation' if self.cancelled.is_set() or self.stop.is_set()
+                                else 'job_deadline')
+                    raise WorkerFailure(category)
+                try:
+                    value = json.loads(line)
+                except (ValueError, TypeError) as error:
+                    raise WorkerFailure('ollama_protocol_malformed_event') from error
+                if (not isinstance(value, dict) or value.get('error')
+                        or value.get('model') not in ('llama3.2', 'llama3.2:latest')):
+                    raise WorkerFailure('ollama_protocol_malformed_event')
+                message = value.get('message')
+                if (not isinstance(message, dict) or message.get('role') != 'assistant'
+                        or message.get('tool_calls') or not isinstance(message.get('content'), str)
+                        or type(value.get('done')) is not bool):
+                    raise WorkerFailure('ollama_protocol_malformed_event')
+                text = message['content']
+                total += len(text)
+                if total > MAX_OUTPUT:
+                    raise WorkerFailure('output_limit')
+                pending += text
+                while len(pending) >= 1024:
+                    send(pending[:1024])
+                    pending = pending[1024:]
+                if value['done']:
+                    if value.get('done_reason') not in (None, 'stop'):
                         raise WorkerFailure('ollama_protocol_malformed_event')
-                    message = value.get('message')
-                    if (not isinstance(message, dict) or message.get('role') != 'assistant'
-                            or message.get('tool_calls') or not isinstance(message.get('content'), str)
-                            or type(value.get('done')) is not bool):
-                        raise WorkerFailure('ollama_protocol_malformed_event')
-                    text = message['content']
-                    total += len(text)
-                    if total > MAX_OUTPUT:
-                        raise WorkerFailure('output_limit')
-                    pending += text
-                    while len(pending) >= 1024:
-                        send(pending[:1024])
-                        pending = pending[1024:]
-                    if value['done']:
-                        if value.get('done_reason') not in (None, 'stop'):
-                            raise WorkerFailure('ollama_protocol_malformed_event')
-                        send(pending, done=True)
-                        return
-                    if pending and time.monotonic() - last_send >= 0.1:
-                        send(pending)
-                        pending, last_send = '', time.monotonic()
-            raise WorkerFailure('ollama_protocol_malformed_event')
+                    send(pending, done=True)
+                    completed = True
+                    return
+                if pending and time.monotonic() - last_send >= 0.1:
+                    send(pending)
+                    pending, last_send = '', time.monotonic()
+            raise WorkerFailure('incomplete_ollama_stream')
         except Exception as error:
             if isinstance(error, WorkerFailure):
                 failure = error
             elif isinstance(error, GenerationDeadline):
                 failure = WorkerFailure('job_deadline')
             elif isinstance(error, TimeoutError):
-                failure = WorkerTimeout('ollama_timeout')
+                failure = WorkerTimeout('ollama_read_timeout' if received_event
+                                        else 'ollama_cold_start_timeout')
+            elif isinstance(error, (URLError, OSError)):
+                failure = WorkerFailure('ollama_connect_failure')
             else:
                 failure = WorkerFailure('ollama_protocol_malformed_event')
             LOG.warning('worker job failed category=%s', failure.category)
             try:
-                send('', done=True, error=True)
+                send('', done=True, error=True, failure=failure.category)
             except Exception:
                 pass
             if failure is error:
                 raise
             raise failure from error
         finally:
+            cleanup_failed = False
+            if response is not None:
+                try:
+                    response.close()
+                except Exception:
+                    cleanup_failed = True
             if opened:
                 LOG.warning('worker upstream stream closed')
+            if not completed:
+                self._discard_local_transport()
+            if cleanup_failed:
+                LOG.warning('worker recovery category=ollama_cleanup_recovery_failure')
 
     def run(self):
         heartbeat = threading.Thread(target=self.heartbeat, daemon=True, name='oes-worker-heartbeat')

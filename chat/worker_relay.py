@@ -10,7 +10,7 @@ from flask import Blueprint, Response, current_app, request
 from .runtime import enabled
 from .worker_protocol import (MAX_BODY, MAX_OUTPUT, JOB_SECONDS, LEASE_SECONDS,
                               POLL_SECONDS, canonical, decode, fields, messages_valid,
-                              settings, signature, token)
+                              settings, signature, token, WORKER_FAILURE_CATEGORIES)
 
 bp = Blueprint('worker', __name__)
 PREFIX = '/api/worker/v1/'
@@ -105,7 +105,9 @@ class WorkerRelay:
         elif action == 'heartbeat':
             fields(body, common | {'job', 'ollama'})
         elif action == 'result':
-            fields(body, common | {'job', 'seq', 'text', 'done', 'error'})
+            result_fields = common | {'job', 'seq', 'text', 'done', 'error'}
+            if set(body) not in (result_fields, result_fields | {'failure'}):
+                raise RelayError('Invalid result fields', 'result_rejection_obsolete')
         else:
             raise RelayError('Unknown operation')
         token(body['boot'])
@@ -137,7 +139,9 @@ class WorkerRelay:
                     self.session['job'] = None
                 elif body['job'] is None and not self.job:
                     self.session['job'] = None
-                if body['ollama'] == 'unavailable' and self.job and body['job'] == self.job['id']:
+                if (body['ollama'] == 'unavailable' and self.job
+                        and not self.job['done'] and not self.job['error']
+                        and body['job'] == self.job['id']):
                     self.job['error'] = True
                     self.job['failure'] = 'model_readiness_digest'
                     reported_active = False
@@ -149,9 +153,13 @@ class WorkerRelay:
                 if (not j or j['error'] or not j['claimed'] or body['job'] != j['id']
                         or type(body['seq']) is not int or body['seq'] != j['seq'] or j['done']):
                     raise RelayError('Obsolete or unordered result', 'result_rejection_obsolete')
+                failure = body.get('failure')
                 if (not isinstance(body['text'], str) or len(body['text']) > 1024
                         or type(body['done']) is not bool or type(body['error']) is not bool
-                        or (body['error'] and (body['text'] or not body['done']))):
+                        or (body['error'] and (body['text'] or not body['done']
+                                              or (failure is not None
+                                                  and failure not in WORKER_FAILURE_CATEGORIES)))
+                        or (not body['error'] and failure is not None)):
                     raise RelayError('Invalid result', 'result_rejection_obsolete')
                 if j['total'] + len(body['text']) > MAX_OUTPUT:
                     j['error'] = True
@@ -163,10 +171,12 @@ class WorkerRelay:
                 j['total'] += len(body['text'])
                 j['events'].append((body['text'], body['done'], body['error']))
                 j['done'] = body['done']
-                # A successfully acknowledged terminal result proves this worker has
-                # finished the claimed job. Clear the session marker now so the
-                # service's one bounded regeneration can allocate the next job.
-                if body['done'] and not body['error']:
+                if body['error']:
+                    j['failure'] = failure or 'ollama_protocol_malformed_event'
+                # Any acknowledged terminal result proves this worker has finished
+                # the claimed job. Clear the session marker immediately so failure
+                # recovery cannot leave the worker logically busy.
+                if body['done']:
                     self.session['job'] = None
                 self.cv.notify_all()
                 return {'accepted': True, 'active': True}
@@ -229,9 +239,10 @@ class WorkerRelay:
                         continue
                     text, done, error = j['events'].popleft()
                 if error:
-                    LOG.warning('relay job failed request_id=%s attempt=%s category=ollama_protocol_malformed_event',
-                                j['request_id'], j['attempt'])
-                    raise RelayError('Inference failed', 'ollama_protocol_malformed_event')
+                    category = j.get('failure') or 'ollama_protocol_malformed_event'
+                    LOG.warning('relay job failed request_id=%s attempt=%s category=%s',
+                                j['request_id'], j['attempt'], category)
+                    raise RelayError('Inference failed', category)
                 if text:
                     yield ChatEvent('delta', {'text': text})
                 if done:

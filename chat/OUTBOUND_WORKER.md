@@ -54,7 +54,7 @@ POST JSON endpoints under `/api/worker/v1/`:
 | connect | boot, ollama | epoch, lease |
 | poll | epoch, boot, lease | job:null OR job,messages,seconds |
 | heartbeat | epoch, boot, lease, job, ollama | active,health |
-| result | epoch, boot, lease, job, seq, text, done, error | accepted,active |
+| result | epoch, boot, lease, job, seq, text, done, error; optional failure on terminal error | accepted,active |
 
 Canonical JSON: sorted keys, ASCII escapes, no whitespace, duplicate keys or
 NaN/Infinity. Maximum body 256 KiB. Unknown fields/operations fail. Authentication
@@ -62,7 +62,9 @@ precedes session/job allocation and long-poll waits; body reading/hashing is bou
 `ollama` is ready/unavailable. Heartbeat job can be null. Identifiers are bounded.
 Result seq starts at integer zero; booleans are not sequence numbers. Advance only
 after an accepted batch. Text <=1,024 characters/batch and <=16,000/job; an error
-result must be terminal and contain no text. Tool/malformed model events fail.
+result must be terminal and contain no text. Updated workers add one allowlisted,
+content-free failure category; omission remains compatible and maps to the existing
+generic protocol category. Successful results omit failure. Tool/malformed model events fail.
 
 One live worker boot owns a process-random epoch and random lease. A different boot
 cannot replace it before expiry. Expired sessions cannot revive an old job.
@@ -124,8 +126,9 @@ host can expose prompts or impersonate the worker. Rotation/revocation is requir
 - Worker heartbeat or rejected late result causes local HTTP stream closure.
   A blocked read can delay cancellation by ten seconds. GPU cessation after HTTP
   close is best effort, not instantaneous or guaranteed by Python.
-- After a claimed job ends, new work waits for the worker to acknowledge idle;
-  cancellation cannot immediately reassign work while the old stream is closing.
+- An acknowledged terminal result clears the worker's relay busy marker on success
+  or failure. Cancellation without a terminal acknowledgement cannot immediately
+  reassign work while the old stream is closing.
 - Proactive requests remain disabled for beta. They retain buffered validation and
   bounded deadlines; immediate proactive HTTP-disconnect detection is not promised.
 
