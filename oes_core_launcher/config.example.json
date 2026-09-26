@@ -1,0 +1,8 @@
+{
+  "worker_id": "razer-beta",
+  "key_id": "beta-1",
+  "relay_url": "https://otisexecutionsystems.com",
+  "model_digest": "replace-with-the-64-character-lowercase-llama3.2-digest",
+  "ollama_url": "http://127.0.0.1:11434",
+  "model": "llama3.2"
+}

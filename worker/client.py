@@ -314,6 +314,7 @@ class OutboundWorker:
                         owner = {'epoch': response['epoch'], 'lease': response['lease'], 'boot': self.boot}
                         with self.lock:
                             self.owner = owner
+                        LOG.warning('worker relay connected')
                     response = self.rpc('poll', owner)
                     if response == {'job': None}:
                         self.stop.wait(0.25)

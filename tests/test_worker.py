@@ -14,6 +14,7 @@ from chat.service import ChatService
 from chat.worker_protocol import canonical, decode, messages_valid, signed_headers
 from chat.worker_relay import WorkerRelay, RelayError
 from worker.client import OutboundWorker, WorkerFailure
+import worker.__main__ as worker_main
 
 # Deliberately public fixture material; never suitable for deployment.
 CONFIG = {'OES_CHAT_PROVIDER': 'outbound_worker', 'OES_WORKER_ENABLED': 'true',
@@ -360,6 +361,53 @@ class WebsiteHealthTests(unittest.TestCase):
 class WorkerTests(unittest.TestCase):
     def config(self):
         return {**CONFIG, 'OES_WORKER_RELAY_URL':'https://relay.example', 'OES_WORKER_MODEL_DIGEST':'cd'*32}
+
+    def test_relay_connected_signal_only_follows_connection_ownership(self):
+        worker = OutboundWorker(self.config())
+        actions = []
+        polls = 0
+
+        def rpc(action, body):
+            nonlocal polls
+            actions.append(action)
+            if action == 'connect':
+                return {'epoch':'epoch-1', 'lease':'lease-1'}
+            self.assertEqual(action, 'poll')
+            polls += 1
+            if polls == 2:
+                worker.stop.set()
+            return {'job':None}
+
+        with patch.object(worker, 'heartbeat'), \
+             patch.object(worker, 'model_ready', return_value=True), \
+             patch.object(worker, 'rpc', side_effect=rpc), \
+             self.assertLogs('oes.worker', level='WARNING') as logs:
+            worker.run()
+
+        connected = [line for line in logs.output if 'worker relay connected' in line]
+        self.assertEqual(actions, ['connect', 'poll', 'poll'])
+        self.assertEqual(len(connected), 1)
+        self.assertEqual(worker.owner['epoch'], 'epoch-1')
+
+    def test_entrypoint_stdin_control_semantics(self):
+        class InlineThread:
+            def __init__(self, target, **kwargs): self.target = target
+            def start(self): self.target()
+
+        class FakeWorker:
+            def __init__(self):
+                self.stop = threading.Event()
+                self.stopped_when_run = None
+            def run(self): self.stopped_when_run = self.stop.is_set()
+
+        for text, expected in [('STOP\n', True), ('stop\nanything\n', False), ('', False)]:
+            with self.subTest(stdin=text):
+                fake = FakeWorker()
+                with patch.object(worker_main, 'OutboundWorker', return_value=fake), \
+                     patch.object(worker_main.threading, 'Thread', InlineThread), \
+                     patch.object(worker_main.sys, 'stdin', io.StringIO(text)):
+                    worker_main.main()
+                self.assertEqual(fake.stopped_when_run, expected)
 
     def test_fixed_destinations_and_tls(self):
         for field, value in [('OES_WORKER_RELAY_URL','http://relay.example'),
