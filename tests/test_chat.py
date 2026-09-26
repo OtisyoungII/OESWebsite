@@ -5,7 +5,8 @@ from unittest.mock import patch
 from flask import Flask
 from chat import init_chat
 from chat.policy import (SYSTEM_IDENTITY, SERIOUS_INSTRUCTION, PUBLIC_CONTEXT,
-                         CASUAL_VOICE, TEASING_STYLE, PUBLIC_FACTS)
+                         CASUAL_VOICE, TEASING_STYLE, PUBLIC_FACTS,
+                         POP_CULTURE_POLICY)
 from chat.providers import ChatEvent, OllamaProvider
 from chat.service import SAFE_ERROR
 
@@ -214,6 +215,18 @@ class ChatTests(unittest.TestCase):
         self.post({'message':'hello'}).get_data()
         self.assertNotIn(SERIOUS_INSTRUCTION,self.provider.calls[0][0]['content'])
         self.assertIn(CASUAL_VOICE,self.provider.calls[0][0]['content'])
+
+    def test_pop_culture_policy_uses_only_user_led_subjects(self):
+        self.post({'message':'why are u ugly?'}).get_data()
+        instruction = self.provider.calls[-1][0]['content']
+        self.assertIn(POP_CULTURE_POLICY, instruction)
+        self.assertIn('unless the user\nraised them', instruction)
+        self.assertIn('Prefer original humor', instruction)
+
+        self.provider.calls.clear()
+        self.post({'message':'Who is Ladybug?'}).get_data()
+        self.assertEqual(len(self.provider.calls), 1)
+        self.assertIn('answer normally', self.provider.calls[0][0]['content'])
 
     def test_public_context_includes_all_demonstrated_products(self):
         self.post({'message':'What is Drinks With Friendz?'}).get_data()

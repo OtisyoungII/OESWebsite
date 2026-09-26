@@ -1,6 +1,7 @@
 """Policy assembly and provider-independent output boundary."""
 import json
 import logging
+import time
 from uuid import uuid4
 from .policy import (SYSTEM_IDENTITY, PUBLIC_CONTEXT, SERIOUS_INSTRUCTION,
                      serious_selection_instruction, render_serious_selection,
@@ -13,6 +14,8 @@ from .situation import (SituationAnalyzer, response_contract, validate_playful,
 from .observations import (ObservationState, infer, observation_contract,
                            log_observations, InitiationDecision)
 from .worker_protocol import CONTEXT_BUDGET, context_cost
+from .capabilities import (CapabilityDenied, CapabilityRegistry, PUBLIC_LOOKUP,
+                           evidence_instruction, validate_evidence_answer)
 
 SAFE_ERROR = "Eyeball is temporarily unavailable. Please try again shortly."
 LOG = logging.getLogger('oes.chat')
@@ -60,9 +63,10 @@ def fit_messages(instruction, history, message):
 
 
 class ChatService:
-    def __init__(self, provider, debug_logger=None):
+    def __init__(self, provider, debug_logger=None, capabilities=None):
         self.provider = provider
         self.debug_logger = debug_logger
+        self.capabilities = capabilities or CapabilityRegistry()
 
     def invitation(self, intent, recent):
         """Separate from public conversation; caller must authorize the typed intent."""
@@ -106,6 +110,37 @@ class ChatService:
             yield ChatEvent('delta', {'text': "I can't know why you're here. What caught your eye?"})
             yield ChatEvent('done', {})
             return
+
+        if state.response_action == 'request_location':
+            yield ChatEvent('delta', {'text':
+                'I need a location you explicitly provide before I can search nearby places.'})
+            yield ChatEvent('done', {})
+            return
+
+        if state.response_action == 'answer_with_public_evidence':
+            started = time.monotonic()
+            success, reason = False, 'not_assigned'
+            try:
+                result = self.capabilities.invoke('eyeball', PUBLIC_LOOKUP, message)
+                success, reason = result.success, result.reason
+            except CapabilityDenied:
+                result = None
+            except Exception:
+                result, reason = None, 'provider_failure'
+            duration_ms = max(0, int((time.monotonic() - started) * 1000))
+            LOG.info('chat capability request_id=%s capability=%s category=public success=%s '
+                     'duration_ms=%s reason=%s', request_id, PUBLIC_LOOKUP, success,
+                     duration_ms, reason)
+            lookup_succeeded = result is not None and result.success
+            if lookup_succeeded:
+                instruction += '\n\n' + evidence_instruction(result)
+            else:
+                instruction += (
+                    '\n\nThe assigned public lookup did not return verified evidence. Answer any '
+                    'stable, non-current part of the user request normally. Do not answer or guess '
+                    'the freshness-dependent part, and do not redirect the user to another website. '
+                    'The application will append a concise verification limitation.'
+                )
 
         stream = None
         active_attempt = 1
@@ -160,6 +195,42 @@ class ChatService:
                     raise ServiceFailure('response_validation_exhausted')
                 yield from emit(candidate)
                 return
+
+            if state.response_action == 'answer_with_public_evidence':
+                if not lookup_succeeded:
+                    active_attempt = 1
+                    candidate = provider_candidate(messages, active_attempt)
+                    hard_failures = validate_character_safety(candidate)
+                    if hard_failures:
+                        LOG.warning('chat response review request_id=%s attempt=1 '
+                                    'category=character_validation hard=True reasons=%s',
+                                    request_id, ','.join(hard_failures))
+                        raise ServiceFailure('response_validation_exhausted')
+                    limitation = "I couldn't verify the current part right now, so I won't guess."
+                    combined = (candidate.rstrip() + '\n\n' + limitation
+                                if candidate.strip() else limitation)
+                    yield from emit(combined)
+                    return
+
+                for attempt in range(2):
+                    active_attempt = attempt + 1
+                    candidate = provider_candidate(messages, active_attempt)
+                    hard_failures = (*validate_character_safety(candidate),
+                                     *validate_evidence_answer(candidate, result, message))
+                    if not hard_failures:
+                        yield from emit(candidate)
+                        return
+                    LOG.warning('chat response review request_id=%s attempt=%s '
+                                'category=character_validation hard=True reasons=%s',
+                                request_id, active_attempt, ','.join(hard_failures))
+                    if attempt == 0:
+                        correction = (
+                            '\nRegenerate once. Answer every material part of the request. Use the '
+                            'provided evidence for the current part, retain ordinary reasoning for '
+                            'stable parts, and do not redirect the user or deny lookup capability.'
+                        )
+                        messages = fit_messages(instruction + correction, model_history, message)
+                raise ServiceFailure('response_validation_exhausted')
 
             if state.response_action in ('playful_reply', 'character_reply'):
                 # Safety is blocking. Style is a best-effort quality pass and can

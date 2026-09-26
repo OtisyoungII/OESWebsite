@@ -56,6 +56,16 @@ CHARACTER_ACTIVITY = re.compile(r'\b(?:looking at|been doing|behav\w*)\b', re.I)
 EXPLICIT_TOPIC_FOLLOWUP = re.compile(
     r'^\s*(?:and\s+)?(?:what|how)\s+about\s+(?:that|it|the same(?: thing| topic)?)\s*[?.!]*\s*$'
     r'|^\s*(?:does|is|was|would|could)\s+(?:that|it)\b', re.I)
+CURRENT_PUBLIC_INFORMATION = re.compile(
+    r'\b(?:current|currently|latest|today|tonight|tomorrow|this week|upcoming|recent|now|'
+    r'live|schedule|release date|air date|next(?:\s+[\w.-]+){0,4}\s+'
+    r'(?:episode|game|event|show|release)|'
+    r'when\s+(?:is|are|does|do|will)?\s*(?:the\s+)?(?:next\s+)?(?:[\w.-]+\s+){0,4}'
+    r'(?:come|air|start|open|release)(?:s|ed)?(?:\s+on)?|'
+    r'(?:when|where)\s+(?:is|are|can|does|do|will)\b|'
+    r'where (?:can|do) i (?:watch|stream|find)|official\s+(?:site|website|discord)|'
+    r'(?:is|are)\s+(?:it|they|[\w.-]+)\s+open\b|open (?:now|today)|near me)\b', re.I)
+LOCATION_REQUIRED = re.compile(r'\b(?:near me|nearby|closest to me|around me)\b', re.I)
 
 
 def bounded_history(history):
@@ -131,6 +141,14 @@ class SituationAnalyzer:
         elif OES_FACTS.search(message) or (context.get('project') and CONTEXT_PRODUCT.search(message)):
             state = SituationState('oes_question', False, 'informative', False, True,
                                    'approved_public_context', 'concise', False, 'answer', 'high')
+        elif LOCATION_REQUIRED.search(message):
+            state = SituationState('location_required', False, 'neutral', False, False,
+                                   'authorized_location_required', 'one_short_sentence', False,
+                                   'request_location', 'high')
+        elif CURRENT_PUBLIC_INFORMATION.search(message):
+            state = SituationState('current_public_information', False, 'informative', False, False,
+                                   'public_evidence', 'concise', False,
+                                   'answer_with_public_evidence', 'high')
         elif UNKNOWN_VISITOR_REASON.search(message):
             state = SituationState('unknown_visitor_reason', False, 'neutral', False, False,
                                    'no_assumptions', 'one_short_sentence', False, 'clarify', 'high')

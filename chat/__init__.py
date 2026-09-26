@@ -4,6 +4,7 @@ from .providers import create_provider
 from .routes import bp
 from .runtime import Admission
 from .worker_relay import WorkerRelay, bp as worker_bp
+from .capabilities import eyeball_capabilities
 
 
 def init_chat(app):
@@ -17,12 +18,14 @@ def init_chat(app):
                          "OES_CHAT_RATE_LIMIT": "12", "OES_PROACTIVE_RATE_LIMIT": "3",
                          "OES_AI_MAX_CONCURRENCY": "2", "OES_WORKER_ENABLED": "false",
                          "OES_WORKER_ID": "", "OES_WORKER_KEY_ID": "",
-                         "OES_WORKER_SHARED_KEY": "", "OES_PUBLIC_ORIGIN": ""}.items():
+                         "OES_WORKER_SHARED_KEY": "", "OES_PUBLIC_ORIGIN": "",
+                         "TAVILY_API_KEY": ""}.items():
         app.config.setdefault(key, os.environ.get(key, default))
     relay = WorkerRelay(app.config)
     app.extensions['worker_relay'] = relay
     app.config['_OES_WORKER_RELAY'] = relay
     app.extensions["chat_provider_factory"] = lambda: create_provider(app.config)
     app.extensions['chat_admission'] = Admission(app.config)
+    app.extensions['chat_capabilities'] = eyeball_capabilities(app.config)
     app.register_blueprint(bp)
     app.register_blueprint(worker_bp)

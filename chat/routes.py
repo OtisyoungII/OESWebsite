@@ -127,9 +127,11 @@ def chat():
 
     # Capture configuration before streaming; no request content enters debug logs.
     debug_logger = current_app.logger if current_app.debug else None
+    capabilities = current_app.extensions['chat_capabilities']
 
     def generate():
-        stream = ChatService(provider, debug_logger=debug_logger).stream(*args)
+        stream = ChatService(provider, debug_logger=debug_logger,
+                             capabilities=capabilities).stream(*args)
         from .outbound_provider import OutboundWorkerProvider, disconnect_aware
         if isinstance(provider, OutboundWorkerProvider):
             stream = disconnect_aware(stream, provider)
