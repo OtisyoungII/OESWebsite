@@ -63,10 +63,11 @@ def fit_messages(instruction, history, message):
 
 
 class ChatService:
-    def __init__(self, provider, debug_logger=None, capabilities=None):
+    def __init__(self, provider, debug_logger=None, capabilities=None, telemetry=None):
         self.provider = provider
         self.debug_logger = debug_logger
         self.capabilities = capabilities or CapabilityRegistry()
+        self.telemetry = telemetry or (lambda event_type, **fields: False)
 
     def invitation(self, intent, recent):
         """Separate from public conversation; caller must authorize the typed intent."""
@@ -74,6 +75,7 @@ class ChatService:
         return generate_invitation(self.provider, intent, recent, self.debug_logger)
 
     def stream(self, message, history, context):
+        request_started = time.monotonic()
         instruction = SYSTEM_IDENTITY + "\n\n" + PUBLIC_CONTEXT
         history = bounded_history(history)
         state, continuity = SituationAnalyzer().analyze(message, history, context)
@@ -104,6 +106,14 @@ class ChatService:
                          else conversational_history(history))
 
         request_id = uuid4().hex
+        self.telemetry('request_accepted', request_id=request_id, outcome='accepted')
+        self.telemetry('situation_classified', request_id=request_id,
+                       dimensions={'interaction_kind': state.interaction_kind,
+                                   'response_action': state.response_action,
+                                   'grounding_mode': state.grounding_mode})
+        if serious or state.requires_oes_facts:
+            self.telemetry('grounding_required', request_id=request_id, outcome='allowed',
+                           dimensions={'grounding_mode': state.grounding_mode})
         yield ChatEvent("start", {"request_id": request_id})
 
         if state.interaction_kind == 'unknown_visitor_reason':
@@ -120,14 +130,23 @@ class ChatService:
         if state.response_action == 'answer_with_public_evidence':
             started = time.monotonic()
             success, reason = False, 'not_assigned'
+            capability_outcome = 'allowed'
             try:
                 result = self.capabilities.invoke('eyeball', PUBLIC_LOOKUP, message)
                 success, reason = result.success, result.reason
             except CapabilityDenied:
                 result = None
+                capability_outcome = 'denied'
             except Exception:
                 result, reason = None, 'provider_failure'
+            self.telemetry('capability_requested', request_id=request_id,
+                           outcome=capability_outcome,
+                           dimensions={'capability': PUBLIC_LOOKUP})
             duration_ms = max(0, int((time.monotonic() - started) * 1000))
+            self.telemetry('capability_completed', request_id=request_id,
+                           duration_ms=min(600000, duration_ms),
+                           outcome='success' if success else 'failure', reason=reason,
+                           dimensions={'capability': PUBLIC_LOOKUP})
             LOG.info('chat capability request_id=%s capability=%s category=public success=%s '
                      'duration_ms=%s reason=%s', request_id, PUBLIC_LOOKUP, success,
                      duration_ms, reason)
@@ -179,6 +198,9 @@ class ChatService:
 
         def emit(text):
             yield ChatEvent('delta', {'text': text})
+            duration = min(600000, int((time.monotonic() - request_started) * 1000))
+            self.telemetry('response_completed', request_id=request_id,
+                           duration_ms=duration, outcome='success')
             yield ChatEvent('done', {})
 
         try:
@@ -192,6 +214,9 @@ class ChatService:
                     LOG.warning('chat response review request_id=%s attempt=1 '
                                 'category=character_validation hard=True reasons=%s',
                                 request_id, ','.join(hard_failures))
+                    for reason in hard_failures:
+                        self.telemetry('validation_rejected', request_id=request_id, attempt=1,
+                                       outcome='rejected', reason=reason)
                     raise ServiceFailure('response_validation_exhausted')
                 yield from emit(candidate)
                 return
@@ -205,6 +230,9 @@ class ChatService:
                         LOG.warning('chat response review request_id=%s attempt=1 '
                                     'category=character_validation hard=True reasons=%s',
                                     request_id, ','.join(hard_failures))
+                        for reason in hard_failures:
+                            self.telemetry('validation_rejected', request_id=request_id, attempt=1,
+                                           outcome='rejected', reason=reason)
                         raise ServiceFailure('response_validation_exhausted')
                     limitation = "I couldn't verify the current part right now, so I won't guess."
                     combined = (candidate.rstrip() + '\n\n' + limitation
@@ -223,7 +251,12 @@ class ChatService:
                     LOG.warning('chat response review request_id=%s attempt=%s '
                                 'category=character_validation hard=True reasons=%s',
                                 request_id, active_attempt, ','.join(hard_failures))
+                    for reason in hard_failures:
+                        self.telemetry('validation_rejected', request_id=request_id,
+                                       attempt=active_attempt, outcome='rejected', reason=reason)
                     if attempt == 0:
+                        self.telemetry('correction_attempted', request_id=request_id, attempt=2,
+                                       outcome='accepted')
                         correction = (
                             '\nRegenerate once. Answer every material part of the request. Use the '
                             'provided evidence for the current part, retain ordinary reasoning for '
@@ -260,6 +293,9 @@ class ChatService:
                                     'category=character_validation hard=%s reasons=%s',
                                     request_id, attempt + 1, bool(hard_failures),
                                     ','.join((*hard_failures, *soft_failures)))
+                        for reason in (*hard_failures, *soft_failures):
+                            self.telemetry('validation_rejected', request_id=request_id,
+                                           attempt=attempt + 1, outcome='rejected', reason=reason)
 
                     if not hard_failures:
                         if best_safe is None or len(soft_failures) < len(best_style):
@@ -269,6 +305,8 @@ class ChatService:
                             return
 
                     if attempt == 0:
+                        self.telemetry('correction_attempted', request_id=request_id, attempt=2,
+                                       outcome='accepted')
                         failures = (*hard_failures, *soft_failures)
                         correction = (
                             'Regenerate once. Fix: ' + ', '.join(failures)
@@ -332,6 +370,9 @@ class ChatService:
                             raise ServiceFailure('grounded_rendering') from error
                         yield ChatEvent("delta", {"text": rendered})
 
+                    duration = min(600000, int((time.monotonic() - request_started) * 1000))
+                    self.telemetry('response_completed', request_id=request_id,
+                                   duration_ms=duration, outcome='success')
                     yield ChatEvent("done", {})
                     return
 
@@ -347,6 +388,17 @@ class ChatService:
                 category = 'context_budget'
             LOG.warning('chat request failed request_id=%s attempt=%s category=%s',
                         request_id, active_attempt, category)
+            safe_reason = category if category in {
+                'context_budget', 'worker_unavailable_busy', 'relay_ownership_lease',
+                'job_deadline', 'model_readiness_digest', 'ollama_connect_failure',
+                'ollama_cold_start_timeout', 'ollama_read_timeout',
+                'ollama_protocol_malformed_event', 'incomplete_ollama_stream',
+                'output_limit', 'response_output_limit', 'provider_event_protocol',
+                'incomplete_provider_stream', 'grounded_rendering',
+                'response_validation_exhausted', 'result_rejection_obsolete',
+                'transport_rpc_timeout', 'cancellation', 'input_message_bounds'} else 'provider_event_protocol'
+            self.telemetry('safe_error', request_id=request_id, attempt=active_attempt,
+                           outcome='failure', reason=safe_reason)
             yield ChatEvent("error", {"message": SAFE_ERROR})
 
         finally:

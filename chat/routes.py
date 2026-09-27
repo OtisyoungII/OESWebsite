@@ -39,8 +39,18 @@ def runtime_gate():
     manual = request.endpoint == 'chat.chat'
     live = enabled(config, 'OES_EYEBALL_ENABLED') and enabled(config, 'OES_AI_CHAT_ENABLED')
     if not live or (not manual and not enabled(config, 'OES_PROACTIVE_ENABLED')):
+        if manual:
+            current_app.extensions['worker_relay'].emit(
+                'request_rejected', outcome='rejected', reason='disabled')
+            current_app.extensions['worker_relay'].emit(
+                'safe_error', outcome='failure', reason='disabled')
         return unavailable() if manual else jsonify(action='stay_silent', reason='disabled')
     if not current_app.extensions['chat_admission'].request_allowed(request.remote_addr):
+        if manual:
+            current_app.extensions['worker_relay'].emit(
+                'request_rejected', outcome='rejected', reason='rate_limited')
+            current_app.extensions['worker_relay'].emit(
+                'safe_error', outcome='failure', reason='rate_limited')
         return unavailable(429)
 
 
@@ -103,26 +113,36 @@ def validate(payload):
 
 @bp.route("/api/chat", methods=["POST"])
 def chat():
+    telemetry = current_app.extensions['worker_relay'].emit
     if request.mimetype != "application/json":
+        telemetry('request_rejected', outcome='rejected', reason='invalid_request')
         return jsonify(message="Use application/json."), 415
     if not same_origin_request():
+        telemetry('request_rejected', outcome='rejected', reason='same_origin_rejected')
         return jsonify(message="Same-origin requests only."), 403
     request.max_content_length = 65536
     try:
         args = validate(request.get_json())
     except RequestEntityTooLarge:
+        telemetry('request_rejected', outcome='rejected', reason='invalid_request')
         return jsonify(message="Request exceeds 64 KiB."), 413
     except BadRequest:
+        telemetry('request_rejected', outcome='rejected', reason='invalid_request')
         return jsonify(message="Invalid JSON request."), 400
     except ValueError as error:
+        telemetry('request_rejected', outcome='rejected', reason='invalid_request')
         return jsonify(message=str(error)), 400
     release, status = current_app.extensions['chat_admission'].acquire(request.remote_addr)
     if release is None:
+        reason = 'rate_limited' if status == 429 else 'concurrency_limited'
+        telemetry('request_rejected', outcome='rejected', reason=reason)
+        telemetry('safe_error', outcome='failure', reason=reason)
         return unavailable(status)
     try:
         provider = current_app.extensions["chat_provider_factory"]()
     except Exception:
         release()
+        telemetry('safe_error', outcome='failure', reason='provider_unavailable')
         return jsonify(message=SAFE_ERROR), 503
 
     # Capture configuration before streaming; no request content enters debug logs.
@@ -131,7 +151,7 @@ def chat():
 
     def generate():
         stream = ChatService(provider, debug_logger=debug_logger,
-                             capabilities=capabilities).stream(*args)
+                             capabilities=capabilities, telemetry=telemetry).stream(*args)
         from .outbound_provider import OutboundWorkerProvider, disconnect_aware
         if isinstance(provider, OutboundWorkerProvider):
             stream = disconnect_aware(stream, provider)

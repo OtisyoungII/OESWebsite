@@ -26,3 +26,18 @@ for health checks and the model may unload normally.
 The shortcuts contain only the Python executable path, module name, working directory,
 description, and icon path. They contain no worker credential or other secret. Re-running
 the installer updates the same two `OES Core.lnk` files without launching OES Core.
+
+## Operations console telemetry
+
+OES Core stores content-free operational events in
+`%LOCALAPPDATA%\OES\Core\telemetry.db`. The Overview, Eyeball, Activity, Health and
+Audit tabs read that local database only while the window is visible. Prompts, responses,
+public lookup queries/evidence, URLs, network addresses, credentials and protocol secrets
+are excluded by the shared event schema.
+
+The authenticated worker receives bounded at-least-once event batches in its existing
+connect, heartbeat and idle-poll responses. It acknowledges event IDs only after a local
+SQLite transaction succeeds. Telemetry failures do not stop worker polling, heartbeats or
+inference. Detailed events expire after 30 days; small daily aggregate rows remain for
+long-term totals. All-time means since the telemetry start date displayed in the console.
+Visitor sessions, conversations and new/returning visitors are intentionally not measured.

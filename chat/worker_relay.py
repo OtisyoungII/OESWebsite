@@ -2,6 +2,7 @@
 from collections import deque
 import hmac
 import logging
+import re
 import secrets
 import threading
 import time
@@ -11,10 +12,63 @@ from .runtime import enabled
 from .worker_protocol import (MAX_BODY, MAX_OUTPUT, JOB_SECONDS, LEASE_SECONDS,
                               POLL_SECONDS, canonical, decode, fields, messages_valid,
                               settings, signature, token, WORKER_FAILURE_CATEGORIES)
+from oes_telemetry import (MAX_ACK_EVENTS, MAX_BATCH_BYTES, MAX_BATCH_EVENTS,
+                           MAX_BUFFER_EVENTS, make_event)
 
 bp = Blueprint('worker', __name__)
 PREFIX = '/api/worker/v1/'
 LOG = logging.getLogger('oes.relay')
+
+
+class TelemetryBuffer:
+    """Bounded, at-least-once queue; authenticated worker acks event IDs."""
+    def __init__(self, capacity=MAX_BUFFER_EVENTS):
+        self.capacity = capacity
+        self.events = deque()
+        self.lock = threading.Lock()
+
+    def emit(self, event_type, **fields):
+        try:
+            event = make_event(event_type, **fields)
+        except (TypeError, ValueError):
+            return False
+        with self.lock:
+            lost = 0
+            while len(self.events) >= self.capacity:
+                removed = self.events.popleft()
+                lost += removed.get('value', 1) if removed['event_type'] == 'telemetry_gap' else 1
+            if lost:
+                gap = make_event('telemetry_gap', reason='buffer_overflow', value=lost)
+                while len(self.events) >= self.capacity - 1:
+                    removed = self.events.popleft()
+                    gap['value'] = min(1000000, gap['value'] + (
+                        removed.get('value', 1)
+                        if removed['event_type'] == 'telemetry_gap' else 1))
+                self.events.append(gap)
+            self.events.append(event)
+        return True
+
+    def acknowledge(self, event_ids):
+        if (not isinstance(event_ids, list) or len(event_ids) > MAX_ACK_EVENTS
+                or any(not isinstance(value, str) or not re.fullmatch(r'[0-9a-f]{32}', value)
+                       for value in event_ids)):
+            raise RelayError('Invalid telemetry acknowledgement')
+        accepted = set(event_ids)
+        with self.lock:
+            self.events = deque(event for event in self.events
+                                if event['event_id'] not in accepted)
+
+    def batch(self):
+        with self.lock:
+            result, size = [], 2
+            for event in self.events:
+                encoded = canonical(event)
+                addition = len(encoded) + (1 if result else 0)
+                if len(result) >= MAX_BATCH_EVENTS or size + addition > MAX_BATCH_BYTES:
+                    break
+                result.append(event)
+                size += addition
+            return result
 
 
 class RelayError(ValueError):
@@ -32,6 +86,15 @@ class WorkerRelay:
         self.session = None
         self.job = None
         self.polling = False
+        self.telemetry = TelemetryBuffer()
+
+    def emit(self, event_type, **fields):
+        return self.telemetry.emit(event_type, **fields)
+
+    def _telemetry_response(self, result):
+        if self.session and self.session.get('telemetry'):
+            return {**result, 'telemetry': self.telemetry.batch()}
+        return result
 
     def configured(self):
         settings(self.config)
@@ -99,11 +162,17 @@ class WorkerRelay:
     def dispatch(self, action, body):
         common = {'epoch', 'boot', 'lease'}
         if action == 'connect':
-            fields(body, ('boot', 'ollama'))
+            if set(body) not in ({'boot', 'ollama'}, {'boot', 'ollama', 'telemetry_version'}):
+                raise RelayError('Invalid connect fields')
+            if body.get('telemetry_version', 1) != 1:
+                raise RelayError('Invalid telemetry version')
         elif action == 'poll':
-            fields(body, common)
+            if set(body) not in (common, common | {'telemetry_ack'}):
+                raise RelayError('Invalid poll fields')
         elif action == 'heartbeat':
-            fields(body, common | {'job', 'ollama'})
+            expected = common | {'job', 'ollama'}
+            if set(body) not in (expected, expected | {'telemetry_ack'}):
+                raise RelayError('Invalid heartbeat fields')
         elif action == 'result':
             result_fields = common | {'job', 'seq', 'text', 'done', 'error'}
             if set(body) not in (result_fields, result_fields | {'failure'}):
@@ -120,9 +189,15 @@ class WorkerRelay:
                     raise RelayError('Worker already leased')
                 if not self.session:
                     self.session = {'boot': body['boot'], 'lease': secrets.token_hex(16),
-                                    'expires': self.clock() + LEASE_SECONDS, 'ollama': body['ollama'], 'job':None}
-                return {'epoch': self.epoch, 'lease': self.session['lease']}
+                                    'expires': self.clock() + LEASE_SECONDS,
+                                    'ollama': body['ollama'], 'job':None,
+                                    'telemetry': body.get('telemetry_version') == 1}
+                return self._telemetry_response({'epoch': self.epoch, 'lease': self.session['lease']})
             self._owner(body)
+            if action in ('poll', 'heartbeat') and self.session.get('telemetry'):
+                if 'telemetry_ack' not in body:
+                    raise RelayError('Missing telemetry acknowledgement')
+                self.telemetry.acknowledge(body['telemetry_ack'])
             if action == 'heartbeat':
                 if body['job'] is not None:
                     token(body['job'])
@@ -147,7 +222,7 @@ class WorkerRelay:
                     reported_active = False
                     self.cv.notify_all()
                 active = reported_active
-                return {'active': active, 'health': self.health_model()}
+                return self._telemetry_response({'active': active, 'health': self.health_model()})
             if action == 'result':
                 j = self.job
                 if (not j or j['error'] or not j['claimed'] or body['job'] != j['id']
@@ -193,11 +268,18 @@ class WorkerRelay:
                     if self.live() and self.job and not self.job['error'] and not self.job['claimed']:
                         self.job['claimed'] = True
                         self.session['job'] = self.job['id']
-                        return {'job': self.job['id'], 'messages': self.job['messages'],
-                                'seconds': max(0, min(90, int(self.job['deadline'] - self.clock())))}
+                        job_response = {
+                            'job': self.job['id'], 'messages': self.job['messages'],
+                            'seconds': max(0, min(90, int(self.job['deadline'] - self.clock())))}
+                        if self.session.get('telemetry'):
+                            job_response.update(request_id=self.job['request_id'],
+                                                attempt=self.job['attempt'])
+                        # Job delivery has priority and can approach the response body bound.
+                        # Telemetry rides heartbeat/connect/empty-poll responses instead.
+                        return job_response
                     remaining = end - self.clock()
                     if remaining <= 0:
-                        return {'job': None}
+                        return self._telemetry_response({'job': None})
                     self.cv.wait(min(remaining, 1))
             finally:
                 self.polling = False
@@ -223,6 +305,8 @@ class WorkerRelay:
                  'claimed': False, 'error': False, 'done': False, 'total': 0, 'seq': 0,
                  'failure': None, 'request_id': request_id, 'attempt': attempt}
             self.job = j
+            self.emit('worker_job_dispatched', request_id=request_id, attempt=attempt,
+                      outcome='accepted')
             self.cv.notify_all()
         try:
             while True:

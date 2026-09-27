@@ -83,6 +83,11 @@ class ChatTests(unittest.TestCase):
         self.assertEqual(self.provider.calls[0][-1],{'role':'user','content':'hello'})
         self.assertIn(PUBLIC_CONTEXT,self.provider.calls[0][0]['content'])
         self.assertTrue(self.provider.closed)
+        types = [event['event_type']
+                 for event in self.app.extensions['worker_relay'].telemetry.batch()]
+        self.assertEqual(types.count('request_accepted'), 1)
+        self.assertEqual(types.count('response_completed'), 1)
+        self.assertEqual(types.count('safe_error'), 0)
 
     def test_explicit_public_origin_behind_proxy(self):
         self.app.config['OES_PUBLIC_ORIGIN'] = 'https://otisexecutionsystems.com'
@@ -117,6 +122,11 @@ class ChatTests(unittest.TestCase):
         self.assertIn(SAFE_ERROR,body)
         self.assertNotIn('PRIVATE',body)
         self.assertNotIn('event: done',body)
+        events = self.app.extensions['worker_relay'].telemetry.batch()
+        self.assertEqual(sum(event['event_type'] == 'safe_error' for event in events), 1)
+        encoded = json.dumps(events)
+        self.assertNotIn('PRIVATE', encoded)
+        self.assertNotIn('internal', encoded)
 
     def test_exact_safe_error_sse_contract(self):
         class ImmediateFailure:

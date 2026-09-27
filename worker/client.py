@@ -8,13 +8,14 @@ import ssl
 import threading
 import time
 from urllib.parse import urlsplit
-from urllib.error import URLError
+from urllib.error import HTTPError, URLError
 from urllib.request import Request, build_opener, ProxyHandler, HTTPSHandler
 
 from chat.providers import GenerationDeadline, NoRedirect, bounded_lines, open_response
 from chat.worker_protocol import (CONTEXT_BUDGET, MAX_BODY, MAX_OUTPUT, canonical,
                                   context_cost, decode, fields, messages_valid, settings,
                                   signature, signed_headers, token)
+from oes_telemetry import REASONS, validate_batch
 
 LOG = logging.getLogger('oes.worker')
 RPC_SECONDS = 27
@@ -32,7 +33,7 @@ class WorkerTimeout(WorkerFailure, TimeoutError):
 
 
 class OutboundWorker:
-    def __init__(self, config, tls_context=None):
+    def __init__(self, config, tls_context=None, telemetry_store=None):
         self.config = config
         settings(config)
         origin = config.get('OES_WORKER_RELAY_URL', '')
@@ -64,6 +65,100 @@ class OutboundWorker:
         # DNS resolution can outlive socket timeouts on some operating systems.
         # Bound caller wait and outstanding transports, including that case.
         self.rpc_slots = threading.BoundedSemaphore(2)
+        self.telemetry_ack = []
+        self.telemetry_negotiated = False
+        self.ownership_established = False
+        if telemetry_store is None:
+            try:
+                from oes_core_launcher.telemetry import TelemetryStore
+                telemetry_store = TelemetryStore()
+            except Exception:
+                telemetry_store = False
+        self.telemetry_store = telemetry_store or None
+        self._telemetry_runtime('worker_started_at', int(time.time()))
+        self._telemetry_runtime('active_inference', 0)
+
+    def _telemetry_runtime(self, key, value):
+        try:
+            if self.telemetry_store:
+                self.telemetry_store.set_runtime(key, value)
+        except Exception:
+            pass
+
+    def _telemetry_event(self, event_type, **fields):
+        try:
+            if self.telemetry_store:
+                self.telemetry_store.record(event_type, **fields)
+        except Exception:
+            pass
+
+    def _telemetry_response(self, response):
+        """Persist before ack; failure leaves the batch pending without breaking work."""
+        if not isinstance(response, dict):
+            return response
+        response = dict(response)
+        events = response.pop('telemetry', None)
+        if events is not None:
+            try:
+                events = validate_batch(events)
+                if self.telemetry_store:
+                    self.telemetry_ack = self.telemetry_store.insert_events(events)
+            except Exception:
+                self.telemetry_ack = []
+        self._telemetry_runtime('last_relay_contact', int(time.time()))
+        return response
+
+    def _session_body(self, owner, **values):
+        body = {**owner, **values}
+        if self.telemetry_negotiated:
+            body['telemetry_ack'] = self.telemetry_ack
+        return body
+
+    def _clear_session(self, expected=None):
+        with self.lock:
+            if expected is not None and self.owner is not expected:
+                return False
+            established = self.ownership_established
+            self.owner = None
+            self.telemetry_negotiated = False
+            self.ownership_established = False
+            return established
+
+    @staticmethod
+    def _connection_failure_reason(error):
+        category = getattr(error, 'category', None)
+        if category in ('protocol_rejection', 'authentication_rejection',
+                        'transport_failure', 'timeout'):
+            return category
+        if isinstance(error, (WorkerTimeout, TimeoutError)):
+            return 'timeout'
+        return 'transport_failure'
+
+    def _connect(self):
+        state = 'ready' if self.ready else 'unavailable'
+        try:
+            response = self.rpc('connect', {'boot': self.boot, 'ollama': state,
+                                             'telemetry_version': 1})
+        except WorkerFailure as error:
+            if error.category != 'protocol_rejection':
+                raise
+            self._telemetry_event('worker_connection_failed', outcome='failure',
+                reason='protocol_rejection',
+                dimensions={'component':'relay', 'state':'reconnecting'})
+            # One authenticated compatibility retry, using the exact legacy body.
+            response = self.rpc('connect', {'boot': self.boot, 'ollama': state})
+            negotiated = False
+        else:
+            negotiated = isinstance(response, dict) and 'telemetry' in response
+        response = self._telemetry_response(response)
+        fields(response, ('epoch', 'lease'))
+        token(response['epoch']); token(response['lease'])
+        owner = {'epoch': response['epoch'], 'lease': response['lease'], 'boot': self.boot}
+        with self.lock:
+            self.telemetry_negotiated = negotiated
+            self.owner = owner
+            self.ownership_established = True
+        return owner
 
     @staticmethod
     def _new_local():
@@ -110,7 +205,22 @@ class OutboundWorker:
             raise ValueError('Oversized worker request')
         headers = signed_headers(self.config, path, raw, secrets.token_hex(16))
         started = time.monotonic()
-        with open_response(self.remote, Request(self.origin + path, data=raw, headers=headers), 12) as response:
+        request = Request(self.origin + path, data=raw, headers=headers)
+        try:
+            response = self.remote.open(request, timeout=12)
+        except HTTPError as error:
+            status = error.code
+            error.close()
+            if action == 'connect' and status == 409:
+                raise WorkerFailure('protocol_rejection') from error
+            if status in (401, 403):
+                raise WorkerFailure('authentication_rejection') from error
+            raise WorkerFailure('transport_failure') from error
+        except TimeoutError as error:
+            raise WorkerTimeout('timeout') from error
+        except (URLError, OSError) as error:
+            raise WorkerFailure('transport_failure') from error
+        with response:
             chunks, size = [], 0
             while True:
                 if time.monotonic() - started > 15:
@@ -156,21 +266,32 @@ class OutboundWorker:
             if owner is None:
                 continue
             try:
-                response = self.rpc('heartbeat', {**owner, 'job': job, 'ollama': 'ready' if ready else 'unavailable'})
+                response = self.rpc('heartbeat', self._session_body(owner, job=job,
+                    ollama='ready' if ready else 'unavailable'))
+                response = self._telemetry_response(response)
                 fields(response, ('active', 'health'))
                 if type(response['active']) is not bool:
                     raise ValueError('Invalid heartbeat')
                 if job and not response['active']:
                     self.cancelled.set()
-            except Exception:
+            except Exception as error:
                 self.cancelled.set()
-                with self.lock:
-                    if self.owner is owner:
-                        self.owner = None
+                if self._clear_session(owner):
+                    category = getattr(error, 'category', 'relay_ownership_lease')
+                    self._telemetry_event('worker_disconnected', outcome='failure',
+                        reason=category if category in REASONS else 'relay_ownership_lease',
+                        dimensions={'component':'relay', 'state':'disconnected'})
 
     def infer(self, job, owner):
         try:
-            fields(job, ('job', 'messages', 'seconds'))
+            if set(job) == {'job', 'messages', 'seconds', 'request_id', 'attempt'}:
+                request_id, attempt = job['request_id'], job['attempt']
+                token(request_id)
+                if type(attempt) is not int or attempt not in (1, 2):
+                    raise ValueError('Invalid attempt')
+            else:
+                fields(job, ('job', 'messages', 'seconds'))
+                request_id, attempt = None, 1
             token(job['job'])
             messages_valid(job['messages'])
         except (ValueError, TypeError, KeyError) as error:
@@ -219,6 +340,9 @@ class OutboundWorker:
         request = Request('http://127.0.0.1:11434/api/chat', data=payload,
                           headers={'Content-Type': 'application/json'})
         started = time.monotonic()
+        self._telemetry_runtime('active_inference', 1)
+        self._telemetry_event('inference_attempted', request_id=request_id,
+                              attempt=attempt, outcome='accepted')
         opened = False
         response = None
         completed = False
@@ -259,6 +383,11 @@ class OutboundWorker:
                         raise WorkerFailure('ollama_protocol_malformed_event')
                     send(pending, done=True)
                     completed = True
+                    duration = min(600000, int((time.monotonic() - started) * 1000))
+                    self._telemetry_event('inference_completed', request_id=request_id,
+                                          attempt=attempt, duration_ms=duration,
+                                          outcome='success')
+                    self._telemetry_runtime('last_inference_success', int(time.time()))
                     return
                 if pending and time.monotonic() - last_send >= 0.1:
                     send(pending)
@@ -277,6 +406,11 @@ class OutboundWorker:
             else:
                 failure = WorkerFailure('ollama_protocol_malformed_event')
             LOG.warning('worker job failed category=%s', failure.category)
+            duration = min(600000, int((time.monotonic() - started) * 1000))
+            self._telemetry_event('inference_failed', request_id=request_id, attempt=attempt,
+                                  duration_ms=duration, outcome='failure',
+                                  reason=failure.category)
+            self._telemetry_runtime('last_failure_at', int(time.time()))
             try:
                 send('', done=True, error=True, failure=failure.category)
             except Exception:
@@ -297,25 +431,28 @@ class OutboundWorker:
                 self._discard_local_transport()
             if cleanup_failed:
                 LOG.warning('worker recovery category=ollama_cleanup_recovery_failure')
+                self._telemetry_event('worker_recovered', outcome='failure',
+                    reason='ollama_cleanup_recovery_failure',
+                    dimensions={'component':'ollama', 'state':'unavailable'})
+            self._telemetry_runtime('active_inference', 0)
 
     def run(self):
         heartbeat = threading.Thread(target=self.heartbeat, daemon=True, name='oes-worker-heartbeat')
         heartbeat.start()
         try:
             while not self.stop.is_set():
+                owner = None
                 try:
                     self.ready = self.model_ready()
                     with self.lock:
                         owner = self.owner
                     if owner is None:
-                        response = self.rpc('connect', {'boot': self.boot, 'ollama': 'ready' if self.ready else 'unavailable'})
-                        fields(response, ('epoch', 'lease'))
-                        token(response['epoch']); token(response['lease'])
-                        owner = {'epoch': response['epoch'], 'lease': response['lease'], 'boot': self.boot}
-                        with self.lock:
-                            self.owner = owner
+                        owner = self._connect()
                         LOG.warning('worker relay connected')
-                    response = self.rpc('poll', owner)
+                        self._telemetry_event('worker_connected', outcome='success',
+                            dimensions={'component':'relay', 'state':'connected'})
+                    response = self.rpc('poll', self._session_body(owner))
+                    response = self._telemetry_response(response)
                     if response == {'job': None}:
                         self.stop.wait(0.25)
                         continue
@@ -331,7 +468,9 @@ class OutboundWorker:
                         # Also terminate a claimed job rejected before opening Ollama
                         # (for example its context budget or expected digest failed).
                         try:
-                            self.rpc('heartbeat', {**owner, 'job':self.job, 'ollama':'unavailable'})
+                            response = self.rpc('heartbeat', self._session_body(
+                                owner, job=self.job, ollama='unavailable'))
+                            self._telemetry_response(response)
                         except Exception:
                             pass
                         raise
@@ -341,10 +480,19 @@ class OutboundWorker:
                 except Exception as error:
                     self.cancelled.set()
                     with self.lock:
-                        self.owner = None
                         self.ready = False
+                    established = self._clear_session()
                     category = getattr(error, 'category', 'relay_ownership_lease')
                     LOG.warning('worker connection reset category=%s', category)
+                    if established:
+                        self._telemetry_event('worker_disconnected', outcome='failure',
+                            reason=category if category in REASONS
+                            else 'relay_ownership_lease',
+                            dimensions={'component':'relay', 'state':'disconnected'})
+                    elif owner is None:
+                        self._telemetry_event('worker_connection_failed', outcome='failure',
+                            reason=self._connection_failure_reason(error),
+                            dimensions={'component':'relay', 'state':'reconnecting'})
                     self.stop.wait(3)
         finally:
             self.cancelled.set()

@@ -72,7 +72,8 @@ class LauncherTests(unittest.TestCase):
                               (statuses if statuses is not None else []).append,
                               poll_seconds=60,
                               ollama_starter=starter, readiness_attempts=2,
-                              readiness_interval=0, readiness_sleep=lambda _: None)
+                              readiness_interval=0, readiness_sleep=lambda _: None,
+                              telemetry_store=False)
 
     def test_provisioning_matching_values_save_once(self):
         store = RecordingCredentialStore()
@@ -124,7 +125,8 @@ class LauncherTests(unittest.TestCase):
             root = Path(directory); executable = root/'.venv'/'Scripts'/'python.exe'
             executable.parent.mkdir(parents=True); executable.touch()
             controller = CoreController(lambda: config(), Store(None), root, popen,
-                                        statuses.append, poll_seconds=60)
+                                        statuses.append, poll_seconds=60,
+                                        telemetry_store=False)
             with patch('oes_core_launcher.controller.probe_ollama',
                        return_value='Available; llama3.2 unloaded'):
                 self.assertFalse(controller.start())
@@ -142,7 +144,8 @@ class LauncherTests(unittest.TestCase):
             root = Path(directory); executable = root/'.venv'/'Scripts'/'python.exe'
             executable.parent.mkdir(parents=True); executable.touch()
             controller = CoreController(lambda: config(), Store(secret), root, spawn,
-                                        statuses.append, poll_seconds=60)
+                                        statuses.append, poll_seconds=60,
+                                        telemetry_store=False)
             with patch('oes_core_launcher.controller.probe_ollama',
                        return_value='Available; llama3.2 unloaded'):
                 self.assertTrue(controller.start())
@@ -272,7 +275,7 @@ class LauncherTests(unittest.TestCase):
             root = Path(directory); executable = root/'.venv'/'Scripts'/'python.exe'
             executable.parent.mkdir(parents=True); executable.touch()
             controller = CoreController(lambda: config(), Store('cd'*32), root, spawn,
-                                        callback, poll_seconds=60)
+                                        callback, poll_seconds=60, telemetry_store=False)
             with patch('oes_core_launcher.controller.probe_ollama',
                        return_value='Available; llama3.2 unloaded'):
                 self.assertFalse(controller.start())
@@ -287,7 +290,8 @@ class LauncherTests(unittest.TestCase):
         process = FakeProcess(['python'])
         process.code = 1
         statuses = []
-        controller = CoreController(lambda: config(), Store('cd'*32), callback=statuses.append)
+        controller = CoreController(lambda: config(), Store('cd'*32), callback=statuses.append,
+                                    telemetry_store=False)
         controller.process = process
         controller._watch()
         self.assertEqual(statuses[-1].core, 'Needs Attention')
@@ -297,7 +301,7 @@ class LauncherTests(unittest.TestCase):
         process = FakeProcess(['python'])
         process.stderr = io.StringIO('private arbitrary text\nWARNING worker relay connected\n')
         statuses = []
-        controller = CoreController(callback=statuses.append)
+        controller = CoreController(callback=statuses.append, telemetry_store=False)
         controller._read_status(process)
         self.assertEqual(statuses[-1].relay, 'Connected')
         self.assertNotIn('private arbitrary text', repr(statuses))

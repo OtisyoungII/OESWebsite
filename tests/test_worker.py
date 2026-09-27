@@ -1,17 +1,21 @@
 import io
+import hmac
 import json
 import queue
 import ssl
 import threading
 import time
 import unittest
+from email.message import Message
+from urllib.error import HTTPError
 from unittest.mock import patch
 
 from flask import Flask
 from chat import init_chat
 from chat.providers import create_provider
 from chat.service import ChatService
-from chat.worker_protocol import canonical, decode, messages_valid, signed_headers
+from chat.worker_protocol import (canonical, decode, messages_valid, settings, signature,
+                                  signed_headers)
 from chat.worker_relay import WorkerRelay, RelayError
 from worker.client import OutboundWorker, WorkerFailure
 import worker.__main__ as worker_main
@@ -23,6 +27,75 @@ CONFIG = {'OES_CHAT_PROVIDER': 'outbound_worker', 'OES_WORKER_ENABLED': 'true',
           'OES_EYEBALL_ENABLED': 'true', 'OES_PROACTIVE_ENABLED': 'false',
           'OES_AI_MAX_CONCURRENCY': '1'}
 MESSAGES = [{'role': 'system', 'content': 'Bounded test policy'}, {'role': 'user', 'content': 'hello'}]
+
+
+class SignedResponse(io.BytesIO):
+    def __init__(self, data, signature_value):
+        super().__init__(data)
+        self.headers = Message()
+        self.headers['X-OES-Signature'] = signature_value
+
+
+class StrictWorkerServer:
+    """Authenticated in-memory fixture for either strict legacy or telemetry wire schemas."""
+    def __init__(self, config, telemetry):
+        self.config, self.telemetry = config, telemetry
+        self.requests, self.nonces = [], set()
+        self.epoch, self.lease = 'legacy-epoch', 'legacy-lease'
+
+    def open(self, request, timeout=None):
+        path = request.full_url.split('relay.example', 1)[1]
+        action = path.rsplit('/', 1)[-1]
+        raw = request.data
+        headers = {key.lower(): value for key, value in request.header_items()}
+        identity, key_id, key = settings(self.config)
+        stamp, nonce = headers['x-oes-time'], headers['x-oes-nonce']
+        expected = signature(key, 'request', path, identity, key_id, stamp, nonce, raw)
+        if (headers.get('x-oes-worker') != identity or headers.get('x-oes-key') != key_id
+                or not hmac.compare_digest(headers.get('x-oes-signature', ''), expected)
+                or nonce in self.nonces):
+            raise HTTPError(request.full_url, 401, 'rejected', Message(), io.BytesIO())
+        self.nonces.add(nonce)
+        body = decode(raw)
+        self.requests.append((action, body))
+        owner = {'epoch': self.epoch, 'boot': body.get('boot'), 'lease': self.lease}
+        if action == 'connect':
+            expected_fields = ({'boot', 'ollama', 'telemetry_version'} if self.telemetry
+                               else {'boot', 'ollama'})
+            if set(body) != expected_fields:
+                raise HTTPError(request.full_url, 409, 'schema', Message(), io.BytesIO())
+            result = {'epoch': self.epoch, 'lease': self.lease}
+            if self.telemetry:
+                result['telemetry'] = []
+        elif action == 'poll':
+            expected_fields = set(owner) | ({'telemetry_ack'} if self.telemetry else set())
+            if set(body) != expected_fields or any(body[key] != owner[key] for key in owner):
+                raise HTTPError(request.full_url, 409, 'schema', Message(), io.BytesIO())
+            result = {'job': 'legacy-job', 'messages': MESSAGES, 'seconds': 90}
+            if self.telemetry:
+                result.update(request_id='a' * 32, attempt=1)
+        elif action == 'heartbeat':
+            expected_fields = set(owner) | {'job', 'ollama'}
+            if self.telemetry:
+                expected_fields.add('telemetry_ack')
+            if set(body) != expected_fields or any(body[key] != owner[key] for key in owner):
+                raise HTTPError(request.full_url, 409, 'schema', Message(), io.BytesIO())
+            result = {'active': False, 'health': {}}
+            if self.telemetry:
+                result['telemetry'] = []
+        else:
+            raise AssertionError(action)
+        response_raw = canonical(result)
+        response_signature = signature(key, 'response', path, identity, key_id,
+                                       stamp, nonce, response_raw)
+        return SignedResponse(response_raw, response_signature)
+
+
+class RecordingTelemetry:
+    def __init__(self): self.events, self.runtime = [], {}
+    def record(self, event_type, **fields): self.events.append((event_type, fields))
+    def set_runtime(self, key, value): self.runtime[key] = value
+    def insert_events(self, events): return [event['event_id'] for event in events]
 
 
 class RelayTests(unittest.TestCase):
@@ -126,6 +199,20 @@ class RelayTests(unittest.TestCase):
         self.assertEqual(response.headers['X-OES-Signature'], signature(key, 'response', path,
                          identity, key_id, headers['X-OES-Time'], 'one', response.data))
 
+    def test_authenticated_negotiated_telemetry_delivery(self):
+        self.relay.emit('request_accepted', outcome='accepted')
+        response = self.post('connect', {'boot':'telemetry-worker', 'ollama':'ready',
+                                         'telemetry_version':1})
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.json['telemetry']), 1)
+        event_id = response.json['telemetry'][0]['event_id']
+        owner = {'epoch':response.json['epoch'], 'lease':response.json['lease'],
+                 'boot':'telemetry-worker'}
+        acknowledged = self.post('heartbeat', {**owner, 'job':None, 'ollama':'ready',
+                                                'telemetry_ack':[event_id]})
+        self.assertEqual(acknowledged.status_code, 200)
+        self.assertEqual(acknowledged.json['telemetry'], [])
+
     def test_stream_and_completed_job_cleanup(self):
         owner = self.connect()
         _, output, thread = self.start()
@@ -143,7 +230,8 @@ class RelayTests(unittest.TestCase):
 
         def converse():
             try:
-                output.put(list(ChatService(provider).stream("you're back", [], {})))
+                output.put(list(ChatService(provider, telemetry=self.relay.emit).stream(
+                    "you're back", [], {})))
             except Exception as error:
                 output.put(error)
 
@@ -177,6 +265,13 @@ class RelayTests(unittest.TestCase):
         self.assertEqual(self.relay.session['job'], second)
         self.assertEqual(self.result(owner, second,
                          text="Unfortunately for everyone involved, I'm back.").status_code, 200)
+        events = self.relay.telemetry.batch()
+        self.assertEqual(sum(event['event_type'] == 'request_accepted' for event in events), 1)
+        dispatched = [event for event in events
+                      if event['event_type'] == 'worker_job_dispatched']
+        self.assertEqual([event['attempt'] for event in dispatched], [1, 2])
+        self.assertEqual(sum(event['event_type'] == 'correction_attempted'
+                             for event in events), 1)
 
         thread.join(2)
         self.assertFalse(thread.is_alive())
@@ -362,8 +457,84 @@ class WorkerTests(unittest.TestCase):
     def config(self):
         return {**CONFIG, 'OES_WORKER_RELAY_URL':'https://relay.example', 'OES_WORKER_MODEL_DIGEST':'cd'*32}
 
+    def _run_against_strict_server(self, telemetry):
+        store = RecordingTelemetry()
+        worker = OutboundWorker(self.config(), telemetry_store=store)
+        server = StrictWorkerServer(self.config(), telemetry)
+        worker.remote.open = server.open
+        inferred = []
+        def infer(job, owner):
+            inferred.append((job, owner))
+            worker.stop.set()
+        with patch.object(worker, 'heartbeat'), \
+             patch.object(worker, 'model_ready', return_value=True), \
+             patch.object(worker, 'infer', side_effect=infer):
+            worker.run()
+        return worker, server, store, inferred
+
+    def test_new_worker_falls_back_once_to_strict_legacy_authenticated_protocol(self):
+        worker, server, store, inferred = self._run_against_strict_server(False)
+        self.assertEqual([action for action, _ in server.requests],
+                         ['connect', 'connect', 'poll'])
+        self.assertEqual(set(server.requests[0][1]), {'boot', 'ollama', 'telemetry_version'})
+        self.assertEqual(set(server.requests[1][1]), {'boot', 'ollama'})
+        self.assertEqual(set(server.requests[2][1]), {'epoch', 'boot', 'lease'})
+        self.assertFalse(worker.telemetry_negotiated)
+        self.assertEqual(worker.telemetry_ack, [])
+        self.assertEqual(len(inferred), 1)
+        heartbeat = worker._session_body(worker.owner, job=None, ollama='ready')
+        response = worker.rpc('heartbeat', heartbeat)
+        self.assertEqual(set(heartbeat), {'epoch', 'boot', 'lease', 'job', 'ollama'})
+        self.assertEqual(response, {'active':False, 'health':{}})
+        event_types = [event_type for event_type, _ in store.events]
+        self.assertEqual(event_types.count('worker_connection_failed'), 1)
+        self.assertEqual(event_types.count('worker_connected'), 1)
+        self.assertNotIn('worker_disconnected', event_types)
+        failure = next(fields for event_type, fields in store.events
+                       if event_type == 'worker_connection_failed')
+        self.assertEqual(failure['reason'], 'protocol_rejection')
+        diagnostics = repr(store.events)
+        self.assertNotIn(CONFIG['OES_WORKER_SHARED_KEY'], diagnostics)
+        self.assertNotIn('telemetry_version', diagnostics)
+        self.assertNotIn('legacy-job', diagnostics)
+
+    def test_new_worker_new_server_keeps_negotiated_telemetry(self):
+        worker, server, store, inferred = self._run_against_strict_server(True)
+        self.assertEqual([action for action, _ in server.requests], ['connect', 'poll'])
+        self.assertIn('telemetry_ack', server.requests[1][1])
+        self.assertTrue(worker.telemetry_negotiated)
+        self.assertEqual(len(inferred), 1)
+        self.assertNotIn('worker_connection_failed',
+                         [event_type for event_type, _ in store.events])
+
+    def test_preownership_failures_are_not_disconnections(self):
+        cases = [('protocol_rejection', 'protocol_rejection'),
+                 ('authentication_rejection', 'authentication_rejection'),
+                 ('transport_failure', 'transport_failure'),
+                 ('timeout', 'timeout')]
+        for category, expected in cases:
+            with self.subTest(category=category):
+                store = RecordingTelemetry()
+                worker = OutboundWorker(self.config(), telemetry_store=store)
+                calls = 0
+                def rpc(action, body):
+                    nonlocal calls
+                    calls += 1
+                    if category == 'protocol_rejection' and calls == 1:
+                        raise WorkerFailure(category)
+                    worker.stop.set()
+                    raise WorkerFailure(category)
+                with patch.object(worker, 'heartbeat'), \
+                     patch.object(worker, 'model_ready', return_value=True), \
+                     patch.object(worker, 'rpc', side_effect=rpc):
+                    worker.run()
+                types = [event_type for event_type, _ in store.events]
+                self.assertNotIn('worker_disconnected', types)
+                self.assertTrue(all(fields['reason'] == expected for event_type, fields
+                                    in store.events if event_type == 'worker_connection_failed'))
+
     def test_relay_connected_signal_only_follows_connection_ownership(self):
-        worker = OutboundWorker(self.config())
+        worker = OutboundWorker(self.config(), telemetry_store=False)
         actions = []
         polls = 0
 
@@ -419,7 +590,7 @@ class WorkerTests(unittest.TestCase):
         with self.assertRaises(ValueError): OutboundWorker(self.config(),ssl._create_unverified_context())
 
     def test_invalid_message_and_context_budget(self):
-        worker = OutboundWorker(self.config())
+        worker = OutboundWorker(self.config(), telemetry_store=False)
         for messages in ([{'role':'tool','content':'x'},MESSAGES[-1]],
                          [MESSAGES[0],{'role':'user','content':'x','model':'x'}]):
             with self.assertRaises(ValueError): messages_valid(messages)
@@ -429,7 +600,7 @@ class WorkerTests(unittest.TestCase):
         self.assertEqual(raised.exception.category, 'context_budget')
 
     def test_model_unavailable_and_digest_mismatch(self):
-        worker = OutboundWorker(self.config())
+        worker = OutboundWorker(self.config(), telemetry_store=False)
         with patch.object(worker.local,'open',side_effect=TimeoutError()):
             self.assertFalse(worker.model_ready())
         with patch.object(worker.local,'open',return_value=io.BytesIO(b'{"models":[]}')):
@@ -440,7 +611,7 @@ class WorkerTests(unittest.TestCase):
         self.assertEqual(raised.exception.category, 'model_readiness_digest')
 
     def test_normal_upstream_close_is_not_failure_category(self):
-        worker = OutboundWorker(self.config())
+        worker = OutboundWorker(self.config(), telemetry_store=False)
         data = canonical({'model':'llama3.2','message':{'role':'assistant','content':'Hello'},
                           'done':True}) + b'\n'
         with patch.object(worker, 'model_ready', return_value=True), \
@@ -453,20 +624,20 @@ class WorkerTests(unittest.TestCase):
 
     def test_malformed_timeout_and_cancelled_ollama(self):
         for data in (b'bad\n', b'{"model":"other"}\n', b'{"model":"llama3.2","message":{"role":"assistant","content":"x","tool_calls":[{}]},"done":true}\n'):
-            worker = OutboundWorker(self.config())
+            worker = OutboundWorker(self.config(), telemetry_store=False)
             with patch.object(worker,'model_ready',return_value=True), \
                  patch.object(worker.local,'open',return_value=io.BytesIO(data)), \
                  patch.object(worker,'rpc',return_value={'accepted':True,'active':True}) as rpc:
                 with self.assertRaises(ValueError): worker.infer({'job':'j','messages':MESSAGES,'seconds':90},{})
                 self.assertTrue(rpc.call_args.args[1]['error'])
-        worker = OutboundWorker(self.config())
+        worker = OutboundWorker(self.config(), telemetry_store=False)
         with patch.object(worker,'model_ready',return_value=True), \
              patch.object(worker.local,'open',side_effect=TimeoutError()), \
              patch.object(worker,'rpc',return_value={'accepted':True,'active':True}):
             with self.assertRaises(TimeoutError): worker.infer({'job':'j','messages':MESSAGES,'seconds':90},{})
 
     def test_no_retry_after_ambiguous_result(self):
-        worker = OutboundWorker(self.config())
+        worker = OutboundWorker(self.config(), telemetry_store=False)
         data = canonical({'model':'llama3.2','message':{'role':'assistant','content':'Hello'},'done':True})+b'\n'
         with patch.object(worker,'model_ready',return_value=True), \
              patch.object(worker.local,'open',return_value=io.BytesIO(data)), \
@@ -477,13 +648,13 @@ class WorkerTests(unittest.TestCase):
     def test_unauthenticated_and_oversized_relay_response(self):
         class RemoteResponse(io.BytesIO):
             headers={}
-        worker=OutboundWorker(self.config())
+        worker=OutboundWorker(self.config(), telemetry_store=False)
         for data in (b'{"job":null}',b'x'*262145):
             with patch.object(worker.remote,'open',return_value=RemoteResponse(data)):
                 with self.assertRaises(ValueError): worker.rpc('poll',{})
 
     def test_cancel_closes_ollama_response(self):
-        worker=OutboundWorker(self.config())
+        worker=OutboundWorker(self.config(), telemetry_store=False)
         data=canonical({'model':'llama3.2','message':{'role':'assistant','content':'Hello'},'done':True})+b'\n'
         response=io.BytesIO(data)
         worker.cancelled.set()
@@ -515,7 +686,7 @@ class WorkerTests(unittest.TestCase):
         self.assertEqual(relay.status()['LOCAL_WORKER_HEALTH'], 'LOCAL_WORKER_HEALTHY')
 
     def test_timeout_then_next_inference_uses_clean_transport(self):
-        worker = OutboundWorker(self.config())
+        worker = OutboundWorker(self.config(), telemetry_store=False)
         good = canonical({'model':'llama3.2',
                           'message':{'role':'assistant','content':'Recovered'},
                           'done':True}) + b'\n'
@@ -546,7 +717,7 @@ class WorkerTests(unittest.TestCase):
         for first, expected in ((b'bad\n', 'ollama_protocol_malformed_event'),
                                 (valid_partial, 'incomplete_ollama_stream')):
             with self.subTest(category=expected):
-                worker = OutboundWorker(self.config())
+                worker = OutboundWorker(self.config(), telemetry_store=False)
                 sent = []
                 def rpc(action, body):
                     sent.append(body.copy())
@@ -565,7 +736,7 @@ class WorkerTests(unittest.TestCase):
                 self.assertTrue(sent[-1]['done'])
 
     def test_cancellation_then_next_inference_recovers(self):
-        worker = OutboundWorker(self.config())
+        worker = OutboundWorker(self.config(), telemetry_store=False)
         good = canonical({'model':'llama3.2',
                           'message':{'role':'assistant','content':'Recovered'},
                           'done':True}) + b'\n'
@@ -590,7 +761,7 @@ class WorkerTests(unittest.TestCase):
             def read1(self, size=-1):
                 time.sleep(.02)
                 return super().read1(size)
-        worker = OutboundWorker(self.config())
+        worker = OutboundWorker(self.config(), telemetry_store=False)
         response = DelayedResponse(data)
         with patch.object(worker, 'model_ready', return_value=True), \
              patch('worker.client.open_response', return_value=response), \
@@ -599,7 +770,7 @@ class WorkerTests(unittest.TestCase):
         self.assertTrue(response.closed)
 
     def test_ollama_timeout_is_bounded_and_fail_closed(self):
-        worker = OutboundWorker(self.config())
+        worker = OutboundWorker(self.config(), telemetry_store=False)
         sent = []
         with patch.object(worker, 'model_ready', return_value=True), \
              patch('worker.client.open_response', side_effect=TimeoutError()), \
@@ -626,7 +797,7 @@ class WorkerTests(unittest.TestCase):
                  (OSError('loopback refused'), 'ollama_connect_failure')]
         for upstream, expected in cases:
             with self.subTest(category=expected):
-                worker = OutboundWorker(self.config())
+                worker = OutboundWorker(self.config(), telemetry_store=False)
                 sent = []
                 behavior = ({'return_value': upstream} if not isinstance(upstream, Exception)
                             else {'side_effect': upstream})
@@ -650,7 +821,7 @@ class WorkerTests(unittest.TestCase):
         self.assertEqual(app.config['OES_WORKER_ENABLED'],'false')
 
     def test_stalled_transport_wait_and_thread_count_are_bounded(self):
-        worker=OutboundWorker(self.config())
+        worker=OutboundWorker(self.config(), telemetry_store=False)
         release=threading.Event()
         def stalled(*args):
             release.wait(2)

@@ -83,7 +83,7 @@ class CoreController:
                  root=None, popen=subprocess.Popen, callback=None, poll_seconds=10,
                  ollama_starter=None, readiness_attempts=OLLAMA_READY_ATTEMPTS,
                  readiness_interval=OLLAMA_READY_INTERVAL_SECONDS,
-                 readiness_sleep=time.sleep):
+                 readiness_sleep=time.sleep, telemetry_store=None):
         self.config_loader = config_loader
         self.secret_store = secret_store
         self.root = repository_root() if root is None else Path(root)
@@ -99,6 +99,27 @@ class CoreController:
         self._closing = threading.Event()
         self._monitor = None
         self._lock = threading.RLock()
+        if telemetry_store is None:
+            try:
+                from .telemetry import TelemetryStore
+                telemetry_store = TelemetryStore()
+            except Exception:
+                telemetry_store = False
+        self.telemetry_store = telemetry_store or None
+
+    def _telemetry(self, event_type, **fields):
+        try:
+            if self.telemetry_store:
+                self.telemetry_store.record(event_type, **fields)
+        except Exception:
+            pass
+
+    def _runtime(self, key, value):
+        try:
+            if self.telemetry_store:
+                self.telemetry_store.set_runtime(key, value)
+        except Exception:
+            pass
 
     def _publish(self, **changes):
         values = self.status.__dict__.copy()
@@ -129,8 +150,12 @@ class CoreController:
             if self.process is not None and self.process.poll() is None:
                 return False
             self._publish(core='Starting', worker='Starting', relay='Connecting', detail='')
+            self._telemetry('core_started', outcome='accepted')
+            self._runtime('core_started_at', int(time.time()))
             try:
                 config = self.config_loader()
+                self._telemetry('configuration_checked', outcome='success',
+                    dimensions={'component':'core', 'state':'verified'})
                 secret = self.secret_store.read() if self.secret_store else None
                 executable = python_path(self.root)
                 if not executable.is_file():
@@ -143,9 +168,17 @@ class CoreController:
                     interval=self.readiness_interval,
                     sleep=self.readiness_sleep)
                 if ollama == 'Unavailable':
+                    self._telemetry('ollama_state', outcome='unavailable',
+                        dimensions={'component':'ollama', 'state':'unavailable'})
                     raise ValueError('Ollama did not become ready within the startup window')
                 if 'missing' in ollama:
+                    self._telemetry('model_verified', outcome='failure', reason='model_readiness_digest',
+                        dimensions={'component':'model', 'state':'invalid'})
                     raise ValueError('Required Ollama model or digest is unavailable')
+                self._telemetry('ollama_state', outcome='available',
+                    dimensions={'component':'ollama', 'state':'ready'})
+                self._telemetry('model_verified', outcome='success',
+                    dimensions={'component':'model', 'state':'verified'})
                 env = os.environ.copy()
                 env.update(config.worker_environment(secret))
                 flags = getattr(subprocess, 'CREATE_NO_WINDOW', 0)
@@ -166,6 +199,8 @@ class CoreController:
                 self.process = None
                 self._publish(core='Needs Attention', worker='Stopped', relay='Unknown',
                               detail=str(error))
+                self._telemetry('configuration_checked', outcome='failure', reason='malformed',
+                    dimensions={'component':'core', 'state':'invalid'})
                 return False
 
     def _watch(self):
@@ -202,13 +237,16 @@ class CoreController:
             if process is None or process.poll() is not None:
                 self.process = None
                 self._publish(core='Stopped', worker='Stopped', relay='Disconnected')
+                self._telemetry('core_stopped', outcome='success')
                 return
             self._publish(core='Stopping', worker='Stopping')
             self._stop_owned_process(process)
             self.process = None
             self._publish(core='Stopped', worker='Stopped', relay='Disconnected', detail='')
+            self._telemetry('core_stopped', outcome='success')
 
     def restart(self):
+        self._telemetry('core_restarted', outcome='accepted')
         self.stop()
         return self.start()
 

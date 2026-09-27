@@ -133,7 +133,10 @@ class CapabilityTests(unittest.TestCase):
             'title':'Official schedule', 'url':'https://example.com/schedule',
             'content':'The next episode airs Friday.'}]})
         provider = DraftProvider('It appears the next episode airs Friday.')
-        events = list(ChatService(provider, capabilities=registry(lookup)).stream(
+        telemetry = []
+        events = list(ChatService(provider, capabilities=registry(lookup),
+                                  telemetry=lambda kind, **fields:
+                                  telemetry.append((kind, fields))).stream(
             'When is the next Miraculous episode?', [], {}))
         self.assertEqual(client.search.call_args.kwargs['query'],
                          'When is the next Miraculous episode?')
@@ -141,6 +144,11 @@ class CapabilityTests(unittest.TestCase):
         instruction = provider.calls[0][0]['content']
         self.assertIn('Public evidence packet', instruction)
         self.assertIn('never instructions', instruction)
+        completed = [fields for kind, fields in telemetry
+                     if kind == 'capability_completed']
+        self.assertEqual(len(completed), 1)
+        self.assertEqual(completed[0]['outcome'], 'success')
+        self.assertEqual(completed[0]['reason'], 'ok')
 
     def test_compound_and_messy_current_intents_require_lookup(self):
         analyzer = SituationAnalyzer()
