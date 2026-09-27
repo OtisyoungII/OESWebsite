@@ -389,9 +389,9 @@ home-page
             </h2>
 
             <p class="section-introduction">
-                OES designs, builds and tests real software systems: an active
-                trading companion platform, an iOS lottery assistant and client
-                applications moving toward public release.
+                OES designs, builds and tests real software systems: a trading
+                companion, a lottery assistant, a multi-sport platform and
+                client applications moving toward public release.
             </p>
         </header>
 
@@ -620,6 +620,116 @@ home-page
                         Test on TestFlight
                     </a>
                 </div>
+            </article>
+
+            <!-- Sportfolio -->
+
+            <article
+                class="product-card product-card--sportfolio sportfolio-card"
+                data-product="sportfolio"
+            >
+                <div
+                    class="product-card__ambient"
+                    aria-hidden="true"
+                ></div>
+
+                <div class="product-card__header">
+                    <div>
+                        <p class="product-card__category">
+                            Multi-Sport Athlete Platform
+                        </p>
+
+                        <h3>
+                            Sportfolio
+                        </h3>
+                    </div>
+
+                    <span class="status-badge status-badge--testing">
+                        Active Field Testing
+                    </span>
+                </div>
+
+                <p class="product-card__tagline">
+                    Live sports. Verified stats. One athlete identity.
+                </p>
+
+                <p class="product-card__description">
+                    Sportfolio is an OES sports platform built to connect
+                    athletes, teams, leagues, officials, game data, media and
+                    recruiting history in one system. Baseball is the first
+                    live implementation, with support for additional sports
+                    planned over time.
+                </p>
+
+                <ul class="product-card__features">
+                    <li>Persistent athlete, team, league and season identity</li>
+                    <li>Mobile-first live scoring, lineups and pitch counts</li>
+                    <li>Independent team scoring and discrepancy review</li>
+                    <li>Verified officials, stat verification and audit history</li>
+                    <li>Media and future recruiting workflows</li>
+                </ul>
+
+                <div
+                    class="sportfolio-display"
+                    aria-hidden="true"
+                >
+                    <div class="sportfolio-display__header">
+                        <span>FIELD TEST</span>
+                        <strong>BASEBALL · LIVE</strong>
+                    </div>
+
+                    <div class="sportfolio-display__score">
+                        <span class="sportfolio-display__team">DET</span>
+                        <strong>4</strong>
+                        <span class="sportfolio-display__inning">TOP 7</span>
+                        <strong>3</strong>
+                        <span class="sportfolio-display__team">VIS</span>
+                    </div>
+
+                    <div class="sportfolio-display__diamond">
+                        <span></span><span></span><span></span>
+                    </div>
+
+                    <div class="sportfolio-display__metrics">
+                        <span>Pitch count <strong>72</strong></span>
+                        <span>Lineup <strong>Verified</strong></span>
+                        <span>Game record <strong>Auditable</strong></span>
+                    </div>
+                </div>
+
+                <div class="product-card__actions">
+                    {% if sportfolio_web_url %}
+                    <a
+                        class="button button--product"
+                        href="{{ sportfolio_web_url }}"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                    >
+                        Try Sportfolio Web
+                    </a>
+                    {% else %}
+                    {# Configure SPORTFOLIO_WEB_URL when the public URL is supplied. #}
+                    <span
+                        class="button button--product"
+                        aria-disabled="true"
+                        title="Public Sportfolio Web URL required"
+                    >
+                        Try Sportfolio Web — URL Pending
+                    </span>
+                    {% endif %}
+
+                    <span
+                        class="button button--secondary"
+                        aria-disabled="true"
+                    >
+                        iOS TestFlight — Coming Soon
+                    </span>
+                </div>
+
+                <p class="product-card__platform-note">
+                    On Android? You can join Sportfolio testing through the web
+                    app while native mobile support continues to expand.
+                </p>
             </article>
 
         </div>
@@ -1352,9 +1462,10 @@ home-page
 
                 <p>
                     The research is already visible inside ChaseInGreen,
-                    Lottovate and this website through predictive logic,
-                    personalized learning, specialized AI tasks and interfaces
-                    that respond to user movement and attention.
+                    Lottovate, Sportfolio and this website through predictive
+                    logic, verified data workflows, personalized learning,
+                    specialized AI tasks and interfaces that respond to user
+                    movement and attention.
                 </p>
             </header>
 

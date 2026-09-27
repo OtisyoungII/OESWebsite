@@ -149,6 +149,12 @@ const INTEREST_CONFIG = {
         accent: "yellow"
     },
 
+    sportfolio: {
+        message: "Sportfolio: live sports, verified stats and persistent athlete identity.",
+        repeatedMessage: "Baseball field testing is active across desktop, Android web and mobile workflows.",
+        accent: "green"
+    },
+
     client: {
         message: "OES builds native applications for businesses with real growth plans.",
         repeatedMessage: "Planning an app? OES can help turn the idea into a working product.",
@@ -876,6 +882,14 @@ function detectInterestFromClasses(element) {
         return "lottovate";
     }
 
+    if (
+        closest(
+            ".product-card--sportfolio, .sportfolio-card"
+        )
+    ) {
+        return "sportfolio";
+    }
+
     if (closest(".client-spotlight")) {
         return "client";
     }
@@ -1442,6 +1456,13 @@ function applyCardAwarenessMetadata() {
                 ".product-card--lottovate",
             interest:
                 "lottovate"
+        },
+
+        {
+            selector:
+                ".product-card--sportfolio",
+            interest:
+                "sportfolio"
         },
 
         {

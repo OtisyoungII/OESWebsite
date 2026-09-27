@@ -437,9 +437,27 @@ canvas {
     }
 
     .market-display,
-    .lottery-display {
+    .lottery-display,
+    .sportfolio-display {
         width: 100%;
         min-height: 260px;
+    }
+
+    .product-card--sportfolio .product-card__features {
+        grid-template-columns: 1fr;
+    }
+
+    .sportfolio-display__diamond {
+        display: none;
+    }
+
+    .sportfolio-display__metrics {
+        gap: 6px;
+    }
+
+    .sportfolio-display__metrics span {
+        padding: 8px;
+        font-size: 8px;
     }
 
     .market-display__metrics {

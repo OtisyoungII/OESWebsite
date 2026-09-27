@@ -299,6 +299,24 @@ IMPORTANT RULES:
         0 0 34px rgba(250, 204, 21, 0.16);
 }
 
+.product-card--sportfolio .button--product {
+    color: #ccfbf1;
+    border-color: rgba(45, 212, 191, 0.4);
+    background:
+        linear-gradient(
+            135deg,
+            rgba(13, 148, 136, 0.46),
+            rgba(15, 118, 110, 0.3)
+        );
+}
+
+.product-card--sportfolio .button--product:hover {
+    border-color: rgba(153, 246, 228, 0.78);
+    box-shadow:
+        0 20px 46px rgba(0, 0, 0, 0.34),
+        0 0 34px rgba(45, 212, 191, 0.18);
+}
+
 /* ==========================================================================
    TEXT LINKS
 ========================================================================== */

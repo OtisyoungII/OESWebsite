@@ -235,6 +235,15 @@ const INTEREST_BEHAVIORS = Object.freeze({
         message: "Scanning prediction patterns."
     },
 
+    sportfolio: {
+        accent: "green",
+        glow: 0.9,
+        orbitSpeed: 1.46,
+        pulseSpeed: 1.28,
+        focusStrength: 1,
+        message: "Tracking live games and verified athlete records."
+    },
+
     client: {
         accent: "pink",
         glow: 0.78,

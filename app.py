@@ -1,3 +1,5 @@
+import os
+
 from flask import Flask, redirect, render_template, url_for
 from chat import init_chat
 import os
@@ -14,7 +16,10 @@ def healthz():
 
 @app.route("/")
 def home():
-    return render_template("index.html")
+    return render_template(
+        "index.html",
+        sportfolio_web_url=os.getenv("SPORTFOLIO_WEB_URL"),
+    )
 
 
 @app.route("/chaseingreen")
