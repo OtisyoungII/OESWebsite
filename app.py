@@ -2,10 +2,26 @@ import os
 
 from flask import Flask, redirect, render_template, url_for
 from chat import init_chat
-import os
 
 app = Flask(__name__)
 init_chat(app)
+
+# Public website freshness and product endpoints live here so templates do not
+# duplicate release-sensitive values.
+app.config.update(
+    SITE_STATUS_UPDATED="September 2026",
+    SPORTFOLIO_WEB_URL=os.environ.get(
+        "SPORTFOLIO_WEB_URL",
+        "https://sportfolio-api-ktd5.onrender.com/",
+    ),
+)
+
+
+@app.context_processor
+def inject_public_site_status():
+    return {
+        "site_status_updated": app.config["SITE_STATUS_UPDATED"],
+    }
 
 
 @app.get('/healthz')
@@ -18,7 +34,7 @@ def healthz():
 def home():
     return render_template(
         "index.html",
-        sportfolio_web_url=os.getenv("SPORTFOLIO_WEB_URL"),
+        sportfolio_web_url=app.config["SPORTFOLIO_WEB_URL"],
     )
 
 
