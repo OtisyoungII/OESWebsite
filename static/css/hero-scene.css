@@ -1874,8 +1874,7 @@ IMPORTANT RULES:
 @media (max-width: 480px) {
     .hero-scene { padding-top: 158px; }
 
-    .hero-status__divider,
-    .hero-status__text:last-child {
+    .hero-status__divider {
         display: none;
     }
 

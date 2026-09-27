@@ -37,7 +37,7 @@ BUSINESS_SENSITIVE = re.compile(r'\b(pricing|price|cost|charge|quote|nda|confide
 IDENTITY = re.compile(
     r'\b(?:are (?:you|u) (?:an? )?(?:ai|human|bot)|(?:do|can) you (?:have feelings|feel))\b'
     r'|^\s*what are you(?:\s+really)?\s*[?.!]*\s*$', re.I)
-OES_FACTS = re.compile(r'\b(oes|otis execution systems|chaseingreen|lottovate|drinks with friendz|trading companion|lottery assistant)\b', re.I)
+OES_FACTS = re.compile(r'\b(oes|otis execution systems|chaseingreen|lottovate|sportfolio|drinks with friendz|trading companion|lottery assistant|sports platform)\b', re.I)
 HYPOTHETICAL_OES = re.compile(
     r'\b(?:could|would|can|should|might)\s+(?:oes|otis execution systems)\s+'
     r'(?:build|make|develop|design|create)\b|\b(?:brainstorm|design|imagine|propose)\b.{0,80}\b(?:for\s+)?(?:oes|otis execution systems)\b',
@@ -257,7 +257,7 @@ def validate_character_safety(text):
                  r'you (?:interacted|navigated|clicked|refreshed|changed your section)|'
                  r'your interest (?:is|shows?|means?)|i (?:know|can tell) (?:why|that) you)\b', text, re.I):
         failures.append('visitor_narration')
-    if re.search(r'\b(?:(?:oes|otis execution systems|chaseingreen|lottovate|drinks with friendz)\s+'
+    if re.search(r'\b(?:(?:oes|otis execution systems|chaseingreen|lottovate|sportfolio|drinks with friendz)\s+'
                  r'(?:is|has|offers?|supports?|provides?|built|developed|uses?|can|will|guarantees?)|'
                  r'trusted provider|secure solutions?|million users?|certified|soc\s*2)\b', text, re.I):
         failures.append('unsupported_claim')

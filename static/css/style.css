@@ -107,6 +107,13 @@ IMPORTANT RULES:
     --oes-radius-panel: 36px;
 
     --oes-header-height: 82px;
+    --oes-anchor-gap: 28px;
+    --oes-anchor-offset:
+        calc(
+            var(--oes-header-height) +
+            env(safe-area-inset-top) +
+            var(--oes-anchor-gap)
+        );
 
     --oes-content-width: 1480px;
     --oes-content-wide: 1680px;
@@ -134,12 +141,11 @@ IMPORTANT RULES:
 html {
     min-width: 320px;
     scroll-behavior: smooth;
-    scroll-padding-top:
-        calc(
-            var(--oes-header-height) +
-            24px
-        );
     background: var(--oes-background);
+}
+
+:where(main[id], section[id]) {
+    scroll-margin-top: var(--oes-anchor-offset);
 }
 
 body {

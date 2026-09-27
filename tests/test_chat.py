@@ -242,6 +242,8 @@ class ChatTests(unittest.TestCase):
         self.post({'message':'What is Drinks With Friendz?'}).get_data()
         instruction = self.provider.calls[0][0]['content']
         self.assertIn('Drinks With Friendz is a client project developed by OES', instruction)
+        self.assertIn('Sportfolio is an OES multi-sport platform', instruction)
+        self.assertIn('https://sportfolio-api-ktd5.onrender.com/', instruction)
         self.assertIn('OES develops intelligent software', instruction)
 
     def test_public_fact_model_prose_never_released(self):
