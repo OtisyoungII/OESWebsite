@@ -58,6 +58,11 @@ def privacy():
     return render_template("privacy.html")
 
 
+@app.route("/drinks-with-friendz/privacy")
+def drinks_with_friendz_privacy():
+    return render_template("drinks_with_friendz_privacy.html")
+
+
 if __name__ == "__main__":
     app.run(host=os.environ.get('HOST', '127.0.0.1'), port=int(os.environ.get('PORT', '5000')),
             debug=os.environ.get('OES_DEV_DEBUG', 'true').lower() == 'true')
