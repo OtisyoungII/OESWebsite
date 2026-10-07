@@ -109,8 +109,11 @@ host can expose prompts or impersonate the worker. Rotation/revocation is requir
   local llama3.2:latest. Context capacity still needs a sustained GPU test.
 - Relay deadline 100 seconds; delivered inference budget <=90 seconds. Lease 15
   seconds; heartbeat every 3; long poll <=10. Poll owns at most one waiting slot.
-- Local Ollama socket timeout 10 seconds plus overall bounded stream/wire parsing.
-  A blocking read can extend a deadline by up to its socket timeout.
+- Local Ollama loaded-model/open and stream-read socket timeout 10 seconds. An
+  unloaded or uncertain model receives a 45-second HTTP-open allowance, bounded
+  by the existing delivered inference budget; after open, the socket returns to
+  the 10-second read timeout. A blocking read can extend a deadline by up to its
+  socket timeout.
 - Relay RPC socket timeout 12 seconds and read-loop deadline 15 seconds; a blocked
   read can extend that deadline by up to 12 seconds. A 27-second caller deadline
   also covers OS DNS stalls; at most two outstanding transport threads are allowed.

@@ -17,7 +17,8 @@ from chat.service import ChatService
 from chat.worker_protocol import (canonical, decode, messages_valid, settings, signature,
                                   signed_headers)
 from chat.worker_relay import WorkerRelay, RelayError
-from worker.client import OutboundWorker, WorkerFailure
+from worker.client import (OLLAMA_COLD_START_SECONDS, OLLAMA_READ_SECONDS,
+                           OutboundWorker, WorkerFailure)
 import worker.__main__ as worker_main
 
 # Deliberately public fixture material; never suitable for deployment.
@@ -610,6 +611,18 @@ class WorkerTests(unittest.TestCase):
                 worker.infer({'job':'j','messages':MESSAGES,'seconds':90},{})
         self.assertEqual(raised.exception.category, 'model_readiness_digest')
 
+    def test_loaded_model_probe_is_digest_bound_and_fail_closed_to_cold(self):
+        worker = OutboundWorker(self.config(), telemetry_store=False)
+        loaded = canonical({'models':[{'name':'llama3.2:latest',
+                                      'digest':worker.digest}]})
+        with patch.object(worker.local, 'open', return_value=io.BytesIO(loaded)):
+            self.assertTrue(worker.model_loaded())
+        wrong = canonical({'models':[{'name':'llama3.2:latest','digest':'0' * 64}]})
+        with patch.object(worker.local, 'open', return_value=io.BytesIO(wrong)):
+            self.assertFalse(worker.model_loaded())
+        with patch.object(worker.local, 'open', side_effect=TimeoutError()):
+            self.assertFalse(worker.model_loaded())
+
     def test_normal_upstream_close_is_not_failure_category(self):
         worker = OutboundWorker(self.config(), telemetry_store=False)
         data = canonical({'model':'llama3.2','message':{'role':'assistant','content':'Hello'},
@@ -768,6 +781,44 @@ class WorkerTests(unittest.TestCase):
              patch.object(worker, 'rpc', return_value={'accepted':True,'active':True}):
             worker.infer({'job':'cold','messages':MESSAGES,'seconds':2},{})
         self.assertTrue(response.closed)
+
+    def test_warm_and_cold_open_use_distinct_bounded_timeouts(self):
+        data = canonical({'model':'llama3.2',
+                          'message':{'role':'assistant','content':'Ready'},
+                          'done':True}) + b'\n'
+        for loaded, expected in ((True, OLLAMA_READ_SECONDS),
+                                 (False, OLLAMA_COLD_START_SECONDS)):
+            with self.subTest(loaded=loaded):
+                worker = OutboundWorker(self.config(), telemetry_store=False)
+                worker.model_was_loaded = loaded
+                timeouts = []
+                def opened(opener, request, timeout):
+                    timeouts.append(timeout)
+                    return io.BytesIO(data)
+                with patch.object(worker, 'model_ready', return_value=True), \
+                     patch('worker.client.open_response', side_effect=opened), \
+                     patch.object(worker, 'rpc', return_value={'accepted':True,'active':True}):
+                    worker.infer({'job':'timing','messages':MESSAGES,'seconds':90},{})
+                self.assertAlmostEqual(timeouts[-1], expected, delta=.1)
+
+    def test_cold_open_restores_normal_read_timeout(self):
+        class Socket:
+            def __init__(self): self.timeouts = []
+            def settimeout(self, value): self.timeouts.append(value)
+        class Raw: pass
+        class FP: pass
+        response = io.BytesIO(canonical({'model':'llama3.2',
+            'message':{'role':'assistant','content':'Ready'},'done':True}) + b'\n')
+        socket = Socket()
+        response.fp = FP()
+        response.fp.raw = Raw()
+        response.fp.raw._sock = socket
+        worker = OutboundWorker(self.config(), telemetry_store=False)
+        with patch.object(worker, 'model_ready', return_value=True), \
+             patch('worker.client.open_response', return_value=response), \
+             patch.object(worker, 'rpc', return_value={'accepted':True,'active':True}):
+            worker.infer({'job':'cold','messages':MESSAGES,'seconds':90},{})
+        self.assertEqual(socket.timeouts, [OLLAMA_READ_SECONDS])
 
     def test_ollama_timeout_is_bounded_and_fail_closed(self):
         worker = OutboundWorker(self.config(), telemetry_store=False)

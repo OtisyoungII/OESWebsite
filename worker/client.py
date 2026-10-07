@@ -19,6 +19,9 @@ from oes_telemetry import REASONS, validate_batch
 
 LOG = logging.getLogger('oes.worker')
 RPC_SECONDS = 27
+OLLAMA_PROBE_SECONDS = 3
+OLLAMA_READ_SECONDS = 10
+OLLAMA_COLD_START_SECONDS = 45
 
 
 class WorkerFailure(ValueError):
@@ -59,6 +62,7 @@ class OutboundWorker:
         self.owner = None
         self.job = None
         self.ready = False
+        self.model_was_loaded = False
         self.lock = threading.Lock()
         self.stop = threading.Event()
         self.cancelled = threading.Event()
@@ -255,9 +259,49 @@ class OutboundWorker:
                     if len(data) > 65536:
                         return False
                 models = json.loads(data)['models']
-                return any(m.get('name') == 'llama3.2:latest' and m.get('digest') == self.digest for m in models)
+                verified = any(m.get('name') == 'llama3.2:latest'
+                               and m.get('digest') == self.digest for m in models)
+                self.model_was_loaded = self.model_loaded() if verified else False
+                return verified
+        except Exception:
+            self.model_was_loaded = False
+            return False
+
+    def model_loaded(self):
+        """Best-effort loaded-model probe; uncertainty receives the bounded cold allowance."""
+        try:
+            started = time.monotonic()
+            with open_response(self.local, Request('http://127.0.0.1:11434/api/ps'),
+                               OLLAMA_PROBE_SECONDS) as response:
+                data = b''
+                while True:
+                    if time.monotonic() - started > OLLAMA_PROBE_SECONDS:
+                        return False
+                    chunk = response.read1(4096)
+                    if not chunk:
+                        break
+                    data += chunk
+                    if len(data) > 65536:
+                        return False
+                models = json.loads(data)['models']
+                return any(m.get('name') == 'llama3.2:latest'
+                           and m.get('digest') == self.digest for m in models)
         except Exception:
             return False
+
+    @staticmethod
+    def _set_response_timeout(response, seconds):
+        """Restore the normal read bound after a longer HTTP-open cold allowance."""
+        fp = getattr(response, 'fp', None)
+        raw = getattr(fp, 'raw', None)
+        candidates = (getattr(raw, '_sock', None), getattr(fp, '_sock', None),
+                      getattr(response, '_sock', None))
+        for candidate in candidates:
+            setter = getattr(candidate, 'settimeout', None)
+            if callable(setter):
+                setter(seconds)
+                return True
+        return False
 
     def heartbeat(self):
         while not self.stop.wait(3):
@@ -305,6 +349,7 @@ class OutboundWorker:
         if not self.model_ready():
             raise WorkerFailure('model_readiness_digest')
         deadline = time.monotonic() + job['seconds']
+        inference_state = 'warm' if self.model_was_loaded else 'cold'
         sequence = 0
 
         def send(text, done=False, error=False, failure=None):
@@ -342,15 +387,25 @@ class OutboundWorker:
         started = time.monotonic()
         self._telemetry_runtime('active_inference', 1)
         self._telemetry_event('inference_attempted', request_id=request_id,
-                              attempt=attempt, outcome='accepted')
+                              attempt=attempt, outcome='accepted',
+                              dimensions={'inference_state': inference_state})
         opened = False
         response = None
         completed = False
         received_event = False
+        ready_reported = False
         try:
-            # A stalled read fails within ten seconds, including during cancellation.
-            response = open_response(self.local, request, 10)
+            # An unloaded model may not return HTTP headers until loading completes.
+            # The cold allowance is bounded by the existing per-job deadline; after
+            # open, reads return to the normal ten-second socket timeout.
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise WorkerFailure('job_deadline')
+            open_timeout = min(OLLAMA_READ_SECONDS if inference_state == 'warm'
+                               else OLLAMA_COLD_START_SECONDS, remaining)
+            response = open_response(self.local, request, open_timeout)
             opened = True
+            self._set_response_timeout(response, OLLAMA_READ_SECONDS)
             total, pending, last_send = 0, '', time.monotonic()
             for line in bounded_lines(response, started, job['seconds']):
                 received_event = True
@@ -370,6 +425,13 @@ class OutboundWorker:
                         or message.get('tool_calls') or not isinstance(message.get('content'), str)
                         or type(value.get('done')) is not bool):
                     raise WorkerFailure('ollama_protocol_malformed_event')
+                if not ready_reported:
+                    ready_duration = min(600000, int((time.monotonic() - started) * 1000))
+                    self._telemetry_event('inference_ready', request_id=request_id,
+                                          attempt=attempt, duration_ms=ready_duration,
+                                          outcome='success',
+                                          dimensions={'inference_state': inference_state})
+                    ready_reported = True
                 text = message['content']
                 total += len(text)
                 if total > MAX_OUTPUT:
@@ -386,7 +448,8 @@ class OutboundWorker:
                     duration = min(600000, int((time.monotonic() - started) * 1000))
                     self._telemetry_event('inference_completed', request_id=request_id,
                                           attempt=attempt, duration_ms=duration,
-                                          outcome='success')
+                                          outcome='success',
+                                          dimensions={'inference_state': inference_state})
                     self._telemetry_runtime('last_inference_success', int(time.time()))
                     return
                 if pending and time.monotonic() - last_send >= 0.1:
@@ -409,7 +472,8 @@ class OutboundWorker:
             duration = min(600000, int((time.monotonic() - started) * 1000))
             self._telemetry_event('inference_failed', request_id=request_id, attempt=attempt,
                                   duration_ms=duration, outcome='failure',
-                                  reason=failure.category)
+                                  reason=failure.category,
+                                  dimensions={'inference_state': inference_state})
             self._telemetry_runtime('last_failure_at', int(time.time()))
             try:
                 send('', done=True, error=True, failure=failure.category)

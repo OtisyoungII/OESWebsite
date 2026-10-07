@@ -18,7 +18,7 @@ EVENT_TYPES = frozenset({
     'worker_recovered', 'request_accepted', 'request_rejected',
     'situation_classified', 'grounding_required', 'capability_requested',
     'capability_completed', 'worker_job_dispatched', 'inference_attempted',
-    'inference_completed', 'inference_failed', 'validation_rejected',
+    'inference_ready', 'inference_completed', 'inference_failed', 'validation_rejected',
     'correction_attempted', 'response_completed', 'safe_error',
     'request_cancelled', 'telemetry_gap',
 })
@@ -69,6 +69,7 @@ DIMENSIONS = {
     'state': frozenset({'starting', 'online', 'stopped', 'connected', 'disconnected',
                         'reconnecting', 'ready', 'unavailable', 'verified', 'invalid',
                         'active', 'idle'}),
+    'inference_state': frozenset({'cold', 'warm'}),
 }
 
 EVENT_DIMENSIONS = {
@@ -83,6 +84,10 @@ EVENT_DIMENSIONS = {
     'worker_connection_failed': frozenset({'component', 'state'}),
     'worker_disconnected': frozenset({'component', 'state'}),
     'worker_recovered': frozenset({'component', 'state'}),
+    'inference_attempted': frozenset({'inference_state'}),
+    'inference_ready': frozenset({'inference_state'}),
+    'inference_completed': frozenset({'inference_state'}),
+    'inference_failed': frozenset({'inference_state'}),
 }
 
 _HEX32 = re.compile(r'^[0-9a-f]{32}$')

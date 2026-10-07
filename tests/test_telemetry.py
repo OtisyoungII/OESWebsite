@@ -60,6 +60,13 @@ class SchemaTests(unittest.TestCase):
         with self.assertRaises(ValueError): validate_batch(events)
         self.assertLessEqual(len(json.dumps(validate_batch(events[:-1])).encode()), MAX_BATCH_BYTES)
 
+    def test_inference_state_telemetry_is_bounded_and_content_free(self):
+        event = make_event('inference_ready', duration_ms=12000, outcome='success',
+                           dimensions={'inference_state':'cold'})
+        self.assertEqual(validate_event(event)['dimensions']['inference_state'], 'cold')
+        with self.assertRaises(ValueError):
+            make_event('inference_ready', dimensions={'inference_state':'private prompt'})
+
 
 class BufferTests(unittest.TestCase):
     def test_ack_dedup_batch_bounds_and_overflow_gap(self):

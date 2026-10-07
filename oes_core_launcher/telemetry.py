@@ -26,6 +26,7 @@ ACTIVITY_LABELS = {
     'capability_completed': 'Capability completed',
     'worker_job_dispatched': 'Worker job dispatched',
     'inference_attempted': 'Inference started',
+    'inference_ready': 'Inference ready',
     'inference_completed': 'Inference completed',
     'inference_failed': 'Inference failed',
     'validation_rejected': 'Response validation rejected',
