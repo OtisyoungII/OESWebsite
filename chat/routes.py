@@ -8,6 +8,7 @@ from .observations import (validate_context, ObservationState, InitiationRestrai
 from .initiative import authorize_intent
 from .runtime import enabled
 from .providers import create_provider
+from .localization import validate_locale
 
 bp = Blueprint("chat", __name__)
 
@@ -89,8 +90,8 @@ def health():
 
 
 def validate(payload):
-    if not isinstance(payload, dict) or set(payload) - {"message", "history", "context"}:
-        raise ValueError("Only message, history and context are accepted.")
+    if not isinstance(payload, dict) or set(payload) - {"message", "history", "context", "locale"}:
+        raise ValueError("Only message, history, context and locale are accepted.")
     message = payload.get("message")
     if not isinstance(message, str) or not message.strip() or len(message) > 4000:
         raise ValueError("Message must contain 1–4,000 characters.")
@@ -108,7 +109,8 @@ def validate(payload):
     if sum(len(item["content"]) for item in cleaned) > 12000:
         raise ValueError("History exceeds the conversation limit.")
     context = validate_context(payload.get("context", {}))
-    return message.strip(), cleaned, context
+    locale = validate_locale(payload.get('locale'))
+    return message.strip(), cleaned, context, locale
 
 
 @bp.route("/api/chat", methods=["POST"])
@@ -212,9 +214,9 @@ def invitation():
         payload = request.get_json()
         if not isinstance(payload, dict) or set(payload) - {'context', 'restraint', 'history', 'recent_invitations'}:
             raise ValueError('Invalid invitation request fields.')
-        _, history, context = validate({'message': 'invitation eligibility',
-                                       'history': payload.get('history', []),
-                                       'context': payload.get('context', {})})
+        _, history, context, _ = validate({'message': 'invitation eligibility',
+                                          'history': payload.get('history', []),
+                                          'context': payload.get('context', {})})
         observed = ObservationState.from_context(context)
         restraint = InitiationRestraint.from_payload(payload.get('restraint', {}))
         recent = payload.get('recent_invitations', [])

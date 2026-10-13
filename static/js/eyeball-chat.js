@@ -1,5 +1,7 @@
 import { getAwarenessState } from './section-awareness.js';
 import { createObservationController } from './eyeball-observations.js';
+import { EYEBALL_LOCALES, initialEyeballLocale, localeDefinition,
+    persistEyeballLocale, shouldRefocusEyeballComposer } from './eyeball-localization.js';
 
 // Same-origin transport only; provider selection and policy stay on the server.
 export function initializeEyeballChat() {
@@ -14,12 +16,57 @@ export function initializeEyeballChat() {
     const status = dialog.querySelector('[data-chat-status]');
     const send = dialog.querySelector('[data-chat-send]');
     const stop = dialog.querySelector('[data-chat-stop]');
+    const localeControl = dialog.querySelector('[data-chat-locale]');
+    const invitation = document.querySelector('[data-eyeball-invitation]');
     let pointer = null;
     let activeRequest = null;
     let history = [];
     let interactionMode = 'pointer';
+    let preferenceStorage;
+    try { preferenceStorage = window.localStorage; } catch { preferenceStorage = null; }
+    let locale = initialEyeballLocale(preferenceStorage, navigator.languages || [navigator.language]);
+
+    function applyLocale(selected) {
+        const definition = localeDefinition(selected);
+        locale = Object.hasOwn(EYEBALL_LOCALES, selected) ? selected : 'en';
+        for (const root of [dialog, invitation].filter(Boolean)) {
+            root.lang = definition.tag;
+            root.dir = definition.dir;
+            root.querySelectorAll('[data-i18n]').forEach(element => {
+                const value = definition.strings[element.dataset.i18n];
+                if (value) element.textContent = value;
+            });
+            root.querySelectorAll('[data-i18n-aria-label]').forEach(element => {
+                const value = definition.strings[element.dataset.i18nAriaLabel];
+                if (value) element.setAttribute('aria-label', value);
+            });
+            root.querySelectorAll('[data-i18n-placeholder]').forEach(element => {
+                const value = definition.strings[element.dataset.i18nPlaceholder];
+                if (value) element.setAttribute('placeholder', value);
+            });
+        }
+        localeControl.value = locale;
+    }
+
+    function translated(key) { return localeDefinition(locale).strings[key]; }
+    function setStatus(key) {
+        status.dataset.i18n = key;
+        status.textContent = translated(key);
+    }
+    function shouldRefocusComposer() {
+        return shouldRefocusEyeballComposer(
+            interactionMode, Boolean(window.matchMedia?.('(pointer: coarse)').matches));
+    }
+
+    applyLocale(locale);
+    localeControl.addEventListener('change', () => {
+        if (!Object.hasOwn(EYEBALL_LOCALES, localeControl.value)) return;
+        applyLocale(localeControl.value);
+        persistEyeballLocale(preferenceStorage, locale);
+    });
+
     const observations = createObservationController({
-        invitation: document.querySelector('[data-eyeball-invitation]'),
+        invitation,
         endpoint: form.dataset.initiationUrl,
         generationEndpoint: form.dataset.invitationUrl,
         getHistory: () => history,
@@ -78,14 +125,14 @@ export function initializeEyeballChat() {
     function setBusy(busy) {
         send.disabled = busy;
         stop.disabled = !busy;
-        status.textContent = busy ? 'Eyeball is responding…' : 'Ready';
+        setStatus(busy ? 'responding' : 'ready');
     }
     function cancelResponse() {
         if (!activeRequest) return;
         activeRequest.abort();
         activeRequest = null;
         setBusy(false);
-        status.textContent = 'Response stopped.';
+        setStatus('stopped');
     }
     dialog.querySelector('[data-chat-close]').addEventListener('click', () => dialog.close());
     dialog.addEventListener('cancel', (event) => {
@@ -100,7 +147,7 @@ export function initializeEyeballChat() {
     });
     stop.addEventListener('click', () => {
         cancelResponse();
-        input.focus();
+        if (shouldRefocusComposer()) input.focus();
     });
     function appendMessage(speaker, text, user = false) {
         const message = document.createElement('div');
@@ -109,6 +156,7 @@ export function initializeEyeballChat() {
         label.className = 'eyeball-chat__speaker';
         label.textContent = speaker;
         const body = document.createElement('p');
+        body.dir = 'auto';
         body.textContent = text;
         message.append(label, body);
         transcript.append(message);
@@ -125,10 +173,10 @@ export function initializeEyeballChat() {
         observations.sent();
         const controller = new AbortController();
         activeRequest = controller;
-        appendMessage('YOU', text, true);
+        appendMessage(localeDefinition(locale).strings.you, text, true);
         input.value = '';
         setBusy(true);
-        input.focus();
+        if (shouldRefocusComposer()) input.focus();
         let reader;
         let body;
         let answer = '';
@@ -140,7 +188,7 @@ export function initializeEyeballChat() {
             const response = await fetch(form.dataset.chatUrl, {
                 method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'text/event-stream' },
                 credentials: 'same-origin', signal: controller.signal,
-                body: JSON.stringify({ message: text, history, context: browserContext() })
+                body: JSON.stringify({ message: text, history, context: browserContext(), locale })
             });
             if (controller.signal.aborted || activeRequest !== controller) return;
             if (!response.ok || !response.body || !response.headers.get('Content-Type')?.includes('text/event-stream')) {
@@ -164,7 +212,7 @@ export function initializeEyeballChat() {
                     if (kind === 'error') throw new Error('generation failed');
                     if (kind === 'delta') {
                         if (typeof data.text !== 'string' || answer.length + data.text.length > 16000) throw new Error('invalid response');
-                        body ||= appendMessage('EYEBALL', '');
+                        body ||= appendMessage(localeDefinition(locale).strings.eyeball, '');
                         answer += data.text;
                         body.textContent = answer;
                         transcript.scrollTop = transcript.scrollHeight;
@@ -180,14 +228,14 @@ export function initializeEyeballChat() {
             while (history.length > 10 || history.reduce((sum, item) => sum + item.content.length, 0) > 12000) history.splice(0, 2);
         } catch (error) {
             if (activeRequest === controller && (!controller.signal.aborted || timedOut)) {
-                appendMessage('EYEBALL', 'Eyeball is temporarily unavailable. Please try again shortly.');
+                appendMessage(localeDefinition(locale).strings.eyeball, translated('safeError'));
             }
         } finally {
             clearTimeout(requestTimer);
             if (activeRequest === controller) {
                 activeRequest = null;
                 setBusy(false);
-                if (!complete) status.textContent = 'Response interrupted. You can try again.';
+                if (!complete) setStatus('interrupted');
             }
             try { await reader?.cancel(); } catch { /* Request may already be aborted. */ }
         }

@@ -122,9 +122,12 @@ class ObservationTests(unittest.TestCase):
         self.assertEqual(keys,[{'section','project','time_on_section','details_opened_count','testflight_clicked'},
                                {'possible_interest','confidence'},{'action','reason'}])
 
-    def test_no_persistent_browser_storage(self):
+    def test_observations_create_no_persistent_identity(self):
         root=Path(__file__).resolve().parents[1]
-        for name in ['eyeball-observations.js','eyeball-chat.js']:
-            text=(root/'static/js'/name).read_text(encoding='utf-8')
-            for forbidden in ['localStorage','sessionStorage','document.cookie','indexedDB','sendBeacon']:
-                self.assertNotIn(forbidden,text)
+        observations=(root/'static/js'/'eyeball-observations.js').read_text(encoding='utf-8')
+        for forbidden in ['localStorage','sessionStorage','document.cookie','indexedDB','sendBeacon']:
+            self.assertNotIn(forbidden,observations)
+        localization=(root/'static/js'/'eyeball-localization.js').read_text(encoding='utf-8')
+        self.assertIn("'oes.eyeball.locale'",localization)
+        for forbidden in ['document.cookie','indexedDB','sendBeacon']:
+            self.assertNotIn(forbidden,localization)

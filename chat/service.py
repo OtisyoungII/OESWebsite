@@ -16,6 +16,7 @@ from .observations import (ObservationState, infer, observation_contract,
 from .worker_protocol import CONTEXT_BUDGET, context_cost
 from .capabilities import (CapabilityDenied, CapabilityRegistry, PUBLIC_LOOKUP,
                            evidence_instruction, validate_evidence_answer)
+from .localization import DEFAULT_LOCALE, deterministic_response, response_language_instruction
 
 SAFE_ERROR = "Eyeball is temporarily unavailable. Please try again shortly."
 LOG = logging.getLogger('oes.chat')
@@ -74,7 +75,7 @@ class ChatService:
         from .initiative import generate_invitation
         return generate_invitation(self.provider, intent, recent, self.debug_logger)
 
-    def stream(self, message, history, context):
+    def stream(self, message, history, context, locale=DEFAULT_LOCALE):
         request_started = time.monotonic()
         instruction = SYSTEM_IDENTITY + "\n\n" + PUBLIC_CONTEXT
         history = bounded_history(history)
@@ -90,6 +91,7 @@ class ChatService:
 
         instruction += observation_contract(observed, interpretation)
         instruction += '\n' + response_contract(state, continuity)
+        instruction += '\n' + response_language_instruction(locale)
 
         if state.response_action == 'character_reply':
             instruction += '\n' + character_style_instruction(message)
@@ -124,12 +126,11 @@ class ChatService:
             yield ChatEvent('done', {})
 
         if state.interaction_kind == 'unknown_visitor_reason':
-            yield from emit("I can't know why you're here. What caught your eye?")
+            yield from emit(deterministic_response('unknown_visitor_reason', locale))
             return
 
         if state.response_action == 'request_location':
-            yield from emit(
-                'I need a location you explicitly provide before I can search nearby places.')
+            yield from emit(deterministic_response('request_location', locale))
             return
 
         if state.response_action == 'answer_with_public_evidence':
@@ -232,7 +233,7 @@ class ChatService:
                             self.telemetry('validation_rejected', request_id=request_id, attempt=1,
                                            outcome='rejected', reason=reason)
                         raise ServiceFailure('response_validation_exhausted')
-                    limitation = "I couldn't verify the current part right now, so I won't guess."
+                    limitation = deterministic_response('lookup_limitation', locale)
                     combined = (candidate.rstrip() + '\n\n' + limitation
                                 if candidate.strip() else limitation)
                     yield from emit(combined)

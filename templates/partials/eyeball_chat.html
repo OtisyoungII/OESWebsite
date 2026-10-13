@@ -1,30 +1,43 @@
-<dialog id="eyeball-chat" class="eyeball-chat" aria-labelledby="eyeball-chat-title" aria-describedby="eyeball-chat-notice">
+<dialog id="eyeball-chat" class="eyeball-chat" lang="en" dir="ltr" aria-labelledby="eyeball-chat-title" aria-describedby="eyeball-chat-notice eyeball-chat-language-note">
     <div class="eyeball-chat__shell">
         <header class="eyeball-chat__header">
             <div>
-                <h2 id="eyeball-chat-title">OES EYEBALL</h2>
-                <p class="eyeball-chat__subtitle">INTELLIGENCE INTERFACE</p>
+                <h2 id="eyeball-chat-title" data-i18n="title">OES EYEBALL</h2>
+                <p class="eyeball-chat__subtitle" data-i18n="subtitle">INTELLIGENCE INTERFACE</p>
             </div>
-            <button type="button" class="eyeball-chat__close" data-chat-close aria-label="Close Eyeball Chat">Close <span aria-hidden="true">×</span></button>
+            <div class="eyeball-chat__header-controls">
+                <label class="eyeball-chat__locale">
+                    <span aria-hidden="true">🌐</span><span class="sr-only" data-i18n="languageLabel">Eyeball language</span>
+                    <select data-chat-locale aria-label="Eyeball language" data-i18n-aria-label="languageLabel">
+                        <option value="en" lang="en">English</option>
+                        <option value="es" lang="es">Español</option>
+                        <option value="fr" lang="fr">Français</option>
+                        <option value="ar" lang="ar" dir="rtl">العربية</option>
+                        <option value="zh-CN" lang="zh-CN">简体中文</option>
+                    </select>
+                </label>
+                <button type="button" class="eyeball-chat__close" data-chat-close aria-label="Close Eyeball Chat" data-i18n-aria-label="closeLabel"><span data-i18n="close">Close</span> <span aria-hidden="true">×</span></button>
+            </div>
         </header>
-        <div class="eyeball-chat__access"><span>CORE ONLINE</span><span>PUBLIC ACCESS</span></div>
-        <p id="eyeball-chat-notice" class="eyeball-chat__notice">Public AI assistant. Confirm important details with OES. Do not share private information.</p>
-        <div class="eyeball-chat__transcript" role="log" aria-label="Eyeball conversation" aria-live="polite" aria-relevant="additions text" data-chat-transcript>
-            <div class="eyeball-chat__message"><p class="eyeball-chat__speaker">EYEBALL</p><p>What are you trying to accomplish?</p></div>
+        <div class="eyeball-chat__access"><span data-i18n="coreOnline">CORE ONLINE</span><span data-i18n="publicAccess">PUBLIC ACCESS</span></div>
+        <p id="eyeball-chat-notice" class="eyeball-chat__notice" data-i18n="notice">Public AI assistant. Confirm important details with OES. Do not share private information.</p>
+        <p id="eyeball-chat-language-note" class="eyeball-chat__language-note" data-i18n="disclosure">Eyeball uses multilingual model capabilities; interface text is localized separately. Automated language output can contain errors.</p>
+        <div class="eyeball-chat__transcript" role="log" aria-label="Eyeball conversation" data-i18n-aria-label="conversationLabel" aria-live="polite" aria-relevant="additions text" data-chat-transcript>
+            <div class="eyeball-chat__message"><p class="eyeball-chat__speaker" data-i18n="eyeball">EYEBALL</p><p data-i18n="greeting">What are you trying to accomplish?</p></div>
         </div>
         <form class="eyeball-chat__composer" data-chat-form data-chat-url="{{ url_for('chat.chat') }}" data-initiation-url="{{ url_for('chat.initiation') }}" data-invitation-url="{{ url_for('chat.invitation') }}">
-            <label for="eyeball-chat-input">Your message</label>
-            <textarea id="eyeball-chat-input" name="message" rows="3" maxlength="4000" placeholder="Describe your objective…" aria-describedby="eyeball-chat-help" required></textarea>
-            <p id="eyeball-chat-help">Enter to send · Shift+Enter for a new line · 4,000 characters maximum</p>
+            <label for="eyeball-chat-input" data-i18n="messageLabel">Your message</label>
+            <textarea id="eyeball-chat-input" name="message" rows="3" maxlength="4000" placeholder="Describe your objective…" data-i18n-placeholder="placeholder" aria-describedby="eyeball-chat-help" required></textarea>
+            <p id="eyeball-chat-help" data-i18n="inputHelp">Enter to send · Shift+Enter for a new line · 4,000 characters maximum</p>
             <div class="eyeball-chat__actions">
-                <p role="status" data-chat-status>Ready</p>
-                <button type="button" data-chat-stop disabled>Stop</button>
-                <button type="submit" data-chat-send>Send</button>
+                <p role="status" data-chat-status data-i18n="ready">Ready</p>
+                <button type="button" data-chat-stop data-i18n="stop" disabled>Stop</button>
+                <button type="submit" data-chat-send data-i18n="send">Send</button>
             </div>
         </form>
     </div>
 </dialog>
-<aside class="eyeball-invitation" data-eyeball-invitation aria-label="Optional Eyeball invitation" hidden>
-    <button type="button" data-invitation-open>Questions about this product? Ask Eyeball.</button>
-    <button type="button" data-invitation-dismiss aria-label="Dismiss Eyeball invitation for this page visit">×</button>
+<aside class="eyeball-invitation" data-eyeball-invitation lang="en" dir="ltr" aria-label="Optional Eyeball invitation" data-i18n-aria-label="invitationLabel" hidden>
+    <button type="button" data-invitation-open data-i18n="invitation">Questions about this product? Ask Eyeball.</button>
+    <button type="button" data-invitation-dismiss aria-label="Dismiss Eyeball invitation for this page visit" data-i18n-aria-label="dismissInvitation">×</button>
 </aside>
