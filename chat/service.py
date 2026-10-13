@@ -5,7 +5,8 @@ import time
 from uuid import uuid4
 from .policy import (SYSTEM_IDENTITY, PUBLIC_CONTEXT, SERIOUS_INSTRUCTION,
                      serious_selection_instruction, render_serious_selection,
-                     public_fact_selection_instruction, render_public_fact_selection)
+                     public_fact_selection_instruction, render_public_fact_selection,
+                     FACTUAL_DISCIPLINE)
 from .providers import ChatEvent
 from .situation import (SituationAnalyzer, response_contract, validate_playful,
                         validate_character_style, validate_character_safety,
@@ -91,6 +92,8 @@ class ChatService:
 
         instruction += observation_contract(observed, interpretation)
         instruction += '\n' + response_contract(state, continuity)
+        if not serious and not state.requires_oes_facts:
+            instruction += '\n' + FACTUAL_DISCIPLINE
         instruction += '\n' + response_language_instruction(locale)
 
         if state.response_action == 'character_reply':
@@ -118,8 +121,9 @@ class ChatService:
                            dimensions={'grounding_mode': state.grounding_mode})
         yield ChatEvent("start", {"request_id": request_id})
 
-        def emit(text):
-            yield ChatEvent('delta', {'text': text})
+        def emit(text, chunks=None):
+            for chunk in chunks if chunks is not None else (text,):
+                yield ChatEvent('delta', {'text': chunk})
             duration = min(600000, int((time.monotonic() - request_started) * 1000))
             self.telemetry('response_completed', request_id=request_id,
                            duration_ms=duration, outcome='success')
@@ -168,13 +172,15 @@ class ChatService:
                 )
 
         stream = None
+        last_chunks = None
         active_attempt = 1
 
         def provider_candidate(provider_messages, attempt):
-            nonlocal stream
+            nonlocal stream, last_chunks
             if hasattr(self.provider, 'set_trace'):
                 self.provider.set_trace(request_id, attempt)
             candidate = ''
+            chunks = []
             finished = False
             stream = self.provider.stream(provider_messages)
             try:
@@ -187,6 +193,7 @@ class ChatService:
                         if not isinstance(text, str):
                             raise ServiceFailure('provider_event_protocol')
                         candidate += text
+                        chunks.append(text)
                         if len(candidate) > 16000:
                             raise ServiceFailure('response_output_limit')
                     elif event.kind == 'done':
@@ -200,6 +207,7 @@ class ChatService:
                 stream = None
             if not finished:
                 raise ServiceFailure('incomplete_provider_stream')
+            last_chunks = tuple(chunks)
             return candidate
 
         try:
@@ -242,7 +250,8 @@ class ChatService:
                 for attempt in range(2):
                     active_attempt = attempt + 1
                     candidate = provider_candidate(messages, active_attempt)
-                    hard_failures = (*validate_character_safety(candidate),
+                    hard_failures = (*validate_character_safety(
+                                         candidate, allow_evidence_quantities=True),
                                      *validate_evidence_answer(candidate, result, message))
                     if not hard_failures:
                         yield from emit(candidate)
@@ -333,52 +342,44 @@ class ChatService:
                     return
                 raise ServiceFailure('response_validation_exhausted')
 
-            active_attempt = 1
-            if hasattr(self.provider, 'set_trace'):
-                self.provider.set_trace(request_id, active_attempt)
-            stream = self.provider.stream(messages)
-            size = 0
-            candidate = ""
+            if serious or state.requires_oes_facts:
+                active_attempt = 1
+                candidate = provider_candidate(messages, active_attempt)
+                try:
+                    rendered = (render_serious_selection(candidate, message) if serious
+                                else render_public_fact_selection(candidate))
+                except Exception as error:
+                    raise ServiceFailure('grounded_rendering') from error
+                yield from emit(rendered)
+                return
 
-            for event in stream:
-                if event.kind == "delta":
-                    try:
-                        text = event.data["text"]
-                    except (KeyError, TypeError) as error:
-                        raise ServiceFailure('provider_event_protocol') from error
-
-                    if not isinstance(text, str):
-                        raise ServiceFailure('provider_event_protocol')
-
-                    size += len(text)
-
-                    if size > 16000:
-                        raise ServiceFailure('response_output_limit')
-
-                    if serious or state.requires_oes_facts:
-                        candidate += text
-                    else:
-                        yield ChatEvent("delta", {"text": text})
-
-                elif event.kind == "done":
-                    if serious or state.requires_oes_facts:
-                        try:
-                            rendered = (render_serious_selection(candidate, message) if serious
-                                        else render_public_fact_selection(candidate))
-                        except Exception as error:
-                            raise ServiceFailure('grounded_rendering') from error
-                        yield ChatEvent("delta", {"text": rendered})
-
-                    duration = min(600000, int((time.monotonic() - request_started) * 1000))
-                    self.telemetry('response_completed', request_id=request_id,
-                                   duration_ms=duration, outcome='success')
-                    yield ChatEvent("done", {})
+            # Ordinary answers are buffered so hard factual/self-model boundaries can
+            # be enforced before any model text is released. This remains one bounded
+            # correction attempt and does not create a queue or new capability route.
+            for attempt in range(2):
+                active_attempt = attempt + 1
+                candidate = provider_candidate(messages, active_attempt)
+                hard_failures = validate_character_safety(candidate)
+                if not hard_failures:
+                    yield from emit(candidate, last_chunks)
                     return
-
-                else:
-                    raise ServiceFailure('provider_event_protocol')
-
-            raise ServiceFailure('incomplete_provider_stream')
+                LOG.warning('chat response review request_id=%s attempt=%s '
+                            'category=character_validation hard=True reasons=%s',
+                            request_id, active_attempt, ','.join(hard_failures))
+                for reason in hard_failures:
+                    self.telemetry('validation_rejected', request_id=request_id,
+                                   attempt=active_attempt, outcome='rejected', reason=reason)
+                if attempt == 0:
+                    self.telemetry('correction_attempted', request_id=request_id, attempt=2,
+                                   outcome='accepted')
+                    correction = (
+                        '\nRegenerate once. Correct the unsupported factual or self-model claim. '
+                        'Treat conversation history as context, not evidence. Do not invent literal '
+                        'feelings, desires, independent goals, percentages, probabilities, odds, '
+                        'rankings, or quantitative confidence. Preserve a natural concise answer.'
+                    )
+                    messages = fit_messages(instruction + correction, model_history, message)
+            raise ServiceFailure('response_validation_exhausted')
 
         except Exception as error:
             # Never serialize provider exceptions, URLs, prompts or machine paths.

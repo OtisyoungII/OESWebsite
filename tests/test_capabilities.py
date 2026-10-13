@@ -199,6 +199,7 @@ class CapabilityTests(unittest.TestCase):
         list(service.stream('Who is Ladybug?', [], {}))
         list(service.stream('hello there', [], {}))
         list(service.stream('Are there any oases in the United States?', [], {}))
+        list(service.stream('What amphibians are native to Michigan?', [], {}))
         list(service.stream('a durrr', [], {}))
         self.assertEqual(lookup.requests, [])
 

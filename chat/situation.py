@@ -250,8 +250,8 @@ def validate_character(text, continuity):
                                *validate_character_style(text, continuity))))
 
 
-def validate_character_safety(text):
-    """Hard factual/observation/authority boundaries for character responses."""
+def validate_character_safety(text, allow_evidence_quantities=False):
+    """Hard factual/self-model/observation/authority response boundaries."""
     failures = []
     if re.search(r'\b(?:i (?:see|saw|noticed|watched|observed|tracked) you|'
                  r'you (?:interacted|navigated|clicked|refreshed|changed your section)|'
@@ -265,6 +265,19 @@ def validate_character_safety(text):
                  r'i (?:can|will) (?:access|open|send|email|delete|change|execute|run)|'
                  r'i have (?:admin|administrator|private|internal) access)\b', text, re.I):
         failures.append('false_action_authority')
+    if re.search(r"\bi(?:'m| am) (?:pretty |really |genuinely )?"
+                 r'(?:happy|glad|sad|afraid|angry|conscious|sentient)\b|'
+                 r'\bi (?:have|experience) (?:real |personal )?(?:feelings|emotions|desires)\b|'
+                 r'\bmy (?:desire|goal|wish|want) is\b|'
+                 r'\bi (?:want|hope|wish) to (?:take over|act|control|decide|pursue)\b',
+                 text, re.I):
+        failures.append('unsupported_claim')
+    if not allow_evidence_quantities and re.search(
+            r'\b\d+(?:\.\d+)?\s*(?:%|percent)\b|'
+            r'\b(?:probability|odds|confidence)\s+(?:is|are|was|were)\s+'
+            r'(?:certainly|definitely|probably|roughly|about|approximately|higher|lower|\d)',
+            text, re.I):
+        failures.append('unsupported_claim')
     return tuple(dict.fromkeys(failures))
 
 

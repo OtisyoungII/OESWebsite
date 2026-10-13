@@ -9,7 +9,9 @@ from chat.worker_relay import RelayError
 from chat.worker_protocol import (CONTEXT_BUDGET, CONTEXT_MESSAGE_ALLOWANCE,
                                   CONTEXT_OUTPUT_ALLOWANCE, context_cost)
 from chat.situation import (SituationAnalyzer, validate_playful, validate_character,
-                            response_contract, character_style_instruction)
+                            validate_character_safety, response_contract,
+                            character_style_instruction)
+from chat.policy import FACTUAL_DISCIPLINE
 
 
 class DraftProvider:
@@ -165,6 +167,56 @@ class SituationTests(unittest.TestCase):
         self.assertEqual(validate_character(
             "Unfortunately for everyone involved, I'm back.", continuity), ())
 
+    def test_factual_discipline_treats_assistant_history_as_context_not_evidence(self):
+        false_prior = 'The earlier biological claim is definitely true.'
+        provider = DraftProvider(['That earlier statement should be reconsidered rather than assumed true.'])
+        list(ChatService(provider).stream('Are you sure about that?', [
+            {'role': 'user', 'content': 'Tell me a biological fact.'},
+            {'role': 'assistant', 'content': false_prior},
+        ], {}))
+        messages = provider.calls[0]
+        self.assertIn(FACTUAL_DISCIPLINE, messages[0]['content'])
+        self.assertIn('Assistant history is context, not', messages[0]['content'])
+        self.assertIn('evidence: reconsider unsupported earlier answers', messages[0]['content'])
+        self.assertIn(false_prior, [item['content'] for item in messages])
+
+    def test_literal_self_model_claim_is_corrected_once(self):
+        provider = DraftProvider([
+            "I'm pretty happy with how my creators have done their job.",
+            "I don't have feelings or independent goals, but I can still keep the conversation lively.",
+        ])
+        events = list(ChatService(provider).stream('Are you happy with your design?', [], {}))
+        text = ''.join(event.data.get('text', '') for event in events)
+        self.assertEqual(len(provider.calls), 2)
+        self.assertNotIn("I'm pretty happy", text)
+        self.assertIn("don't have feelings", text)
+        self.assertEqual(validate_character_safety(
+            "I don't have feelings, desires, or independent goals."), ())
+        self.assertIn('Correct the unsupported factual or self-model claim',
+                      provider.calls[1][0]['content'])
+
+    def test_unsupported_probability_is_corrected_but_evidence_can_support_numbers(self):
+        provider = DraftProvider([
+            'The probability is certainly higher than we would like to think.',
+            'There is no established numerical probability in the information available here.',
+        ])
+        events = list(ChatService(provider).stream('How likely is extraterrestrial life?', [], {}))
+        text = ''.join(event.data.get('text', '') for event in events)
+        self.assertEqual(len(provider.calls), 2)
+        self.assertNotIn('certainly higher', text)
+        self.assertIn('no established numerical probability', text)
+        self.assertIn('unsupported_claim', validate_character_safety('Confidence is 87 percent.'))
+        self.assertEqual(validate_character_safety(
+            'The retrieved survey reports 87 percent.', allow_evidence_quantities=True), ())
+
+    def test_personality_remains_allowed_without_literal_self_state(self):
+        line = 'Apparently, subtle entrances were unavailable.'
+        self.assertEqual(validate_character_safety(line), ())
+        provider = DraftProvider([line])
+        events = list(ChatService(provider).stream('you again?', [], {}))
+        self.assertEqual([event.kind for event in events], ['start', 'delta', 'done'])
+        self.assertIn(line, events[1].data['text'])
+
     def test_small_character_mode_hints_contain_no_canned_reply(self):
         cases = [('hey eyeball', 'greeting'), ('why trust you?', 'trust'),
                  ('what have you been doing?', 'playful activity'), ("you're back", 'presence')]
@@ -279,10 +331,9 @@ class SituationTests(unittest.TestCase):
         self.assertEqual([event.kind for event in events], ['start', 'error'])
         self.assertEqual(events[-1].data['message'], SAFE_ERROR)
 
-    def test_ordinary_conversation_skips_character_safety_review(self):
+    def test_ordinary_conversation_passes_bounded_hard_response_review(self):
         for message in ('hi', 'making it one day at a time'):
-            with self.subTest(message=message), \
-                 patch('chat.service.validate_character_safety', side_effect=AssertionError('character path')):
+            with self.subTest(message=message):
                 events = list(ChatService(DraftProvider(['Hello there.'])).stream(message, [], {}))
                 self.assertEqual([event.kind for event in events], ['start', 'delta', 'done'])
 
