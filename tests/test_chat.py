@@ -124,6 +124,7 @@ class ChatTests(unittest.TestCase):
         self.assertNotIn('event: done',body)
         events = self.app.extensions['worker_relay'].telemetry.batch()
         self.assertEqual(sum(event['event_type'] == 'safe_error' for event in events), 1)
+        self.assertEqual(sum(event['event_type'] == 'response_completed' for event in events), 0)
         encoded = json.dumps(events)
         self.assertNotIn('PRIVATE', encoded)
         self.assertNotIn('internal', encoded)
@@ -281,6 +282,15 @@ class ChatTests(unittest.TestCase):
             'section': 'products', 'project': 'lottovate'}}).get_data(as_text=True)
         self.assertIn("I can't know why", body)
         self.assertEqual(self.provider.calls, [])
+        events = self.app.extensions['worker_relay'].telemetry.batch()
+        self.assertEqual(sum(event['event_type'] == 'response_completed' for event in events), 1)
+
+    def test_request_location_completes_once_without_provider(self):
+        body = self.post({'message': 'Find an oasis near me.'}).get_data(as_text=True)
+        self.assertIn('location you explicitly provide', body)
+        self.assertEqual(self.provider.calls, [])
+        events = self.app.extensions['worker_relay'].telemetry.batch()
+        self.assertEqual(sum(event['event_type'] == 'response_completed' for event in events), 1)
 
     def test_teasing_voice_reaches_provider(self):
         for message in ['why are u ugly?', 'why are you so ugly?', 'your eye looks goofy']:
@@ -328,6 +338,8 @@ class ChatTests(unittest.TestCase):
         next(iterator)
         response.close()
         self.assertTrue(self.provider.closed)
+        events = self.app.extensions['worker_relay'].telemetry.batch()
+        self.assertEqual(sum(event['event_type'] == 'response_completed' for event in events), 0)
 
     def test_page_routes_unchanged(self):
         from app import app

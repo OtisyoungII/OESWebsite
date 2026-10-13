@@ -116,15 +116,20 @@ class ChatService:
                            dimensions={'grounding_mode': state.grounding_mode})
         yield ChatEvent("start", {"request_id": request_id})
 
-        if state.interaction_kind == 'unknown_visitor_reason':
-            yield ChatEvent('delta', {'text': "I can't know why you're here. What caught your eye?"})
+        def emit(text):
+            yield ChatEvent('delta', {'text': text})
+            duration = min(600000, int((time.monotonic() - request_started) * 1000))
+            self.telemetry('response_completed', request_id=request_id,
+                           duration_ms=duration, outcome='success')
             yield ChatEvent('done', {})
+
+        if state.interaction_kind == 'unknown_visitor_reason':
+            yield from emit("I can't know why you're here. What caught your eye?")
             return
 
         if state.response_action == 'request_location':
-            yield ChatEvent('delta', {'text':
-                'I need a location you explicitly provide before I can search nearby places.'})
-            yield ChatEvent('done', {})
+            yield from emit(
+                'I need a location you explicitly provide before I can search nearby places.')
             return
 
         if state.response_action == 'answer_with_public_evidence':
@@ -195,13 +200,6 @@ class ChatService:
             if not finished:
                 raise ServiceFailure('incomplete_provider_stream')
             return candidate
-
-        def emit(text):
-            yield ChatEvent('delta', {'text': text})
-            duration = min(600000, int((time.monotonic() - request_started) * 1000))
-            self.telemetry('response_completed', request_id=request_id,
-                           duration_ms=duration, outcome='success')
-            yield ChatEvent('done', {})
 
         try:
             messages = fit_messages(instruction, model_history, message)
