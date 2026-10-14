@@ -2,6 +2,7 @@ import { getAwarenessState } from './section-awareness.js';
 import { createObservationController } from './eyeball-observations.js';
 import { EYEBALL_LOCALES, initialEyeballLocale, localeDefinition,
     persistEyeballLocale, shouldRefocusEyeballComposer } from './eyeball-localization.js';
+import { completionDirective } from './eyeball-continuity.js';
 
 // Same-origin transport only; provider selection and policy stay on the server.
 export function initializeEyeballChat() {
@@ -21,6 +22,7 @@ export function initializeEyeballChat() {
     let pointer = null;
     let activeRequest = null;
     let history = [];
+    let lookupContinuation = null;
     let interactionMode = 'pointer';
     let preferenceStorage;
     try { preferenceStorage = window.localStorage; } catch { preferenceStorage = null; }
@@ -181,14 +183,18 @@ export function initializeEyeballChat() {
         let body;
         let answer = '';
         let complete = false;
+        let historyDisposition = 'include';
         let timedOut = false;
         // Two bounded provider/validation attempts plus transport allowance.
         const requestTimer = setTimeout(() => { timedOut = true; controller.abort(); }, 330000);
         try {
+            const continuation = lookupContinuation;
+            lookupContinuation = null;
             const response = await fetch(form.dataset.chatUrl, {
                 method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'text/event-stream' },
                 credentials: 'same-origin', signal: controller.signal,
-                body: JSON.stringify({ message: text, history, context: browserContext(), locale })
+                body: JSON.stringify({ message: text, history, context: browserContext(), locale,
+                    ...(continuation ? { continuation } : {}) })
             });
             if (controller.signal.aborted || activeRequest !== controller) return;
             if (!response.ok || !response.body || !response.headers.get('Content-Type')?.includes('text/event-stream')) {
@@ -217,6 +223,9 @@ export function initializeEyeballChat() {
                         body.textContent = answer;
                         transcript.scrollTop = transcript.scrollHeight;
                     } else if (kind === 'done') {
+                        const directive = completionDirective(data);
+                        lookupContinuation = directive.continuation;
+                        historyDisposition = directive.retainExchange ? 'include' : 'exclude_exchange';
                         complete = true;
                         break;
                     } else if (kind !== 'start') throw new Error('invalid event');
@@ -224,8 +233,10 @@ export function initializeEyeballChat() {
                 if (done && !complete) throw new Error('interrupted stream');
             }
             if (!answer.trim()) throw new Error('empty response');
-            history.push({ role: 'user', content: text }, { role: 'assistant', content: answer.slice(0, 4000) });
-            while (history.length > 10 || history.reduce((sum, item) => sum + item.content.length, 0) > 12000) history.splice(0, 2);
+            if (historyDisposition === 'include') {
+                history.push({ role: 'user', content: text }, { role: 'assistant', content: answer.slice(0, 4000) });
+                while (history.length > 10 || history.reduce((sum, item) => sum + item.content.length, 0) > 12000) history.splice(0, 2);
+            }
         } catch (error) {
             if (activeRequest === controller && (!controller.signal.aborted || timedOut)) {
                 appendMessage(localeDefinition(locale).strings.eyeball, translated('safeError'));

@@ -2,6 +2,7 @@
 import json
 import logging
 import time
+from dataclasses import replace
 from uuid import uuid4
 from .policy import (SYSTEM_IDENTITY, PUBLIC_CONTEXT, SERIOUS_INSTRUCTION,
                      serious_selection_instruction, render_serious_selection,
@@ -11,12 +12,13 @@ from .providers import ChatEvent
 from .situation import (SituationAnalyzer, response_contract, validate_playful,
                         validate_character_style, validate_character_safety,
                         character_correction, character_style_instruction, bounded_history,
-                        conversational_history)
+                        conversational_history, is_lookup_followup)
 from .observations import (ObservationState, infer, observation_contract,
                            log_observations, InitiationDecision)
 from .worker_protocol import CONTEXT_BUDGET, context_cost
 from .capabilities import (CapabilityDenied, CapabilityRegistry, PUBLIC_LOOKUP,
-                           evidence_instruction, validate_evidence_answer)
+                           evidence_instruction, validate_evidence_answer,
+                           public_search_query)
 from .localization import DEFAULT_LOCALE, deterministic_response, response_language_instruction
 
 SAFE_ERROR = "Eyeball is temporarily unavailable. Please try again shortly."
@@ -76,11 +78,19 @@ class ChatService:
         from .initiative import generate_invitation
         return generate_invitation(self.provider, intent, recent, self.debug_logger)
 
-    def stream(self, message, history, context, locale=DEFAULT_LOCALE):
+    def stream(self, message, history, context, locale=DEFAULT_LOCALE,
+               continuation=None, continuity_store=None):
         request_started = time.monotonic()
         instruction = SYSTEM_IDENTITY + "\n\n" + PUBLIC_CONTEXT
         history = bounded_history(history)
         state, continuity = SituationAnalyzer().analyze(message, history, context)
+        prior_lookup = (continuity_store.consume(continuation, locale)
+                        if continuity_store is not None and continuation else None)
+        inherited_lookup = bool(prior_lookup and is_lookup_followup(message, state))
+        if inherited_lookup:
+            state = replace(state, interaction_kind='current_public_information',
+                            tone='informative', grounding_mode='public_evidence',
+                            response_action='answer_with_public_evidence', certainty='high')
         serious = state.serious
         observed = ObservationState.from_context(context)
         interpretation = infer(observed)
@@ -121,13 +131,13 @@ class ChatService:
                            dimensions={'grounding_mode': state.grounding_mode})
         yield ChatEvent("start", {"request_id": request_id})
 
-        def emit(text, chunks=None):
+        def emit(text, chunks=None, done_data=None):
             for chunk in chunks if chunks is not None else (text,):
                 yield ChatEvent('delta', {'text': chunk})
             duration = min(600000, int((time.monotonic() - request_started) * 1000))
             self.telemetry('response_completed', request_id=request_id,
                            duration_ms=duration, outcome='success')
-            yield ChatEvent('done', {})
+            yield ChatEvent('done', done_data or {})
 
         if state.interaction_kind == 'unknown_visitor_reason':
             yield from emit(deterministic_response('unknown_visitor_reason', locale))
@@ -142,7 +152,9 @@ class ChatService:
             success, reason = False, 'not_assigned'
             capability_outcome = 'allowed'
             try:
-                result = self.capabilities.invoke('eyeball', PUBLIC_LOOKUP, message)
+                lookup_request = (prior_lookup + ' Follow-up: ' + message
+                                  if inherited_lookup else message)
+                result = self.capabilities.invoke('eyeball', PUBLIC_LOOKUP, lookup_request)
                 success, reason = result.success, result.reason
             except CapabilityDenied:
                 result = None
@@ -244,7 +256,7 @@ class ChatService:
                     limitation = deterministic_response('lookup_limitation', locale)
                     combined = (candidate.rstrip() + '\n\n' + limitation
                                 if candidate.strip() else limitation)
-                    yield from emit(combined)
+                    yield from emit(combined, done_data={'history': 'exclude_exchange'})
                     return
 
                 for attempt in range(2):
@@ -252,9 +264,13 @@ class ChatService:
                     candidate = provider_candidate(messages, active_attempt)
                     hard_failures = (*validate_character_safety(
                                          candidate, allow_evidence_quantities=True),
-                                     *validate_evidence_answer(candidate, result, message))
+                                     *validate_evidence_answer(candidate, result, lookup_request))
                     if not hard_failures:
-                        yield from emit(candidate)
+                        next_token = (continuity_store.issue(
+                            public_search_query(lookup_request), locale)
+                            if continuity_store is not None else None)
+                        done_data = {'continuation': next_token} if next_token else None
+                        yield from emit(candidate, done_data=done_data)
                         return
                     LOG.warning('chat response review request_id=%s attempt=%s '
                                 'category=character_validation hard=True reasons=%s',

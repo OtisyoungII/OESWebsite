@@ -4,7 +4,7 @@ from .providers import create_provider
 from .routes import bp
 from .runtime import Admission
 from .worker_relay import WorkerRelay, bp as worker_bp
-from .capabilities import eyeball_capabilities
+from .capabilities import eyeball_capabilities, LookupContinuityStore
 
 
 def init_chat(app):
@@ -27,5 +27,6 @@ def init_chat(app):
     app.extensions["chat_provider_factory"] = lambda: create_provider(app.config)
     app.extensions['chat_admission'] = Admission(app.config)
     app.extensions['chat_capabilities'] = eyeball_capabilities(app.config)
+    app.extensions['chat_lookup_continuity'] = LookupContinuityStore()
     app.register_blueprint(bp)
     app.register_blueprint(worker_bp)

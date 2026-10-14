@@ -3,6 +3,9 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 import json
 import re
+import secrets
+import threading
+import time
 from ipaddress import ip_address
 from urllib.parse import urlsplit
 
@@ -12,6 +15,8 @@ TAVILY_API_BASE = 'https://api.tavily.com'
 MAX_SEARCH_QUERY = 300
 MAX_RESULTS = 3
 MAX_EVIDENCE_TEXT = 1200
+CONTINUITY_TTL_SECONDS = 600
+MAX_CONTINUITY_RECORDS = 2048
 
 
 @dataclass(frozen=True)
@@ -38,6 +43,42 @@ class CapabilityResult:
 
 class CapabilityDenied(ValueError):
     pass
+
+
+class LookupContinuityStore:
+    """Bounded server-owned record of a recent authorized public lookup."""
+    def __init__(self, clock=time.monotonic):
+        self.clock = clock
+        self.lock = threading.Lock()
+        self.records = {}
+
+    def _expire(self, now):
+        for token in [key for key, value in self.records.items()
+                      if now - value['created'] >= CONTINUITY_TTL_SECONDS]:
+            del self.records[token]
+
+    def issue(self, query, locale):
+        if not isinstance(query, str) or not query.strip() or len(query) > MAX_SEARCH_QUERY:
+            raise ValueError('Invalid lookup continuity')
+        now = self.clock()
+        with self.lock:
+            self._expire(now)
+            if len(self.records) >= MAX_CONTINUITY_RECORDS:
+                return None
+            token = secrets.token_hex(32)
+            self.records[token] = {'created': now, 'query': query.strip(), 'locale': locale}
+            return token
+
+    def consume(self, token, locale):
+        if not isinstance(token, str) or not re.fullmatch(r'[0-9a-f]{64}', token):
+            return None
+        now = self.clock()
+        with self.lock:
+            self._expire(now)
+            value = self.records.pop(token, None)
+        if value is None or value['locale'] != locale:
+            return None
+        return value['query']
 
 
 def _public_https_url(value):

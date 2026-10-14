@@ -1,5 +1,6 @@
 """Bounded public request contract. No browser-controlled configuration."""
 import json
+import re
 from flask import Blueprint, Response, current_app, jsonify, request
 from werkzeug.exceptions import BadRequest, RequestEntityTooLarge
 from .service import ChatService, SAFE_ERROR
@@ -90,8 +91,8 @@ def health():
 
 
 def validate(payload):
-    if not isinstance(payload, dict) or set(payload) - {"message", "history", "context", "locale"}:
-        raise ValueError("Only message, history, context and locale are accepted.")
+    if not isinstance(payload, dict) or set(payload) - {"message", "history", "context", "locale", "continuation"}:
+        raise ValueError("Only message, history, context, locale and continuation are accepted.")
     message = payload.get("message")
     if not isinstance(message, str) or not message.strip() or len(message) > 4000:
         raise ValueError("Message must contain 1–4,000 characters.")
@@ -110,7 +111,11 @@ def validate(payload):
         raise ValueError("History exceeds the conversation limit.")
     context = validate_context(payload.get("context", {}))
     locale = validate_locale(payload.get('locale'))
-    return message.strip(), cleaned, context, locale
+    continuation = payload.get('continuation')
+    if continuation is not None and (not isinstance(continuation, str)
+                                     or not re.fullmatch(r'[0-9a-f]{64}', continuation)):
+        raise ValueError('Continuation must be a server-issued token.')
+    return message.strip(), cleaned, context, locale, continuation
 
 
 @bp.route("/api/chat", methods=["POST"])
@@ -150,10 +155,12 @@ def chat():
     # Capture configuration before streaming; no request content enters debug logs.
     debug_logger = current_app.logger if current_app.debug else None
     capabilities = current_app.extensions['chat_capabilities']
+    continuity_store = current_app.extensions['chat_lookup_continuity']
 
     def generate():
         stream = ChatService(provider, debug_logger=debug_logger,
-                             capabilities=capabilities, telemetry=telemetry).stream(*args)
+                             capabilities=capabilities, telemetry=telemetry).stream(
+                                 *args, continuity_store=continuity_store)
         from .outbound_provider import OutboundWorkerProvider, disconnect_aware
         if isinstance(provider, OutboundWorkerProvider):
             stream = disconnect_aware(stream, provider)
@@ -214,7 +221,7 @@ def invitation():
         payload = request.get_json()
         if not isinstance(payload, dict) or set(payload) - {'context', 'restraint', 'history', 'recent_invitations'}:
             raise ValueError('Invalid invitation request fields.')
-        _, history, context, _ = validate({'message': 'invitation eligibility',
+        _, history, context, _, _ = validate({'message': 'invitation eligibility',
                                           'history': payload.get('history', []),
                                           'context': payload.get('context', {})})
         observed = ObservationState.from_context(context)

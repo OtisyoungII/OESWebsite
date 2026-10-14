@@ -2,6 +2,7 @@
 from dataclasses import dataclass, asdict
 import re
 from .policy import is_serious, HARMLESS_TEASING, CASUAL_VOICE, TEASING_STYLE
+from .localization import DETERMINISTIC_RESPONSES
 
 
 @dataclass(frozen=True)
@@ -66,6 +67,13 @@ CURRENT_PUBLIC_INFORMATION = re.compile(
     r'where (?:can|do) i (?:watch|stream|find)|official\s+(?:site|website|discord)|'
     r'(?:is|are)\s+(?:it|they|[\w.-]+)\s+open\b|open (?:now|today)|near me)\b', re.I)
 LOCATION_REQUIRED = re.compile(r'\b(?:near me|nearby|closest to me|around me)\b', re.I)
+LOOKUP_FOLLOWUP = re.compile(
+    r"^\s*(?:(?:let['’]?s do it|yes(?: please)?|check (?:that|it)|show me|go ahead|any others?)|"
+    r'(?:and\s+[^.!?]{1,80}|what about\s+(?:today|tomorrow|now|that|it))|'
+    r'(?:sí|si|adelante|muéstrame|comprueba eso|y\s+[^.!?]{1,80})|'
+    r'(?:oui|allez-y|montrez-moi|vérifiez cela|et\s+[^.!?]{1,80})|'
+    r'(?:نعم|تفضل|أرني|تحقق من ذلك|و\s*[^.!?]{1,80})|'
+    r'(?:好的|是的|继续|查一下|给我看看|还有[^.!?]{1,80}))\s*[?.!]*\s*$', re.I)
 
 
 def bounded_history(history):
@@ -87,6 +95,7 @@ def conversational_history(history):
     language cannot steer a later unrelated generation.
     """
     result = []
+    lookup_limitations = set(DETERMINISTIC_RESPONSES['lookup_limitation'].values())
     suppress_assistant = False
     for item in bounded_history(history):
         if item['role'] == 'user':
@@ -95,6 +104,10 @@ def conversational_history(history):
                                       or OES_FACTS.search(item['content']))
             if not suppress_assistant:
                 result.append(item)
+        elif any(limitation in item['content'] for limitation in lookup_limitations):
+            if result and result[-1]['role'] == 'user':
+                result.pop()
+            suppress_assistant = False
         elif suppress_assistant:
             suppress_assistant = False
         else:
@@ -167,6 +180,13 @@ class SituationAnalyzer:
             state = SituationState('conversation', False, 'neutral', False, False,
                                    'truthful_no_new_oes_facts', 'concise', False, 'answer', 'medium')
         return state, continuity
+
+
+def is_lookup_followup(message, state):
+    """Recognize a bounded referential turn; a server token supplies authority."""
+    if state.serious or state.requires_oes_facts or state.response_action == 'request_location':
+        return False
+    return len(message) <= 160 and bool(LOOKUP_FOLLOWUP.fullmatch(message.strip()))
 
 
 def response_contract(state, continuity):
