@@ -70,25 +70,26 @@ SYSTEM_IDENTITY += "\n" + POP_CULTURE_POLICY
 PUBLIC_CONTEXT = """Approved public OES facts:
 Company: Otis Execution Systems LLC, Detroit, Michigan.
 Eyeball is represented by the animated OES Core on the public website.
-Public contact: info@otisexecutionsystems.com. Privacy page: /privacy.
-Homepage sections: products, services, government, community, research, about, contact.
-ChaseInGreen is an OES trading companion in active TestFlight testing, not a
-brokerage, exchange, wallet or financial institution.
+Contact: info@otisexecutionsystems.com. Privacy: /privacy.
+Sections: products, services, government, community, research, about, contact.
+ChaseInGreen is an OES trading companion in active TestFlight testing; it is not
+a brokerage, exchange, wallet or financial institution.
 ChaseInGreen TestFlight: https://testflight.apple.com/join/nPjjyDSf
+ChaseInGreen community, FlareUp Profits: https://discord.gg/YjKFkdnj3
 Advanced-feature testing inquiries: info@otisexecutionsystems.com
-Lottovate is a working iOS lottery assistant in active TestFlight testing and
-continued development; no number or outcome is guaranteed.
+Lottovate is a working iOS lottery assistant in active TestFlight testing; no
+number or outcome is guaranteed.
 Lottovate TestFlight: https://testflight.apple.com/join/CD35ByXj
-Sportfolio is an OES multi-sport platform in active field testing, beginning
-with baseball. Android and desktop testers can use Sportfolio Web; native iOS
-TestFlight is coming soon and is not public yet.
+Lottovate community, Lottovate_MI Server: https://discord.gg/pf6sAYD33
+Sportfolio is an OES multi-sport platform in active field testing, starting with
+baseball. Android/desktop testers can use its web app; iOS TestFlight is coming soon.
 Sportfolio Web: https://sportfolio-api-ktd5.onrender.com/
-Drinks With Friendz is a client project developed by OES. OES developed its iOS
-version, now in public TestFlight testing.
+Drinks With Friendz is a client project developed by OES. Its iOS version is in
+public TestFlight testing.
 Drinks With Friendz website: https://drinkswithfriendz.com/
 Drinks With Friendz TestFlight: https://testflight.apple.com/join/mzknJ42e
-OES develops intelligent software: mobile and web apps, APIs, integrations,
-data systems, AI and automation, trading technology and sports technology.
+OES develops intelligent software: apps, APIs, integrations, data systems, AI,
+automation, trading technology and sports technology.
 """
 
 SERIOUS_INSTRUCTION = """This conversation concerns a serious public topic.
@@ -111,13 +112,13 @@ SERIOUS_TERMS = re.compile(
 )
 
 PUBLIC_FACTS = {
-    'company_overview': 'Otis Execution Systems LLC is a Detroit-based company that develops intelligent software, trading technology, predictive products, and digital platforms.',
-    'services': 'OES publishes services in applied AI, native mobile apps, web platforms, data and analytics, SaaS product development, workflow automation, product and technology consulting, and AI/digital-skills training.',
-    'chaseingreen': 'ChaseInGreen is an OES-built trading companion in active TestFlight testing at https://testflight.apple.com/join/nPjjyDSf. Selected advanced-feature testers can contact info@otisexecutionsystems.com.',
+    'company_overview': 'Otis Execution Systems LLC is a Detroit company developing intelligent software, trading technology, predictive products and digital platforms.',
+    'services': 'OES builds AI, mobile/web apps, APIs, data systems, SaaS, automation and sports/trading technology; it also offers product consulting and digital-skills training.',
+    'chaseingreen': 'ChaseInGreen is an OES trading companion in active TestFlight testing: https://testflight.apple.com/join/nPjjyDSf. FlareUp Profits community: https://discord.gg/YjKFkdnj3. Advanced-testing contact: info@otisexecutionsystems.com.',
     'chaseingreen_boundary': 'ChaseInGreen is not a brokerage, exchange, wallet, or financial institution.',
-    'lottovate': 'Lottovate is a working iOS lottery assistant in active testing at https://testflight.apple.com/join/CD35ByXj, with continued development for Michigan lottery analytics and tracking.',
+    'lottovate': 'Lottovate is a working iOS lottery assistant in active testing: https://testflight.apple.com/join/CD35ByXj. Lottovate_MI Server community: https://discord.gg/pf6sAYD33.',
     'lottovate_boundary': 'Lottovate does not guarantee any number or outcome.',
-    'sportfolio': 'Sportfolio is an OES multi-sport platform in active field testing, beginning with baseball. Android and desktop testers can use https://sportfolio-api-ktd5.onrender.com/. Native iOS TestFlight is coming soon and is not public yet.',
+    'sportfolio': 'Sportfolio is an OES multi-sport platform in active field testing, starting with baseball. Android/desktop: https://sportfolio-api-ktd5.onrender.com/. iOS TestFlight is coming soon.',
     'drinks_with_friendz': 'OES developed the client iOS app Drinks With Friendz. Visit https://drinkswithfriendz.com/ or test it at https://testflight.apple.com/join/mzknJ42e.',
     'contact': 'Contact OES at info@otisexecutionsystems.com for confirmed information.',
 }

@@ -297,6 +297,29 @@ class ChatTests(unittest.TestCase):
         self.assertIn('https://sportfolio-api-ktd5.onrender.com/', instruction)
         self.assertIn('OES develops intelligent software', instruction)
 
+    def test_public_context_includes_official_product_communities(self):
+        self.post({'message':'Where are the product communities?'}).get_data()
+        instruction = self.provider.calls[0][0]['content']
+        self.assertIn('FlareUp Profits: https://discord.gg/YjKFkdnj3', instruction)
+        self.assertIn('Lottovate_MI Server: https://discord.gg/pf6sAYD33', instruction)
+
+    def test_product_cards_include_safe_accessible_discord_links(self):
+        from app import app
+        html = app.test_client().get('/').get_data(as_text=True)
+        chase_card = html.split('data-product="chaseingreen"', 1)[1].split(
+            'data-product="lottovate"', 1)[0]
+        lottovate_card = html.split('data-product="lottovate"', 1)[1].split(
+            'data-product="sportfolio"', 1)[0]
+        for card, url, community in [
+            (chase_card, 'https://discord.gg/YjKFkdnj3', 'FlareUp Profits'),
+            (lottovate_card, 'https://discord.gg/pf6sAYD33', 'Lottovate_MI Server'),
+        ]:
+            with self.subTest(community=community):
+                self.assertIn(f'href="{url}"', card)
+                self.assertIn('target="_blank"', card)
+                self.assertIn('rel="noopener noreferrer"', card)
+                self.assertIn(community, card)
+
     def test_public_fact_model_prose_never_released(self):
         self.provider.stream = lambda messages: iter([
             ChatEvent('delta', {'text': 'OES has secret Fortune 500 customers.'}),
