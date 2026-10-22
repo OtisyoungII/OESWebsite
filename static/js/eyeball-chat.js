@@ -3,6 +3,7 @@ import { createObservationController } from './eyeball-observations.js';
 import { EYEBALL_LOCALES, initialEyeballLocale, localeDefinition,
     persistEyeballLocale, shouldRefocusEyeballComposer } from './eyeball-localization.js';
 import { completionDirective } from './eyeball-continuity.js';
+import { renderClarification } from './eyeball-clarification.js';
 
 // Same-origin transport only; provider selection and policy stay on the server.
 export function initializeEyeballChat() {
@@ -23,6 +24,7 @@ export function initializeEyeballChat() {
     let activeRequest = null;
     let history = [];
     let lookupContinuation = null;
+    let pendingClarification = null;
     let interactionMode = 'pointer';
     let preferenceStorage;
     try { preferenceStorage = window.localStorage; } catch { preferenceStorage = null; }
@@ -65,6 +67,9 @@ export function initializeEyeballChat() {
         if (!Object.hasOwn(EYEBALL_LOCALES, localeControl.value)) return;
         applyLocale(localeControl.value);
         persistEyeballLocale(preferenceStorage, locale);
+        document.dispatchEvent(new CustomEvent('oes:product-event', {
+            detail: { event: 'eyeball_language_changed', language: locale }
+        }));
     });
 
     const observations = createObservationController({
@@ -119,6 +124,10 @@ export function initializeEyeballChat() {
     core.addEventListener('oes:chatrequest', () => {
         if (dialog.open) return;
         observations.opened();
+        document.dispatchEvent(new CustomEvent('oes:product-event', {
+            detail: { event: 'eyeball_opened', language: locale,
+                platform: window.innerWidth <= 760 ? 'mobile' : window.innerWidth <= 1020 ? 'tablet' : 'desktop' }
+        }));
         dialog.showModal();
         core.setAttribute('aria-expanded', 'true');
         input.focus();
@@ -143,6 +152,9 @@ export function initializeEyeballChat() {
     });
     dialog.addEventListener('close', () => {
         observations.closed();
+        document.dispatchEvent(new CustomEvent('oes:product-event', {
+            detail: { event: 'eyeball_closed' }
+        }));
         cancelResponse();
         core.setAttribute('aria-expanded', 'false');
         core.focus({ preventScroll: true });
@@ -173,6 +185,9 @@ export function initializeEyeballChat() {
         const text = input.value.trim();
         if (!text || text.length > 4000 || activeRequest) return;
         observations.sent();
+        document.dispatchEvent(new CustomEvent('oes:product-event', {
+            detail: { event: 'eyeball_message_submitted', language: locale }
+        }));
         const controller = new AbortController();
         activeRequest = controller;
         appendMessage(localeDefinition(locale).strings.you, text, true);
@@ -183,6 +198,7 @@ export function initializeEyeballChat() {
         let body;
         let answer = '';
         let complete = false;
+        let clarificationShown = false;
         let historyDisposition = 'include';
         let timedOut = false;
         // Two bounded provider/validation attempts plus transport allowance.
@@ -194,8 +210,10 @@ export function initializeEyeballChat() {
                 method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'text/event-stream' },
                 credentials: 'same-origin', signal: controller.signal,
                 body: JSON.stringify({ message: text, history, context: browserContext(), locale,
-                    ...(continuation ? { continuation } : {}) })
+                    ...(continuation ? { continuation } : {}),
+                    ...(pendingClarification ? { clarification: pendingClarification } : {}) })
             });
+            pendingClarification = null;
             if (controller.signal.aborted || activeRequest !== controller) return;
             if (!response.ok || !response.body || !response.headers.get('Content-Type')?.includes('text/event-stream')) {
                 throw new Error('request failed');
@@ -222,6 +240,23 @@ export function initializeEyeballChat() {
                         answer += data.text;
                         body.textContent = answer;
                         transcript.scrollTop = transcript.scrollHeight;
+                    } else if (kind === 'clarification') {
+                        const card = renderClarification(document, data, localeDefinition(locale).strings, {
+                            select(choice) {
+                                pendingClarification = choice.token;
+                                input.value = choice.label;
+                                setTimeout(() => form.requestSubmit(), 0);
+                            },
+                            rephrase() {
+                                document.dispatchEvent(new CustomEvent('oes:product-event', { detail: {
+                                    event: 'eyeball_clarification_rephrase', clarificationReason: data.reason
+                                }}));
+                                if (shouldRefocusComposer()) input.focus();
+                            }
+                        });
+                        transcript.append(card);
+                        transcript.scrollTop = transcript.scrollHeight;
+                        clarificationShown = true;
                     } else if (kind === 'done') {
                         const directive = completionDirective(data);
                         lookupContinuation = directive.continuation;
@@ -232,7 +267,7 @@ export function initializeEyeballChat() {
                 }
                 if (done && !complete) throw new Error('interrupted stream');
             }
-            if (!answer.trim()) throw new Error('empty response');
+            if (!answer.trim() && !clarificationShown) throw new Error('empty response');
             if (historyDisposition === 'include') {
                 history.push({ role: 'user', content: text }, { role: 'assistant', content: answer.slice(0, 4000) });
                 while (history.length > 10 || history.reduce((sum, item) => sum + item.content.length, 0) > 12000) history.splice(0, 2);

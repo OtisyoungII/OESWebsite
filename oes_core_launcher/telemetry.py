@@ -45,6 +45,16 @@ ACTIVITY_LABELS = {
     'core_restarted': 'OES Core restarted',
     'configuration_checked': 'Configuration checked',
     'telemetry_gap': 'Telemetry gap detected',
+    'website_session_started': 'Website session started',
+    'product_card_activated': 'Product card activated',
+    'eyeball_opened': 'Eyeball opened',
+    'eyeball_closed': 'Eyeball closed',
+    'eyeball_message_submitted': 'Eyeball message submitted',
+    'eyeball_language_changed': 'Eyeball language changed',
+    'external_product_link_activated': 'External product link activated',
+    'testflight_link_activated': 'TestFlight link activated',
+    'web_app_link_activated': 'Web app link activated',
+    'contact_action_activated': 'Contact action activated',
 }
 
 AUDIT_TYPES = frozenset({
@@ -57,19 +67,25 @@ AUDIT_TYPES = frozenset({
 
 TAB_METRICS = {
     'Overview': (
-        ('telemetry_start', 'Telemetry since'), ('gap', 'Telemetry gaps'),
+        ('telemetry_start', 'Telemetry since'),
+        ('product_intelligence_start', 'Product intelligence since'),
+        ('website_sessions', 'Website sessions'),
+        ('website_activations', 'Meaningful website activations'),
+        ('platform_breakdown', 'Session platform desktop / tablet / mobile / unknown'),
+        ('destination_breakdown', 'Activations TestFlight / web app / external / contact'),
+        ('gap', 'Telemetry gaps'),
         ('requests', 'Accepted requests'), ('responses', 'Completed response streams'),
         ('safe_errors', 'SAFE_ERROR'), ('lookups', 'Public lookups'),
         ('latency', 'Latency p50 / p95'), ('last_inference', 'Last successful inference'),
         ('active_job', 'Active inference'), ('last_failure', 'Last failure/recovery')),
     'Eyeball': (
-        ('visitor_sessions', 'Visitor sessions'), ('conversations', 'Conversations'),
-        ('new_returning', 'New / returning'), ('turns', 'Accepted requests / turns'),
+        ('visitor_sessions', 'Website sessions'), ('conversations', 'Eyeball opens'),
+        ('new_returning', 'New / returning'), ('turns', 'Submitted messages'),
         ('eyeball_responses', 'Completed streams'), ('eyeball_safe', 'SAFE_ERROR'),
         ('attempts', 'Inference attempts'), ('corrections', 'Correction attempts'),
         ('capabilities', 'Capability invocations'),
         ('lookup_outcomes', 'Public lookup success / failure'),
-        ('grounding', 'Grounding events'),
+        ('grounding', 'Grounding events'), ('languages', 'Message locale en / es / fr / ar / zh-CN'),
         ('eyeball_latency', 'Latency p50 / p95 / samples'),
         ('busiest', 'Busiest period')),
     'Health': (
@@ -134,6 +150,20 @@ def console_view(snapshot, status):
     status_values = _status_view(status)
     values = {
         'telemetry_start': _when(snapshot['telemetry_started_at']),
+        'product_intelligence_start': _when(snapshot.get('product_intelligence_started_at'))
+                                      if snapshot.get('product_intelligence_started_at')
+                                      else 'Not started',
+        'website_sessions': count('website_session_started'),
+        'website_activations': sum(count(name) for name in (
+            'product_card_activated', 'external_product_link_activated',
+            'testflight_link_activated', 'web_app_link_activated',
+            'contact_action_activated')),
+        'platform_breakdown': ' / '.join(str(count(
+            f'website_session_started:platform:{platform}'))
+            for platform in ('desktop', 'tablet', 'mobile', 'unknown')),
+        'destination_breakdown': ' / '.join(str(value) for value in (
+            count('testflight_link_activated'), count('web_app_link_activated'),
+            count('external_product_link_activated'), count('contact_action_activated'))),
         'gap': snapshot['telemetry_gaps'], 'requests': count('request_accepted'),
         'responses': count('response_completed'), 'safe_errors': count('safe_error'),
         'lookups': count('capability_requested:capability:public_world_lookup'),
@@ -141,8 +171,10 @@ def console_view(snapshot, status):
         'last_inference': _when(runtime.get('last_inference_success')),
         'active_job': 'Active' if runtime.get('active_inference') else 'Idle',
         'last_failure': activity_text(failures[0]) if failures else 'None recorded',
-        'visitor_sessions': 'Not measured', 'conversations': 'Not measured',
-        'new_returning': 'Not measured', 'turns': count('request_accepted'),
+        'visitor_sessions': count('website_session_started'),
+        'conversations': count('eyeball_opened'),
+        'new_returning': 'Not measured',
+        'turns': count('eyeball_message_submitted'),
         'eyeball_responses': count('response_completed'),
         'eyeball_safe': count('safe_error'), 'attempts': count('inference_attempted'),
         'corrections': count('correction_attempted'),
@@ -150,6 +182,9 @@ def console_view(snapshot, status):
         'lookup_outcomes': (f"{count('capability_completed:success')} / "
                             f"{count('capability_completed:failure')}"),
         'grounding': count('grounding_required'),
+        'languages': ' / '.join(str(count(
+            f'eyeball_message_submitted:language:{language}'))
+            for language in ('en', 'es', 'fr', 'ar', 'zh-CN')),
         'eyeball_latency': f"{latency_text} / {latency['samples']} samples",
         'busiest': (f"{busiest['period_utc']} UTC · {busiest['count']} requests"
                     if busiest else 'Not available for this range'),
@@ -332,6 +367,10 @@ class TelemetryStore:
                                 separators=(',', ':')), event.get('value')))
                 accepted.append(event['event_id'])
                 if row.rowcount:
+                    if event['event_type'] == 'website_session_started':
+                        db.execute("INSERT OR IGNORE INTO metadata(key,value) "
+                                   "VALUES('product_intelligence_started_at',?)",
+                                   (str(event['occurred_at']),))
                     day = iso_day(event['occurred_at'])
                     for metric in _metric_keys(event):
                         duration = event.get('duration_ms')
@@ -381,6 +420,9 @@ class TelemetryStore:
         with self.lock, self._db(readonly=True) as db:
             started = int(db.execute(
                 "SELECT value FROM metadata WHERE key='telemetry_started_at'").fetchone()[0])
+            product_row = db.execute(
+                "SELECT value FROM metadata WHERE key='product_intelligence_started_at'").fetchone()
+            product_started = int(product_row[0]) if product_row else None
             if range_name == 'all time':
                 rows = db.execute(
                     'SELECT metric,SUM(count) count,SUM(duration_count) duration_count,'
@@ -427,7 +469,8 @@ class TelemetryStore:
                                      if key == 'response_completed')
         samples = aggregate_duration_count if range_name == 'all time' else len(durations)
         gaps = metrics.get('telemetry_gap', {}).get('value_sum', 0)
-        return {'range': range_name, 'telemetry_started_at': started, 'metrics': metrics,
+        return {'range': range_name, 'telemetry_started_at': started,
+                'product_intelligence_started_at': product_started, 'metrics': metrics,
                 'latency': {'samples': samples, 'p50_ms': percentile(.50),
                             'p95_ms': percentile(.95),
                             'average_ms': (aggregate_duration_sum // aggregate_duration_count

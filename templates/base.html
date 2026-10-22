@@ -311,6 +311,15 @@ IMPORTANT RULES:
             <a href="mailto:info@otisexecutionsystems.com">
                 info@otisexecutionsystems.com
             </a>
+
+            <div class="site-footer__counter" data-product-counter
+                 data-session-url="{{ url_for('product_intelligence.session') }}"
+                 data-event-url="{{ url_for('product_intelligence.event') }}" hidden
+                 aria-label="OES website sessions during the current service run">
+                <span>OES WEBSITE</span>
+                <strong data-product-counter-value>0</strong>
+                <span>SESSIONS THIS SERVICE RUN</span>
+            </div>
         </div>
 
     </div>

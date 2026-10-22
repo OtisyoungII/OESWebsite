@@ -2,9 +2,11 @@ import os
 
 from flask import Flask, redirect, render_template, url_for
 from chat import init_chat
+from product_intelligence import init_product_intelligence
 
 app = Flask(__name__)
 init_chat(app)
+init_product_intelligence(app)
 
 # Public website freshness and product endpoints live here so templates do not
 # duplicate release-sensitive values.

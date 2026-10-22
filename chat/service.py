@@ -20,6 +20,7 @@ from .capabilities import (CapabilityDenied, CapabilityRegistry, PUBLIC_LOOKUP,
                            evidence_instruction, validate_evidence_answer,
                            public_search_query)
 from .localization import DEFAULT_LOCALE, deterministic_response, response_language_instruction
+from .clarification import ClarificationAnalyzer
 
 SAFE_ERROR = "Eyeball is temporarily unavailable. Please try again shortly."
 LOG = logging.getLogger('oes.chat')
@@ -79,8 +80,43 @@ class ChatService:
         return generate_invitation(self.provider, intent, recent, self.debug_logger)
 
     def stream(self, message, history, context, locale=DEFAULT_LOCALE,
-               continuation=None, continuity_store=None):
+               continuation=None, clarification=None, continuity_store=None,
+               clarification_store=None):
         request_started = time.monotonic()
+        request_id = uuid4().hex
+        if clarification is not None:
+            selected = clarification_store.consume(clarification) if clarification_store else None
+            if selected is None:
+                self.telemetry('safe_error', request_id=request_id,
+                               outcome='failure', reason='invalid_request')
+                yield ChatEvent('start', {'request_id': request_id})
+                yield ChatEvent('error', {'message': SAFE_ERROR})
+                return
+            message, clarification_reason = selected
+            self.telemetry('eyeball_clarification_selected', request_id=request_id,
+                           outcome='accepted', dimensions={
+                               'product': 'eyeball', 'surface': 'web',
+                               'clarification_reason': clarification_reason})
+        else:
+            decision = ClarificationAnalyzer().analyze(message, locale)
+            if decision is not None:
+                self.telemetry('request_accepted', request_id=request_id, outcome='accepted')
+                self.telemetry('eyeball_clarification_requested', request_id=request_id,
+                               outcome='accepted', dimensions={
+                                   'product': 'eyeball', 'surface': 'web',
+                                   'clarification_reason': decision.reason})
+                yield ChatEvent('start', {'request_id': request_id})
+                choices = []
+                if clarification_store is not None:
+                    choices = [{'label': candidate,
+                                'token': clarification_store.issue(candidate, decision.reason)}
+                               for candidate in decision.candidates]
+                prompt_key = ('clarification_candidates' if choices else 'clarification_rephrase')
+                yield ChatEvent('clarification', {
+                    'prompt': deterministic_response(prompt_key, locale),
+                    'choices': choices, 'reason': decision.reason})
+                yield ChatEvent('done', {'history': 'exclude_exchange'})
+                return
         instruction = SYSTEM_IDENTITY + "\n\n" + PUBLIC_CONTEXT
         history = bounded_history(history)
         state, continuity = SituationAnalyzer().analyze(message, history, context)
@@ -120,7 +156,6 @@ class ChatService:
         model_history = ([] if state.requires_oes_facts
                          else conversational_history(history))
 
-        request_id = uuid4().hex
         self.telemetry('request_accepted', request_id=request_id, outcome='accepted')
         self.telemetry('situation_classified', request_id=request_id,
                        dimensions={'interaction_kind': state.interaction_kind,

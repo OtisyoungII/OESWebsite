@@ -15,7 +15,8 @@ export const EYEBALL_LOCALES = Object.freeze({
             interrupted: 'Response interrupted. You can try again.', stop: 'Stop', send: 'Send',
             you: 'YOU', eyeball: 'EYEBALL', safeError: 'Eyeball is temporarily unavailable. Please try again shortly.',
             invitation: 'Questions about this product? Ask Eyeball.', invitationLabel: 'Optional Eyeball invitation',
-            dismissInvitation: 'Dismiss Eyeball invitation for this page visit'
+            dismissInvitation: 'Dismiss Eyeball invitation for this page visit',
+            clarificationLabel: 'Eyeball clarification choices', clarificationSomethingElse: 'Something else'
         })
     }),
     es: Object.freeze({
@@ -30,7 +31,8 @@ export const EYEBALL_LOCALES = Object.freeze({
             interrupted: 'La respuesta se interrumpió. Puedes intentarlo de nuevo.', stop: 'Detener', send: 'Enviar',
             you: 'TÚ', eyeball: 'EYEBALL', safeError: 'Eyeball no está disponible temporalmente. Inténtalo de nuevo en breve.',
             invitation: '¿Tienes preguntas sobre este producto? Pregúntale a Eyeball.', invitationLabel: 'Invitación opcional de Eyeball',
-            dismissInvitation: 'Descartar la invitación de Eyeball durante esta visita'
+            dismissInvitation: 'Descartar la invitación de Eyeball durante esta visita',
+            clarificationLabel: 'Opciones de aclaración de Eyeball', clarificationSomethingElse: 'Otra cosa'
         })
     }),
     fr: Object.freeze({
@@ -45,7 +47,8 @@ export const EYEBALL_LOCALES = Object.freeze({
             interrupted: 'La réponse a été interrompue. Vous pouvez réessayer.', stop: 'Arrêter', send: 'Envoyer',
             you: 'VOUS', eyeball: 'EYEBALL', safeError: 'Eyeball est temporairement indisponible. Veuillez réessayer bientôt.',
             invitation: 'Des questions sur ce produit ? Demandez à Eyeball.', invitationLabel: 'Invitation facultative d’Eyeball',
-            dismissInvitation: 'Ignorer l’invitation d’Eyeball pour cette visite'
+            dismissInvitation: 'Ignorer l’invitation d’Eyeball pour cette visite',
+            clarificationLabel: 'Choix de clarification d’Eyeball', clarificationSomethingElse: 'Autre chose'
         })
     }),
     ar: Object.freeze({
@@ -60,7 +63,8 @@ export const EYEBALL_LOCALES = Object.freeze({
             interrupted: 'انقطع الرد. يمكنك المحاولة مرة أخرى.', stop: 'إيقاف', send: 'إرسال',
             you: 'أنت', eyeball: 'EYEBALL', safeError: 'Eyeball غير متاح مؤقتًا. حاول مرة أخرى بعد قليل.',
             invitation: 'لديك أسئلة عن هذا المنتج؟ اسأل Eyeball.', invitationLabel: 'دعوة اختيارية من Eyeball',
-            dismissInvitation: 'تجاهل دعوة Eyeball لهذه الزيارة'
+            dismissInvitation: 'تجاهل دعوة Eyeball لهذه الزيارة',
+            clarificationLabel: 'خيارات توضيح Eyeball', clarificationSomethingElse: 'شيء آخر'
         })
     }),
     'zh-CN': Object.freeze({
@@ -75,7 +79,8 @@ export const EYEBALL_LOCALES = Object.freeze({
             interrupted: '回复已中断。你可以重试。', stop: '停止', send: '发送',
             you: '你', eyeball: 'EYEBALL', safeError: 'Eyeball 暂时不可用。请稍后重试。',
             invitation: '对这个产品有疑问？询问 Eyeball。', invitationLabel: '可选的 Eyeball 邀请',
-            dismissInvitation: '在本次访问中关闭 Eyeball 邀请'
+            dismissInvitation: '在本次访问中关闭 Eyeball 邀请',
+            clarificationLabel: 'Eyeball 澄清选项', clarificationSomethingElse: '其他意思'
         })
     })
 });

@@ -38,6 +38,11 @@
 .eyeball-chat__message--user { border-color: #94a3b8; background: #172237; }
 .eyeball-chat__message p { margin: 0; white-space: pre-wrap; font-size: 14px; line-height: 1.6; }
 .eyeball-chat__message .eyeball-chat__speaker { margin-bottom: 6px; font-size: 10px; letter-spacing: .12em; color: #7dd3fc; }
+.eyeball-clarification { margin: 0 0 12px; padding: 14px; border: 1px solid #356482; border-inline-start: 3px solid #38bdf8; border-radius: 10px; background: #0d1c31; }
+.eyeball-clarification p { margin: 0 0 10px; line-height: 1.5; }
+.eyeball-clarification__choices { display: grid; gap: 8px; }
+.eyeball-clarification__choices button { min-height: 44px; text-align: start; overflow-wrap: anywhere; }
+.eyeball-clarification__other { color: #a5c8df !important; }
 .eyeball-chat__composer { padding: 16px 22px 20px; border-top: 1px solid #244057; }
 .eyeball-chat__composer label { display: block; margin-bottom: 8px; font-size: 13px; }
 .eyeball-chat textarea { display: block; box-sizing: border-box; width: 100%; resize: none; border: 1px solid #47758e; border-radius: 8px; background: #020817; color: #f8fafc; padding: 12px; font: inherit; font-size: 16px; }

@@ -21,6 +21,13 @@ EVENT_TYPES = frozenset({
     'inference_ready', 'inference_completed', 'inference_failed', 'validation_rejected',
     'correction_attempted', 'response_completed', 'safe_error',
     'request_cancelled', 'telemetry_gap',
+    'website_session_started', 'product_card_activated',
+    'eyeball_opened', 'eyeball_closed', 'eyeball_message_submitted',
+    'eyeball_language_changed', 'external_product_link_activated',
+    'testflight_link_activated', 'web_app_link_activated',
+    'contact_action_activated',
+    'eyeball_clarification_requested', 'eyeball_clarification_selected',
+    'eyeball_clarification_rephrase',
 })
 
 OUTCOMES = frozenset({'success', 'failure', 'allowed', 'denied', 'accepted',
@@ -70,6 +77,16 @@ DIMENSIONS = {
                         'reconnecting', 'ready', 'unavailable', 'verified', 'invalid',
                         'active', 'idle'}),
     'inference_state': frozenset({'cold', 'warm'}),
+    'product': frozenset({'oeswebsite', 'eyeball'}),
+    'surface': frozenset({'web'}),
+    'platform': frozenset({'desktop', 'tablet', 'mobile', 'unknown'}),
+    'language': frozenset({'en', 'es', 'fr', 'ar', 'zh-CN'}),
+    'product_target': frozenset({
+        'chaseingreen', 'lottovate', 'sportfolio', 'drinkswithfriendz',
+    }),
+    'destination': frozenset({'testflight', 'web_app', 'external_site', 'contact'}),
+    'clarification_reason': frozenset({
+        'ambiguous_typo', 'high_impact_ambiguity', 'low_confidence'}),
 }
 
 EVENT_DIMENSIONS = {
@@ -88,6 +105,25 @@ EVENT_DIMENSIONS = {
     'inference_ready': frozenset({'inference_state'}),
     'inference_completed': frozenset({'inference_state'}),
     'inference_failed': frozenset({'inference_state'}),
+    'website_session_started': frozenset({'product', 'surface', 'platform', 'language'}),
+    'product_card_activated': frozenset({'product', 'surface', 'product_target'}),
+    'eyeball_opened': frozenset({'product', 'surface', 'platform', 'language'}),
+    'eyeball_closed': frozenset({'product', 'surface'}),
+    'eyeball_message_submitted': frozenset({'product', 'surface', 'language'}),
+    'eyeball_language_changed': frozenset({'product', 'surface', 'language'}),
+    'external_product_link_activated': frozenset(
+        {'product', 'surface', 'product_target', 'destination'}),
+    'testflight_link_activated': frozenset(
+        {'product', 'surface', 'product_target', 'destination'}),
+    'web_app_link_activated': frozenset(
+        {'product', 'surface', 'product_target', 'destination'}),
+    'contact_action_activated': frozenset({'product', 'surface', 'destination'}),
+    'eyeball_clarification_requested': frozenset(
+        {'product', 'surface', 'clarification_reason'}),
+    'eyeball_clarification_selected': frozenset(
+        {'product', 'surface', 'clarification_reason'}),
+    'eyeball_clarification_rephrase': frozenset(
+        {'product', 'surface', 'clarification_reason'}),
 }
 
 _HEX32 = re.compile(r'^[0-9a-f]{32}$')

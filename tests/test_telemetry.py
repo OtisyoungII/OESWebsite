@@ -127,6 +127,17 @@ class StorageTests(unittest.TestCase):
         self.assertEqual(snapshot['latency']['samples'], 1)
         self.assertEqual(snapshot['telemetry_started_at'], self.clock.value)
 
+    def test_product_events_have_separate_collection_start_and_fixed_dimensions(self):
+        self.assertIsNone(self.store.snapshot('all time')['product_intelligence_started_at'])
+        self.store.record('website_session_started', outcome='accepted', dimensions={
+            'product':'oeswebsite', 'surface':'web', 'platform':'mobile', 'language':'fr'})
+        self.store.record('eyeball_opened', outcome='accepted', dimensions={
+            'product':'eyeball', 'surface':'web', 'platform':'mobile', 'language':'fr'})
+        snapshot = self.store.snapshot('all time')
+        self.assertEqual(snapshot['product_intelligence_started_at'], self.clock.value)
+        self.assertEqual(snapshot['metrics']['website_session_started']['count'], 1)
+        self.assertEqual(snapshot['metrics']['website_session_started:platform:mobile']['count'], 1)
+
     def test_concurrent_read_and_write(self):
         failures = []
         def writer():
@@ -201,6 +212,7 @@ class ClipboardTests(unittest.TestCase):
     def snapshot(events=None):
         return {
             'range':'today', 'telemetry_started_at':1800000000, 'metrics':{},
+            'product_intelligence_started_at':None,
             'latency':{'samples':0, 'p50_ms':None, 'p95_ms':None, 'average_ms':None},
             'events':events or [], 'telemetry_gaps':0, 'runtime':{},
             'busiest_period':None, 'generated_at':1800000100,
@@ -225,7 +237,8 @@ class ClipboardTests(unittest.TestCase):
                         'HEALTH', 'RECENT ACTIVITY', 'RECENT AUDIT'):
             self.assertIn(section, output)
         self.assertIn('Range: Today', output)
-        self.assertIn('Visitor sessions: Not measured', output)
+        self.assertIn('Website sessions: 0', output)
+        self.assertIn('Product intelligence since: Not started', output)
         self.assertIn('No events recorded', output)
         self.assertIn('Model: llama3.2 unloaded', output)
 

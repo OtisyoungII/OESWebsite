@@ -11,6 +11,20 @@ LANGUAGE_INSTRUCTIONS = {
 }
 
 DETERMINISTIC_RESPONSES = {
+    'clarification_candidates': {
+        'en': "I've got a few candidates. Did you mean…",
+        'es': 'Tengo algunas opciones. ¿Quisiste decir…?',
+        'fr': 'J’ai quelques possibilités. Vouliez-vous dire…',
+        'ar': 'لديّ بعض الاحتمالات. هل تقصد…',
+        'zh-CN': '我有几个可能的理解。你的意思是……',
+    },
+    'clarification_rephrase': {
+        'en': "I couldn't determine that confidently. Try saying it another way.",
+        'es': 'No pude determinarlo con seguridad. Intenta decirlo de otra manera.',
+        'fr': 'Je n’ai pas pu le déterminer avec certitude. Essayez de le reformuler.',
+        'ar': 'لم أتمكن من تحديد المقصود بثقة. حاول صياغته بطريقة أخرى.',
+        'zh-CN': '我无法确定你的意思。请换一种说法。',
+    },
     'unknown_visitor_reason': {
         'en': "I can't know why you're here. What caught your eye?",
         'es': 'No puedo saber por qué estás aquí. ¿Qué te llamó la atención?',

@@ -77,6 +77,7 @@ IMPORTANT RULES:
 */
 
 import { initializeEyeballChat } from "./eyeball-chat.js";
+import { initializeProductIntelligence } from "./product-intelligence.js";
 
 import {
     createCursorGlow,
@@ -542,6 +543,11 @@ document.addEventListener(
         safelyInitialize(
             "Eyeball Chat UI",
             initializeEyeballChat
+        );
+
+        safelyInitialize(
+            "Product intelligence",
+            initializeProductIntelligence
         );
 
         document.documentElement
