@@ -260,6 +260,13 @@ class NativeRendererTests(unittest.TestCase):
         self.assertIn('SetParent', host)
         self.assertNotIn('Canvas.create_oval', panel)
 
+    def test_transparent_preview_surface_has_no_stale_placeholder_content(self):
+        root = Path(__file__).resolve().parents[1]
+        panel = (root / 'oes_core_renderer' / 'tuning_panel.py').read_text(encoding='utf-8')
+        self.assertIn('self.preview_message = None', panel)
+        self.assertNotIn('Waiting for the native renderer', panel)
+        self.assertNotIn('preview_message.place', panel)
+
 
 if __name__ == '__main__':
     unittest.main()

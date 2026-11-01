@@ -82,11 +82,7 @@ class TuningPanel:
                                         highlightthickness=1, highlightbackground='#334155')
         self.preview_surface.pack(fill='both', expand=True)
         self.preview_surface.pack_propagate(False)
-        self.preview_message = tk.Label(
-            self.preview_surface,
-            text='Waiting for the native renderer…\nLaunch oes-eyeball-renderer.exe separately.',
-            bg='#101827', fg='#cbd5e1', font=('Segoe UI', 12), justify='center')
-        self.preview_message.place(relx=.5, rely=.5, anchor='center')
+        self.preview_message = None
         self.preview_surface.bind('<Configure>', self._preview_resized)
 
         control_canvas = tk.Canvas(controls_card, highlightthickness=0, width=470)
@@ -235,8 +231,6 @@ class TuningPanel:
         except OSError:
             attached = False
         if attached:
-            self.preview_message.destroy()
-            self.preview_message = None
             self.status.config(text='Native D3D11 renderer attached to the visual workspace.')
             self._place_preview()
         else:
