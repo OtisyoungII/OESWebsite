@@ -172,6 +172,15 @@ class NativeRendererTests(unittest.TestCase):
                           'moving_light_time', 'sin(time', 'cos(time'):
             self.assertNotIn(forbidden, source.lower())
 
+    def test_transposed_directx_matrices_use_row_vector_hlsl_convention(self):
+        root = Path(__file__).resolve().parents[1]
+        source = (root / 'oes_core_renderer' / 'src' / 'main.cpp').read_text(encoding='utf-8')
+        self.assertIn('XMMatrixTranspose(world)', source)
+        self.assertIn('XMMatrixTranspose(view*projection)', source)
+        self.assertIn('mul(float4(v.position,1),world)', source)
+        self.assertIn('mul(p,view_projection)', source)
+        self.assertNotIn('mul(world,float4(v.position,1))', source)
+
     def test_renderer_source_uses_file_snapshots_without_network_listener(self):
         root = Path(__file__).resolve().parents[1]
         source = (root / 'oes_core_renderer' / 'src' / 'main.cpp').read_text(encoding='utf-8')
