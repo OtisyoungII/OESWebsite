@@ -23,3 +23,5 @@ __pycache__/
 !.env.example
 # Generated logo-tracing files
 temp/
+# Native Windows renderer build output
+/build/oes-core-renderer/
