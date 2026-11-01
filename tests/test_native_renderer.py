@@ -6,6 +6,7 @@ from pathlib import Path
 from unittest.mock import Mock
 
 from oes_core_launcher.renderer_process import NativeRendererProcess
+from oes_core_renderer.preview_host import (NativePreviewHost, WS_CHILD, WS_POPUP)
 from oes_core_renderer.tuning import (CANONICAL_PARAMETERS, default_paths,
                                       load_preset, read_diagnostics,
                                       read_parameters, save_preset,
@@ -143,6 +144,74 @@ class NativeRendererTests(unittest.TestCase):
         self.assertIn('renderer-diagnostics.json', source)
         self.assertNotIn('winsock', source.lower())
         self.assertNotIn('socket', panel.lower())
+
+    def test_visual_tuner_hosts_real_renderer_and_restores_standalone_window(self):
+        class FakePreviewApi:
+            def __init__(self):
+                self.renderer = 91
+                self.parents = []
+                self.styles = []
+                self.positions = []
+                self.invalidations = []
+
+            def find_renderer(self):
+                return self.renderer
+
+            @staticmethod
+            def parent(_hwnd):
+                return 0
+
+            @staticmethod
+            def style(_hwnd):
+                return WS_POPUP | 0x10000000
+
+            @staticmethod
+            def rect(_hwnd):
+                return 40, 50, 512, 512
+
+            def set_style(self, hwnd, style):
+                self.styles.append((hwnd, style))
+
+            def set_parent(self, hwnd, parent):
+                self.parents.append((hwnd, parent))
+
+            def position(self, hwnd, x, y, width, height):
+                self.positions.append((hwnd, x, y, width, height))
+
+            def invalidate(self, hwnd):
+                self.invalidations.append(hwnd)
+
+        api = FakePreviewApi()
+        preview = NativePreviewHost(api)
+        self.assertTrue(preview.attach(700))
+        self.assertEqual(api.parents[-1], (91, 700))
+        self.assertTrue(api.styles[-1][1] & WS_CHILD)
+        self.assertFalse(api.styles[-1][1] & WS_POPUP)
+        self.assertTrue(preview.place(700, 650, 512, 512))
+        self.assertEqual(api.positions[-1], (91, 94, 69, 512, 512))
+        self.assertEqual(api.invalidations[-1], 700)
+        self.assertTrue(preview.detach())
+        self.assertEqual(api.parents[-1], (91, 0))
+        self.assertTrue(api.styles[-1][1] & WS_POPUP)
+        self.assertEqual(api.positions[-1], (91, 40, 50, 512, 512))
+        self.assertEqual(api.invalidations[-1], 700)
+        self.assertFalse(preview.attached)
+
+    def test_visual_tuner_does_not_require_renderer_or_change_native_source(self):
+        class MissingPreviewApi:
+            @staticmethod
+            def find_renderer():
+                return 0
+
+        preview = NativePreviewHost(MissingPreviewApi())
+        self.assertFalse(preview.attach(700))
+        self.assertFalse(preview.attached)
+        root = Path(__file__).resolve().parents[1]
+        panel = (root / 'oes_core_renderer' / 'tuning_panel.py').read_text(encoding='utf-8')
+        host = (root / 'oes_core_renderer' / 'preview_host.py').read_text(encoding='utf-8')
+        self.assertIn('Live native preview', panel)
+        self.assertIn('SetParent', host)
+        self.assertNotIn('Canvas.create_oval', panel)
 
 
 if __name__ == '__main__':

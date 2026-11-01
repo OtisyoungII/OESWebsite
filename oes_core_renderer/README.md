@@ -37,11 +37,17 @@ quad. It intentionally has no animation, bat, particles, expression system, or g
 
 ## Developer tuning panel
 
-The optional tuning panel is a separate standard-library Python process. It publishes a
+The optional visual tuner is a separate standard-library Python process. It publishes a
 versioned, bounded JSON parameter snapshot atomically under
 `%LOCALAPPDATA%\OES\Core\Renderer\renderer-tuning.json`. The renderer polls that local file;
 it does not open a socket or require the panel to be present. Renderer diagnostics flow in
 the other direction through `renderer-diagnostics.json` in the same directory.
+
+While both processes are running, the tuner finds the renderer by its fixed private window
+class and temporarily uses the Win32 `SetParent` boundary to host that **actual D3D11 HWND**
+inside its Live Native Preview frame. No Python or tkinter approximation of the Eyeball is
+drawn. Closing the tuner restores the renderer's original top-level style, parent, position,
+and dimensions, so standalone renderer operation remains unchanged.
 
 After building the renderer, launch it normally and then launch the panel from the repository:
 
@@ -51,7 +57,8 @@ python -m oes_core_renderer.tuning_panel
 ```
 
 The accepted baseline is encoded as `CANONICAL_PARAMETERS` in `tuning.py`. **Reset to
-Canonical** republishes those exact values. Save/Load Preset operates only on parameter JSON;
+Canonical** republishes those exact values. **Hold Canonical** temporarily shows those values
+and restores the current tuning on release. Save/Load Preset operates only on parameter JSON;
 neither operation modifies `static/images/oes-logo.svg` or its verified raster derivative.
 The renderer remains independently launchable and uses canonical defaults when no valid
 control file exists. `--control` and `--diagnostics` may select alternate local files for
