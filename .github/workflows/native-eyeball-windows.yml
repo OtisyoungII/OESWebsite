@@ -1,0 +1,62 @@
+name: Native Eyeball Windows build
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - .github/workflows/native-eyeball-windows.yml
+      - oes_core_renderer/**
+      - oes_core_launcher/assets/source/oes-eyeball-source.png
+      - oes_core_launcher/renderer_process.py
+      - static/images/oes-logo.svg
+      - tests/test_native_renderer.py
+
+jobs:
+  build:
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Record build environment
+        shell: pwsh
+        run: |
+          cmake --version
+          python --version
+
+      - name: Configure x64
+        shell: pwsh
+        run: |
+          cmake -S oes_core_renderer -B build/oes-core-renderer -G "Visual Studio 17 2022" -A x64 2>&1 | Tee-Object -FilePath configure.log
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          Select-String -Path build/oes-core-renderer/CMakeCache.txt -Pattern 'CMAKE_VS_WINDOWS_TARGET_PLATFORM_VERSION|CMAKE_GENERATOR:|CMAKE_GENERATOR_PLATFORM:'
+          Select-String -Path build/oes-core-renderer/CMakeFiles/*/CMakeCXXCompiler.cmake -Pattern 'CMAKE_CXX_COMPILER_ID |CMAKE_CXX_COMPILER_VERSION '
+
+      - name: Build Release
+        shell: pwsh
+        run: |
+          cmake --build build/oes-core-renderer --config Release 2>&1 | Tee-Object -FilePath build.log
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Run renderer source and process-boundary tests
+        shell: pwsh
+        run: python -m unittest discover -s tests -p test_native_renderer.py -v
+
+      - name: Upload runnable proof
+        uses: actions/upload-artifact@v4
+        with:
+          name: oes-eyeball-renderer-windows-x64-release
+          path: |
+            build/oes-core-renderer/Release/oes-eyeball-renderer.exe
+            build/oes-core-renderer/Release/assets/oes-logo.svg
+            build/oes-core-renderer/Release/assets/oes-logo.png
+          if-no-files-found: error
+
+      - name: Upload build logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: oes-eyeball-renderer-build-logs
+          path: |
+            configure.log
+            build.log
+          if-no-files-found: ignore

@@ -16,7 +16,7 @@ $controllers = Get-CimInstance Win32_VideoController | ForEach-Object {
 $nvidia = $null
 $nvidiaSmi = Get-Command nvidia-smi.exe -ErrorAction SilentlyContinue
 if ($nvidiaSmi) {
-    $nvidia = & $nvidiaSmi.Source --query-gpu=name,driver_version,memory.total,pci.vendor_id,pci.device_id --format=csv,noheader,nounits
+    $nvidia = & $nvidiaSmi.Source --query-gpu=name,driver_version,memory.total,pci.bus_id,pci.device_id --format=csv,noheader,nounits
 }
 
 $dxdiagPath = Join-Path $env:TEMP "oes-core-dxdiag.txt"

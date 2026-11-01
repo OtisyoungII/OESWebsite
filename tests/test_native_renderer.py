@@ -47,7 +47,7 @@ class NativeRendererTests(unittest.TestCase):
         root = Path(__file__).resolve().parents[1]
         canonical = root / 'static' / 'images' / 'oes-logo.svg'
         self.assertEqual(
-            hashlib.sha256(canonical.read_bytes()).hexdigest(),
+            hashlib.sha256(canonical.read_bytes().replace(b'\r\n', b'\n')).hexdigest(),
             '1ce89e6864b8d5799d4806228a3f71172f5bd3c7adaba7d1c8772127d702032b',
         )
         cmake = (root / 'oes_core_renderer' / 'CMakeLists.txt').read_text(encoding='utf-8')
