@@ -5,6 +5,7 @@
 #include <dxgi1_6.h>
 #include <wincodec.h>
 #include <psapi.h>
+#include <shellapi.h>
 #include <wrl/client.h>
 
 #include <chrono>
