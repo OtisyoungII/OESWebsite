@@ -13,20 +13,29 @@ from .tuning import (CANONICAL_PARAMETERS, PARAMETER_LIMITS, default_paths,
 
 
 GROUPS = (
-    ('Transform', ('scale', 'x', 'y', 'rotation')),
-    ('Appearance', ('opacity', 'brightness', 'exposure', 'lighting_intensity')),
-    ('Glow', ('glow_intensity', 'glow_radius')),
-    ('Depth & Perspective', ('depth', 'perspective_x', 'perspective_y')),
+    ('Object transform', ('scale', 'x', 'y', 'z',
+                          'rotation_x', 'rotation_y', 'rotation_z')),
+    ('Camera & lighting', ('camera_fov', 'camera_z', 'brightness',
+                           'exposure', 'lighting_intensity')),
+    ('Face geometry', ('iris_scale', 'iris_depth', 'pupil_scale', 'pupil_depth',
+                       'logo_scale', 'logo_depth')),
+    ('Shell & energy', ('glass_intensity', 'rim_intensity',
+                        'orbit_intensity', 'particle_intensity')),
     ('Surface', ('width', 'height')),
 )
 
 LABELS = {
-    'scale': 'Scale', 'x': 'X position', 'y': 'Y position',
-    'rotation': 'Rotation', 'opacity': 'Opacity',
-    'glow_intensity': 'Intensity', 'glow_radius': 'Radius',
+    'scale': 'Scale', 'x': 'X position', 'y': 'Y position', 'z': 'Z position',
+    'rotation_x': 'Rotation X', 'rotation_y': 'Rotation Y',
+    'rotation_z': 'Rotation Z',
     'brightness': 'Brightness', 'exposure': 'Exposure',
-    'lighting_intensity': 'Lighting', 'depth': 'Depth',
-    'perspective_x': 'Perspective X', 'perspective_y': 'Perspective Y',
+    'lighting_intensity': 'Lighting', 'camera_fov': 'Camera FOV',
+    'camera_z': 'Camera Z', 'iris_scale': 'Iris scale',
+    'iris_depth': 'Iris depth', 'pupil_scale': 'Pupil scale',
+    'pupil_depth': 'Pupil depth', 'glass_intensity': 'Glass',
+    'rim_intensity': 'Rim', 'orbit_intensity': 'Orbits',
+    'particle_intensity': 'Particles', 'logo_scale': 'Logo scale',
+    'logo_depth': 'Logo depth',
     'width': 'Width', 'height': 'Height',
 }
 

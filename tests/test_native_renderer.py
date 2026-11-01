@@ -48,7 +48,7 @@ class NativeRendererTests(unittest.TestCase):
             boundary = NativeRendererProcess(root / 'renderer.exe', diagnostics)
             self.assertEqual(boundary.status(), expected)
 
-    def test_renderer_build_references_only_canonical_identity(self):
+    def test_renderer_build_uses_canonical_identity_only_on_3d_logo_plane(self):
         root = Path(__file__).resolve().parents[1]
         canonical = root / 'static' / 'images' / 'oes-logo.svg'
         self.assertEqual(
@@ -64,30 +64,35 @@ class NativeRendererTests(unittest.TestCase):
         self.assertIn('DCompositionCreateDevice', source)
         self.assertIn('RSSetViewports', source)
         self.assertIn('D3D_DRIVER_TYPE_WARP', source)
+        self.assertIn('"oes_identity"', source)
+        self.assertIn('native_3d_static', source)
+        self.assertNotIn('TRIANGLESTRIP', source)
         self.assertNotIn('three', source.lower())
 
-    def test_canonical_tuning_values_reproduce_accepted_baseline(self):
-        self.assertEqual(CANONICAL_PARAMETERS['scale'], 0.86)
+    def test_canonical_tuning_values_reproduce_static_3d_reference(self):
+        self.assertEqual(CANONICAL_PARAMETERS['scale'], 1.0)
         self.assertEqual(CANONICAL_PARAMETERS['width'], 512)
         self.assertEqual(CANONICAL_PARAMETERS['height'], 512)
-        self.assertEqual(CANONICAL_PARAMETERS['rotation'], 0.0)
-        self.assertEqual(CANONICAL_PARAMETERS['opacity'], 1.0)
-        self.assertEqual(CANONICAL_PARAMETERS['glow_intensity'], 0.0)
-        self.assertEqual(CANONICAL_PARAMETERS['glow_radius'], 0.0)
+        self.assertEqual(CANONICAL_PARAMETERS['rotation_x'], 0.0)
+        self.assertEqual(CANONICAL_PARAMETERS['rotation_y'], 0.0)
+        self.assertEqual(CANONICAL_PARAMETERS['rotation_z'], 0.0)
         self.assertEqual(CANONICAL_PARAMETERS['brightness'], 1.0)
-        self.assertEqual(CANONICAL_PARAMETERS['exposure'], 0.0)
+        self.assertEqual(CANONICAL_PARAMETERS['exposure'], 1.16)
         self.assertEqual(CANONICAL_PARAMETERS['lighting_intensity'], 1.0)
-        self.assertEqual(CANONICAL_PARAMETERS['depth'], 0.0)
-        self.assertEqual(CANONICAL_PARAMETERS['perspective_x'], 0.0)
-        self.assertEqual(CANONICAL_PARAMETERS['perspective_y'], 0.0)
+        self.assertEqual(CANONICAL_PARAMETERS['camera_fov'], 50.0)
+        self.assertEqual(CANONICAL_PARAMETERS['camera_z'], 9.0)
+        for name in ('iris_scale', 'pupil_scale', 'glass_intensity',
+                     'rim_intensity', 'orbit_intensity', 'particle_intensity',
+                     'logo_scale'):
+            self.assertEqual(CANONICAL_PARAMETERS[name], 1.0)
 
     def test_parameter_snapshots_and_presets_round_trip_without_artwork(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             control = root / 'control.json'
             preset = root / 'preset.json'
-            changed = dict(CANONICAL_PARAMETERS, scale=1.12, rotation=15.0,
-                           glow_intensity=.4, width=640, height=480)
+            changed = dict(CANONICAL_PARAMETERS, scale=1.12, rotation_y=15.0,
+                           glass_intensity=.4, width=640, height=480)
             self.assertEqual(write_parameters(control, changed), changed)
             self.assertEqual(read_parameters(control), changed)
             self.assertEqual(save_preset(preset, changed), changed)
@@ -134,12 +139,45 @@ class NativeRendererTests(unittest.TestCase):
             self.assertNotIn('working_set_bytes', value)
             self.assertEqual(value['adapter_name'], 'NVIDIA test adapter')
 
+    def test_geometry_hierarchy_and_canonical_dimensions_are_present(self):
+        root = Path(__file__).resolve().parents[1]
+        source = (root / 'oes_core_renderer' / 'src' / 'main.cpp').read_text(encoding='utf-8')
+        for component in (
+            'outer_sphere', 'inner_sphere', 'energy_lattice', 'glass_shell',
+            'rim', 'outer_iris', 'middle_iris', 'pupil', 'pupil_glow',
+            'oes_identity', 'upper_eyelid', 'lower_eyelid', 'orbit_outer',
+            'orbit_middle', 'orbit_inner', 'orbit_node', 'particles',
+        ):
+            self.assertIn(f'"{component}"', source)
+        for dimension in ('sphere(1.18f,96,96)', 'sphere(1.11f,96,96)',
+                          'icosphere_lines(1.04f,5)', 'sphere(1.23f,82,82)',
+                          'torus(1.255f,.018f,16,180)',
+                          'annulus(.19f,.29f,120)'):
+            self.assertIn(dimension, source)
+
+    def test_geometry_generators_are_indexed_and_particles_are_deterministic(self):
+        root = Path(__file__).resolve().parents[1]
+        geometry = (root / 'oes_core_renderer' / 'src' / 'scene_geometry.h').read_text(
+            encoding='utf-8')
+        source = (root / 'oes_core_renderer' / 'src' / 'main.cpp').read_text(encoding='utf-8')
+        self.assertIn('std::mt19937 random(seed)', geometry)
+        self.assertIn('particles(190,0x004f4553u,1.46f,2.71f)', source)
+        self.assertIn('result.indices.insert', geometry)
+        self.assertIn('D3D11_PRIMITIVE_TOPOLOGY_POINTLIST', source)
+
+    def test_static_milestone_contains_no_autonomous_animation(self):
+        root = Path(__file__).resolve().parents[1]
+        source = (root / 'oes_core_renderer' / 'src' / 'main.cpp').read_text(encoding='utf-8')
+        for forbidden in ('blink', 'breathing', 'gaze', 'orbit_speed',
+                          'moving_light_time', 'sin(time', 'cos(time'):
+            self.assertNotIn(forbidden, source.lower())
+
     def test_renderer_source_uses_file_snapshots_without_network_listener(self):
         root = Path(__file__).resolve().parents[1]
         source = (root / 'oes_core_renderer' / 'src' / 'main.cpp').read_text(encoding='utf-8')
         panel = (root / 'oes_core_renderer' / 'tuning_panel.py').read_text(encoding='utf-8')
         self.assertIn('renderer-tuning.json', source)
-        self.assertIn('read_parameters(control_path', source)
+        self.assertIn('read_parameters(control,', source)
         self.assertIn('PeekMessageW', source)
         self.assertIn('renderer-diagnostics.json', source)
         self.assertNotIn('winsock', source.lower())

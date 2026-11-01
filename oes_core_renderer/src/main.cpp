@@ -7,7 +7,9 @@
 #include <psapi.h>
 #include <shellapi.h>
 #include <wrl/client.h>
+#include <DirectXMath.h>
 
+#include <array>
 #include <chrono>
 #include <cmath>
 #include <cstdint>
@@ -19,654 +21,144 @@
 #include <sstream>
 #include <stdexcept>
 #include <string>
+#include <utility>
 #include <vector>
+
+#include "scene_geometry.h"
 
 using Microsoft::WRL::ComPtr;
 using Clock = std::chrono::steady_clock;
+using namespace DirectX;
 
 namespace {
 constexpr UINT kWidth = 512;
 constexpr UINT kHeight = 512;
 constexpr wchar_t kWindowClass[] = L"OesEyeballNativeRenderer";
+constexpr float kPi = 3.14159265358979323846f;
 
 struct RendererParameters {
-    float scale = 0.86f;
-    float x = 0.0f;
-    float y = 0.0f;
-    float rotation = 0.0f;
-    float opacity = 1.0f;
-    float glow_intensity = 0.0f;
-    float glow_radius = 0.0f;
-    float brightness = 1.0f;
-    float exposure = 0.0f;
-    float lighting_intensity = 1.0f;
-    float depth = 0.0f;
-    float perspective_x = 0.0f;
-    float perspective_y = 0.0f;
-    UINT width = kWidth;
-    UINT height = kHeight;
-};
-
-struct Vertex {
-    float x, y;
-    float u, v;
+    float scale=1, x=0, y=0, z=0;
+    float rotation_x=0, rotation_y=0, rotation_z=0;
+    float brightness=1, exposure=1.16f, lighting_intensity=1;
+    float camera_fov=50, camera_z=9;
+    float iris_scale=1, iris_depth=0, pupil_scale=1, pupil_depth=0;
+    float glass_intensity=1, rim_intensity=1, orbit_intensity=1, particle_intensity=1;
+    float logo_scale=1, logo_depth=0;
+    UINT width=kWidth, height=kHeight;
 };
 
 struct Diagnostics {
-    std::wstring adapter_name = L"unavailable";
-    UINT vendor_id = 0;
-    UINT device_id = 0;
-    D3D_FEATURE_LEVEL feature_level = D3D_FEATURE_LEVEL_9_1;
-    bool hardware = false;
-    double initialization_ms = 0.0;
-    double first_frame_ms = 0.0;
-    SIZE_T working_set_bytes = 0;
-    double fps = 0.0;
-    UINT width = kWidth;
-    UINT height = kHeight;
+    std::wstring adapter_name=L"unavailable";
+    UINT vendor_id=0, device_id=0;
+    D3D_FEATURE_LEVEL feature_level=D3D_FEATURE_LEVEL_9_1;
+    bool hardware=false;
+    double initialization_ms=0, first_frame_ms=0, fps=0;
+    SIZE_T working_set_bytes=0;
+    UINT width=kWidth, height=kHeight;
     RendererParameters parameters{};
 };
 
-struct alignas(16) ShaderParameters {
-    float transform[4]{};       // cosine, sine, scale, depth
-    float translation[4]{};     // x, y, perspective x, perspective y
-    float appearance[4]{};      // opacity, brightness multiplier, glow intensity, glow radius UV
-    float texture[4]{};         // inverse width, inverse height, reserved, reserved
+struct alignas(16) FrameConstants {
+    XMFLOAT4X4 view_projection{};
+    XMFLOAT4 camera_exposure{}, ambient{}, directional{}, directional_color{};
+    XMFLOAT4 point_position[4]{}, point_color[4]{};
 };
 
-std::string json_escape(const std::wstring& value) {
-    if (value.empty()) return {};
-    int size = WideCharToMultiByte(CP_UTF8, 0, value.c_str(), -1, nullptr, 0, nullptr, nullptr);
-    std::string result(static_cast<size_t>(size), '\0');
-    WideCharToMultiByte(CP_UTF8, 0, value.c_str(), -1, result.data(), size, nullptr, nullptr);
-    result.resize(static_cast<size_t>(size - 1));
-    std::string escaped;
-    for (char c : result) {
-        if (c == '"' || c == '\\') escaped.push_back('\\');
-        escaped.push_back(c);
-    }
-    return escaped;
-}
+struct alignas(16) ObjectConstants {
+    XMFLOAT4X4 world{}, normal_world{};
+    XMFLOAT4 base_color{}, emissive{}, surface{};
+};
 
-std::string feature_level_name(D3D_FEATURE_LEVEL level) {
-    switch (level) {
-    case D3D_FEATURE_LEVEL_12_1: return "12_1";
-    case D3D_FEATURE_LEVEL_12_0: return "12_0";
-    case D3D_FEATURE_LEVEL_11_1: return "11_1";
-    case D3D_FEATURE_LEVEL_11_0: return "11_0";
-    case D3D_FEATURE_LEVEL_10_1: return "10_1";
-    case D3D_FEATURE_LEVEL_10_0: return "10_0";
-    default: return "9_x";
-    }
-}
+enum class BlendMode { opaque, alpha, additive };
+struct Material {
+    XMFLOAT4 base{}, emissive{};
+    float roughness=.5f, metalness=0, mode=0;
+    bool textured=false, depth_write=true;
+    BlendMode blend=BlendMode::opaque;
+};
+struct Mesh {
+    std::string name;
+    ComPtr<ID3D11Buffer> vertices, indices;
+    UINT index_count=0;
+    D3D11_PRIMITIVE_TOPOLOGY topology=D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
+};
 
 void check(HRESULT result, const char* operation) {
-    if (FAILED(result)) {
-        std::ostringstream message;
-        message << operation << " failed (0x" << std::hex << static_cast<unsigned long>(result) << ")";
-        throw std::runtime_error(message.str());
-    }
+    if (FAILED(result)) { std::ostringstream message; message << operation << " failed (0x"
+        << std::hex << static_cast<unsigned long>(result) << ")"; throw std::runtime_error(message.str()); }
 }
-
-std::filesystem::path executable_directory() {
-    std::vector<wchar_t> value(32768);
-    DWORD length = GetModuleFileNameW(nullptr, value.data(), static_cast<DWORD>(value.size()));
-    if (!length || length == value.size()) throw std::runtime_error("Executable path is unavailable");
-    return std::filesystem::path(std::wstring(value.data(), length)).parent_path();
+std::string json_escape(const std::wstring& value) {
+    if (value.empty()) return {};
+    int size=WideCharToMultiByte(CP_UTF8,0,value.c_str(),-1,nullptr,0,nullptr,nullptr);
+    std::string text(static_cast<std::size_t>(size),'\0');
+    WideCharToMultiByte(CP_UTF8,0,value.c_str(),-1,text.data(),size,nullptr,nullptr);
+    text.resize(static_cast<std::size_t>(size-1)); std::string escaped;
+    for(char character:text){if(character=='"'||character=='\\')escaped.push_back('\\');escaped.push_back(character);} return escaped;
 }
-
-std::filesystem::path local_renderer_directory() {
-    std::vector<wchar_t> value(32768);
-    DWORD length = GetEnvironmentVariableW(L"LOCALAPPDATA", value.data(),
-                                           static_cast<DWORD>(value.size()));
-    if (!length || length >= value.size()) return executable_directory();
-    return std::filesystem::path(std::wstring(value.data(), length)) /
-           L"OES" / L"Core" / L"Renderer";
+std::string feature_level_name(D3D_FEATURE_LEVEL level) {
+    switch(level){case D3D_FEATURE_LEVEL_12_1:return"12_1";case D3D_FEATURE_LEVEL_12_0:return"12_0";
+    case D3D_FEATURE_LEVEL_11_1:return"11_1";case D3D_FEATURE_LEVEL_11_0:return"11_0";
+    case D3D_FEATURE_LEVEL_10_1:return"10_1";case D3D_FEATURE_LEVEL_10_0:return"10_0";default:return"9_x";}
 }
-
-bool read_json_number(const std::string& json, const char* name, double& result) {
-    const std::string needle = std::string("\"") + name + "\"";
-    const auto key = json.find(needle);
-    if (key == std::string::npos) return false;
-    const auto colon = json.find(':', key + needle.size());
-    if (colon == std::string::npos) return false;
-    const char* start = json.c_str() + colon + 1;
-    char* end = nullptr;
-    result = std::strtod(start, &end);
-    return end != start && std::isfinite(result);
-}
-
-template <typename T>
-bool assign_bounded(const std::string& json, const char* name, T& target,
-                    double low, double high) {
-    double value = 0.0;
-    if (!read_json_number(json, name, value) || value < low || value > high) return false;
-    target = static_cast<T>(value);
-    return true;
-}
-
-bool read_parameters(const std::filesystem::path& path, RendererParameters& output) {
-    std::ifstream input(path, std::ios::binary);
-    if (!input) return false;
-    std::string json((std::istreambuf_iterator<char>(input)), std::istreambuf_iterator<char>());
-    double version = 0.0;
-    if (!read_json_number(json, "version", version) || version != 1.0) return false;
-    RendererParameters value;
-    bool valid = true;
-    valid &= assign_bounded(json, "scale", value.scale, .10, 1.50);
-    valid &= assign_bounded(json, "x", value.x, -1.0, 1.0);
-    valid &= assign_bounded(json, "y", value.y, -1.0, 1.0);
-    valid &= assign_bounded(json, "rotation", value.rotation, -180.0, 180.0);
-    valid &= assign_bounded(json, "opacity", value.opacity, 0.0, 1.0);
-    valid &= assign_bounded(json, "glow_intensity", value.glow_intensity, 0.0, 2.0);
-    valid &= assign_bounded(json, "glow_radius", value.glow_radius, 0.0, 32.0);
-    valid &= assign_bounded(json, "brightness", value.brightness, .25, 2.50);
-    valid &= assign_bounded(json, "exposure", value.exposure, -2.0, 2.0);
-    valid &= assign_bounded(json, "lighting_intensity", value.lighting_intensity, .25, 2.50);
-    valid &= assign_bounded(json, "depth", value.depth, -1.0, 1.0);
-    valid &= assign_bounded(json, "perspective_x", value.perspective_x, -.50, .50);
-    valid &= assign_bounded(json, "perspective_y", value.perspective_y, -.50, .50);
-    valid &= assign_bounded(json, "width", value.width, 220.0, 1600.0);
-    valid &= assign_bounded(json, "height", value.height, 220.0, 1600.0);
-    if (!valid) return false;
-    output = value;
-    return true;
-}
-
-std::filesystem::path argument_path(const wchar_t* name, const std::filesystem::path& fallback) {
-    int count = 0;
-    wchar_t** values = CommandLineToArgvW(GetCommandLineW(), &count);
-    if (!values) return fallback;
-    std::filesystem::path result = fallback;
-    for (int index = 1; index + 1 < count; ++index) {
-        if (std::wstring(values[index]) == name) result = values[index + 1];
-    }
-    LocalFree(values);
-    return result;
-}
-
-bool has_argument(const wchar_t* name) {
-    int count = 0;
-    wchar_t** values = CommandLineToArgvW(GetCommandLineW(), &count);
-    if (!values) return false;
-    bool found = false;
-    for (int index = 1; index < count; ++index) found |= std::wstring(values[index]) == name;
-    LocalFree(values);
-    return found;
-}
+std::filesystem::path executable_directory(){std::vector<wchar_t> value(32768);DWORD length=GetModuleFileNameW(nullptr,value.data(),static_cast<DWORD>(value.size()));if(!length||length==value.size())throw std::runtime_error("Executable path is unavailable");return std::filesystem::path(std::wstring(value.data(),length)).parent_path();}
+std::filesystem::path local_renderer_directory(){std::vector<wchar_t> value(32768);DWORD length=GetEnvironmentVariableW(L"LOCALAPPDATA",value.data(),static_cast<DWORD>(value.size()));if(!length||length>=value.size())return executable_directory();return std::filesystem::path(std::wstring(value.data(),length))/L"OES"/L"Core"/L"Renderer";}
+std::filesystem::path argument_path(const wchar_t* name,const std::filesystem::path& fallback){int count=0;wchar_t** values=CommandLineToArgvW(GetCommandLineW(),&count);if(!values)return fallback;auto result=fallback;for(int i=1;i+1<count;++i)if(std::wstring(values[i])==name)result=values[i+1];LocalFree(values);return result;}
+bool has_argument(const wchar_t* name){int count=0;wchar_t** values=CommandLineToArgvW(GetCommandLineW(),&count);if(!values)return false;bool found=false;for(int i=1;i<count;++i)found|=std::wstring(values[i])==name;LocalFree(values);return found;}
+bool read_json_number(const std::string& json,const char* name,double& result){const std::string needle=std::string("\"")+name+"\"";auto key=json.find(needle);if(key==std::string::npos)return false;auto colon=json.find(':',key+needle.size());if(colon==std::string::npos)return false;const char* start=json.c_str()+colon+1;char* end=nullptr;result=std::strtod(start,&end);return end!=start&&std::isfinite(result);}
+template<typename T>bool assign_bounded(const std::string& json,const char* name,T& target,double low,double high){double value=0;if(!read_json_number(json,name,value)||value<low||value>high)return false;target=static_cast<T>(value);return true;}
+bool read_parameters(const std::filesystem::path& path,RendererParameters& output){std::ifstream input(path,std::ios::binary);if(!input)return false;std::string json((std::istreambuf_iterator<char>(input)),{});double version=0;if(!read_json_number(json,"version",version)||version!=2)return false;RendererParameters v;bool ok=true;
+    ok&=assign_bounded(json,"scale",v.scale,.25,1.5);ok&=assign_bounded(json,"x",v.x,-1,1);ok&=assign_bounded(json,"y",v.y,-1,1);ok&=assign_bounded(json,"z",v.z,-3,3);
+    ok&=assign_bounded(json,"rotation_x",v.rotation_x,-180,180);ok&=assign_bounded(json,"rotation_y",v.rotation_y,-180,180);ok&=assign_bounded(json,"rotation_z",v.rotation_z,-180,180);
+    ok&=assign_bounded(json,"brightness",v.brightness,.25,2.5);ok&=assign_bounded(json,"exposure",v.exposure,.25,2.5);ok&=assign_bounded(json,"lighting_intensity",v.lighting_intensity,.25,2.5);
+    ok&=assign_bounded(json,"camera_fov",v.camera_fov,25,80);ok&=assign_bounded(json,"camera_z",v.camera_z,5,14);
+    ok&=assign_bounded(json,"iris_scale",v.iris_scale,.6,1.4);ok&=assign_bounded(json,"iris_depth",v.iris_depth,-.35,.35);ok&=assign_bounded(json,"pupil_scale",v.pupil_scale,.6,1.4);ok&=assign_bounded(json,"pupil_depth",v.pupil_depth,-.35,.35);
+    ok&=assign_bounded(json,"glass_intensity",v.glass_intensity,0,2);ok&=assign_bounded(json,"rim_intensity",v.rim_intensity,0,2);ok&=assign_bounded(json,"orbit_intensity",v.orbit_intensity,0,2);ok&=assign_bounded(json,"particle_intensity",v.particle_intensity,0,2);
+    ok&=assign_bounded(json,"logo_scale",v.logo_scale,.5,1.5);ok&=assign_bounded(json,"logo_depth",v.logo_depth,-.3,.3);ok&=assign_bounded(json,"width",v.width,220,1600);ok&=assign_bounded(json,"height",v.height,220,1600);
+    if(!ok)return false;output=v;return true;}
+float radians(float degrees){return degrees*kPi/180.0f;}
+XMFLOAT4 color(unsigned value,float alpha=1){return{float((value>>16)&255)/255,float((value>>8)&255)/255,float(value&255)/255,alpha};}
 
 class Renderer {
 public:
-    Renderer(HWND window, bool force_warp) : window_(window), force_warp_(force_warp) {}
-
-    void initialize(const std::filesystem::path& texture_path) {
-        const auto started = Clock::now();
-        create_device();
-        create_composition_swap_chain();
-        create_pipeline();
-        create_texture(texture_path);
-        diagnostics_.initialization_ms = elapsed_ms(started);
-    }
-
-    void apply_parameters(const RendererParameters& value) {
-        parameters_ = value;
-        if (value.width != diagnostics_.width || value.height != diagnostics_.height) {
-            resize(value.width, value.height);
-        }
-        diagnostics_.parameters = parameters_;
-    }
-
-    void render(const Clock::time_point& process_started, bool first_frame = false) {
-        const float transparent[] = {0.0f, 0.0f, 0.0f, 0.0f};
-        context_->ClearRenderTargetView(target_.Get(), transparent);
-        context_->OMSetRenderTargets(1, target_.GetAddressOf(), nullptr);
-        const D3D11_VIEWPORT viewport{0.0f, 0.0f, static_cast<float>(diagnostics_.width),
-                                      static_cast<float>(diagnostics_.height), 0.0f, 1.0f};
-        context_->RSSetViewports(1, &viewport);
-        context_->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
-        UINT stride = sizeof(Vertex), offset = 0;
-        context_->IASetVertexBuffers(0, 1, vertex_buffer_.GetAddressOf(), &stride, &offset);
-        context_->IASetInputLayout(input_layout_.Get());
-        context_->VSSetShader(vertex_shader_.Get(), nullptr, 0);
-        update_shader_parameters();
-        context_->VSSetConstantBuffers(0, 1, parameter_buffer_.GetAddressOf());
-        context_->PSSetShader(pixel_shader_.Get(), nullptr, 0);
-        context_->PSSetConstantBuffers(0, 1, parameter_buffer_.GetAddressOf());
-        context_->PSSetShaderResources(0, 1, texture_view_.GetAddressOf());
-        context_->PSSetSamplers(0, 1, sampler_.GetAddressOf());
-        context_->Draw(4, 0);
-        check(swap_chain_->Present(1, 0), "Present renderer frame");
-        if (first_frame) {
-            diagnostics_.first_frame_ms = elapsed_ms(process_started);
-            PROCESS_MEMORY_COUNTERS memory{};
-            memory.cb = sizeof(memory);
-            if (GetProcessMemoryInfo(GetCurrentProcess(), &memory, sizeof(memory))) {
-                diagnostics_.working_set_bytes = memory.WorkingSetSize;
-            }
-        }
-    }
-
-    const Diagnostics& diagnostics() const { return diagnostics_; }
-    void set_fps(double value) { diagnostics_.fps = value; }
-
+    Renderer(HWND window,bool force_warp):window_(window),force_warp_(force_warp){}
+    void initialize(const std::filesystem::path& texture){auto started=Clock::now();create_device();create_swap_chain();create_pipeline();create_states();create_texture(texture);create_geometry();diagnostics_.initialization_ms=elapsed(started);}
+    void apply_parameters(const RendererParameters& value){parameters_=value;if(value.width!=diagnostics_.width||value.height!=diagnostics_.height)resize(value.width,value.height);diagnostics_.parameters=parameters_;}
+    const Diagnostics& diagnostics()const{return diagnostics_;}void set_fps(double value){diagnostics_.fps=value;}
+    void render(const Clock::time_point& process_started,bool first=false){const float clear[4]={0,0,0,0};context_->ClearRenderTargetView(target_.Get(),clear);context_->ClearDepthStencilView(depth_view_.Get(),D3D11_CLEAR_DEPTH,1,0);context_->OMSetRenderTargets(1,target_.GetAddressOf(),depth_view_.Get());D3D11_VIEWPORT viewport{0,0,float(diagnostics_.width),float(diagnostics_.height),0,1};context_->RSSetViewports(1,&viewport);context_->RSSetState(raster_.Get());context_->IASetInputLayout(input_layout_.Get());context_->VSSetShader(vertex_shader_.Get(),nullptr,0);context_->PSSetShader(pixel_shader_.Get(),nullptr,0);context_->PSSetSamplers(0,1,sampler_.GetAddressOf());context_->PSSetShaderResources(0,1,texture_view_.GetAddressOf());update_frame();context_->VSSetConstantBuffers(0,1,frame_buffer_.GetAddressOf());context_->PSSetConstantBuffers(0,1,frame_buffer_.GetAddressOf());context_->VSSetConstantBuffers(1,1,object_buffer_.GetAddressOf());context_->PSSetConstantBuffers(1,1,object_buffer_.GetAddressOf());XMMATRIX root=root_matrix();draw_core(root);draw_face(root);draw_orbits(root);draw_particles(root);check(swap_chain_->Present(1,0),"Present renderer frame");if(first){diagnostics_.first_frame_ms=elapsed(process_started);PROCESS_MEMORY_COUNTERS memory{};memory.cb=sizeof(memory);if(GetProcessMemoryInfo(GetCurrentProcess(),&memory,sizeof(memory)))diagnostics_.working_set_bytes=memory.WorkingSetSize;}}
 private:
-    static double elapsed_ms(const Clock::time_point& start) {
-        return std::chrono::duration<double, std::milli>(Clock::now() - start).count();
-    }
-
-    void resize(UINT width, UINT height) {
-        context_->OMSetRenderTargets(0, nullptr, nullptr);
-        target_.Reset();
-        check(swap_chain_->ResizeBuffers(0, width, height, DXGI_FORMAT_UNKNOWN, 0),
-              "Resize renderer swap chain");
-        ComPtr<ID3D11Texture2D> buffer;
-        check(swap_chain_->GetBuffer(0, IID_PPV_ARGS(&buffer)), "Get resized swap-chain buffer");
-        check(device_->CreateRenderTargetView(buffer.Get(), nullptr, &target_),
-              "Create resized render target");
-        diagnostics_.width = width;
-        diagnostics_.height = height;
-        SetWindowPos(window_, nullptr, 0, 0, static_cast<int>(width), static_cast<int>(height),
-                     SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE);
-    }
-
-    void update_shader_parameters() {
-        constexpr float pi = 3.14159265358979323846f;
-        const float radians = parameters_.rotation * pi / 180.0f;
-        ShaderParameters value{};
-        value.transform[0] = std::cos(radians);
-        value.transform[1] = std::sin(radians);
-        value.transform[2] = parameters_.scale;
-        value.transform[3] = parameters_.depth;
-        value.translation[0] = parameters_.x;
-        value.translation[1] = parameters_.y;
-        value.translation[2] = parameters_.perspective_x;
-        value.translation[3] = parameters_.perspective_y;
-        value.appearance[0] = parameters_.opacity;
-        value.appearance[1] = parameters_.brightness * parameters_.lighting_intensity *
-                              std::pow(2.0f, parameters_.exposure);
-        value.appearance[2] = parameters_.glow_intensity;
-        value.appearance[3] = parameters_.glow_radius / 220.0f;
-        value.texture[0] = texture_width_ ? 1.0f / texture_width_ : 0.0f;
-        value.texture[1] = texture_height_ ? 1.0f / texture_height_ : 0.0f;
-        context_->UpdateSubresource(parameter_buffer_.Get(), 0, nullptr, &value, 0, 0);
-    }
-
-    void create_device() {
-        ComPtr<IDXGIFactory6> factory;
-        check(CreateDXGIFactory2(0, IID_PPV_ARGS(&factory)), "Create DXGI factory");
-
-        ComPtr<IDXGIAdapter1> selected;
-        if (!force_warp_) {
-            for (UINT index = 0;; ++index) {
-                ComPtr<IDXGIAdapter1> candidate;
-                HRESULT result = factory->EnumAdapterByGpuPreference(
-                    index, DXGI_GPU_PREFERENCE_HIGH_PERFORMANCE, IID_PPV_ARGS(&candidate));
-                if (result == DXGI_ERROR_NOT_FOUND) break;
-                check(result, "Enumerate DXGI adapter");
-                DXGI_ADAPTER_DESC1 description{};
-                check(candidate->GetDesc1(&description), "Read DXGI adapter description");
-                if (!(description.Flags & DXGI_ADAPTER_FLAG_SOFTWARE)) {
-                    selected = candidate;
-                    diagnostics_.adapter_name = description.Description;
-                    diagnostics_.vendor_id = description.VendorId;
-                    diagnostics_.device_id = description.DeviceId;
-                    break;
-                }
-            }
-        }
-
-        const D3D_FEATURE_LEVEL levels[] = {
-            D3D_FEATURE_LEVEL_11_1, D3D_FEATURE_LEVEL_11_0,
-            D3D_FEATURE_LEVEL_10_1, D3D_FEATURE_LEVEL_10_0
-        };
-        UINT flags = D3D11_CREATE_DEVICE_BGRA_SUPPORT;
-#ifdef _DEBUG
-        flags |= D3D11_CREATE_DEVICE_DEBUG;
-#endif
-        auto create = [&](IDXGIAdapter* adapter, D3D_DRIVER_TYPE driver) {
-            HRESULT result = D3D11CreateDevice(
-                adapter, driver, nullptr, flags, levels, ARRAYSIZE(levels), D3D11_SDK_VERSION,
-                &device_, &diagnostics_.feature_level, &context_);
-            if (result == E_INVALIDARG) {
-                result = D3D11CreateDevice(
-                    adapter, driver, nullptr, flags, levels + 1, ARRAYSIZE(levels) - 1,
-                    D3D11_SDK_VERSION, &device_, &diagnostics_.feature_level, &context_);
-            }
-            return result;
-        };
-        HRESULT result = selected
-            ? create(selected.Get(), D3D_DRIVER_TYPE_UNKNOWN)
-            : create(nullptr, D3D_DRIVER_TYPE_WARP);
-        if (FAILED(result) && selected) {
-            selected.Reset();
-            device_.Reset();
-            context_.Reset();
-            result = create(nullptr, D3D_DRIVER_TYPE_WARP);
-        }
-        check(result, "Create Direct3D 11 device");
-        diagnostics_.hardware = selected != nullptr;
-        if (!selected) {
-            diagnostics_.adapter_name = L"Microsoft WARP";
-            diagnostics_.vendor_id = 0x1414;
-            diagnostics_.device_id = 0x008c;
-        }
-    }
-
-    void create_composition_swap_chain() {
-        ComPtr<IDXGIDevice> dxgi_device;
-        check(device_.As(&dxgi_device), "Query DXGI device");
-        ComPtr<IDXGIAdapter> adapter;
-        check(dxgi_device->GetAdapter(&adapter), "Get DXGI adapter");
-        ComPtr<IDXGIFactory2> factory;
-        check(adapter->GetParent(IID_PPV_ARGS(&factory)), "Get DXGI factory");
-
-        DXGI_SWAP_CHAIN_DESC1 description{};
-        description.Width = kWidth;
-        description.Height = kHeight;
-        description.Format = DXGI_FORMAT_B8G8R8A8_UNORM;
-        description.SampleDesc.Count = 1;
-        description.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
-        description.BufferCount = 2;
-        description.Scaling = DXGI_SCALING_STRETCH;
-        description.SwapEffect = DXGI_SWAP_EFFECT_FLIP_SEQUENTIAL;
-        description.AlphaMode = DXGI_ALPHA_MODE_PREMULTIPLIED;
-        check(factory->CreateSwapChainForComposition(
-            device_.Get(), &description, nullptr, &swap_chain_), "Create composition swap chain");
-
-        ComPtr<ID3D11Texture2D> buffer;
-        check(swap_chain_->GetBuffer(0, IID_PPV_ARGS(&buffer)), "Get swap-chain buffer");
-        check(device_->CreateRenderTargetView(buffer.Get(), nullptr, &target_), "Create render target");
-
-        ComPtr<IDCompositionDevice> composition;
-        check(DCompositionCreateDevice(dxgi_device.Get(), IID_PPV_ARGS(&composition)),
-              "Create DirectComposition device");
-        ComPtr<IDCompositionTarget> target;
-        check(composition->CreateTargetForHwnd(window_, TRUE, &target), "Create composition target");
-        ComPtr<IDCompositionVisual> visual;
-        check(composition->CreateVisual(&visual), "Create composition visual");
-        check(visual->SetContent(swap_chain_.Get()), "Attach swap chain to visual");
-        check(target->SetRoot(visual.Get()), "Attach visual to window");
-        check(composition->Commit(), "Commit composition tree");
-        composition_ = composition;
-        composition_target_ = target;
-        composition_visual_ = visual;
-    }
-
-    void create_pipeline() {
-        static constexpr char shader[] = R"(
-            cbuffer Parameters : register(b0) {
-                float4 transform;
-                float4 translation;
-                float4 appearance;
-                float4 texture_size;
-            };
-            struct Input { float2 position : POSITION; float2 uv : TEXCOORD0; };
-            struct Output { float4 position : SV_POSITION; float2 uv : TEXCOORD0; };
-            Output vs_main(Input value) {
-                Output result;
-                float2 rotated = float2(
-                    value.position.x * transform.x - value.position.y * transform.y,
-                    value.position.x * transform.y + value.position.y * transform.x);
-                float depth_scale = 1.0 + transform.w * 0.15;
-                float2 positioned = rotated * transform.z * depth_scale;
-                positioned += float2(positioned.y * translation.z,
-                                     positioned.x * translation.w);
-                positioned += translation.xy;
-                result.position = float4(positioned, 0.0, 1.0);
-                result.uv = value.uv;
-                return result;
-            }
-            Texture2D identity_texture : register(t0);
-            SamplerState identity_sampler : register(s0);
-            float4 ps_main(Output value) : SV_TARGET {
-                float4 base = identity_texture.Sample(identity_sampler, value.uv);
-                float2 offset = float2(appearance.w, appearance.w);
-                float glow_alpha = 0.0;
-                glow_alpha = max(glow_alpha, identity_texture.Sample(identity_sampler, value.uv + float2( offset.x, 0)).a);
-                glow_alpha = max(glow_alpha, identity_texture.Sample(identity_sampler, value.uv + float2(-offset.x, 0)).a);
-                glow_alpha = max(glow_alpha, identity_texture.Sample(identity_sampler, value.uv + float2(0,  offset.y)).a);
-                glow_alpha = max(glow_alpha, identity_texture.Sample(identity_sampler, value.uv + float2(0, -offset.y)).a);
-                glow_alpha = max(glow_alpha, identity_texture.Sample(identity_sampler, value.uv + offset).a);
-                glow_alpha = max(glow_alpha, identity_texture.Sample(identity_sampler, value.uv - offset).a);
-                glow_alpha = saturate((glow_alpha - base.a) * appearance.z);
-                float alpha = saturate(max(base.a, glow_alpha) * appearance.x);
-                float3 lit = base.rgb * appearance.y;
-                float3 rgb = lerp(lit, float3(0.55, 0.82, 1.0), glow_alpha);
-                return float4(rgb * alpha, alpha);
-            }
-        )";
-        ComPtr<ID3DBlob> vertex_blob, pixel_blob, errors;
-        check(D3DCompile(shader, sizeof(shader), "oes_identity.hlsl", nullptr, nullptr,
-                         "vs_main", "vs_4_0", D3DCOMPILE_ENABLE_STRICTNESS, 0,
-                         &vertex_blob, &errors), "Compile vertex shader");
-        check(D3DCompile(shader, sizeof(shader), "oes_identity.hlsl", nullptr, nullptr,
-                         "ps_main", "ps_4_0", D3DCOMPILE_ENABLE_STRICTNESS, 0,
-                         &pixel_blob, &errors), "Compile pixel shader");
-        check(device_->CreateVertexShader(vertex_blob->GetBufferPointer(), vertex_blob->GetBufferSize(),
-                                           nullptr, &vertex_shader_), "Create vertex shader");
-        check(device_->CreatePixelShader(pixel_blob->GetBufferPointer(), pixel_blob->GetBufferSize(),
-                                          nullptr, &pixel_shader_), "Create pixel shader");
-        D3D11_INPUT_ELEMENT_DESC elements[] = {
-            {"POSITION", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 0, D3D11_INPUT_PER_VERTEX_DATA, 0},
-            {"TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 8, D3D11_INPUT_PER_VERTEX_DATA, 0},
-        };
-        check(device_->CreateInputLayout(elements, ARRAYSIZE(elements), vertex_blob->GetBufferPointer(),
-                                          vertex_blob->GetBufferSize(), &input_layout_),
-              "Create input layout");
-        const Vertex vertices[] = {
-            {-1.0f,  1.0f, 0.0f, 0.0f}, { 1.0f,  1.0f, 1.0f, 0.0f},
-            {-1.0f, -1.0f, 0.0f, 1.0f}, { 1.0f, -1.0f, 1.0f, 1.0f},
-        };
-        D3D11_BUFFER_DESC buffer_description{};
-        buffer_description.ByteWidth = sizeof(vertices);
-        buffer_description.Usage = D3D11_USAGE_IMMUTABLE;
-        buffer_description.BindFlags = D3D11_BIND_VERTEX_BUFFER;
-        D3D11_SUBRESOURCE_DATA buffer_data{vertices, 0, 0};
-        check(device_->CreateBuffer(&buffer_description, &buffer_data, &vertex_buffer_),
-              "Create vertex buffer");
-        D3D11_SAMPLER_DESC sampler_description{};
-        sampler_description.Filter = D3D11_FILTER_MIN_MAG_MIP_LINEAR;
-        sampler_description.AddressU = D3D11_TEXTURE_ADDRESS_CLAMP;
-        sampler_description.AddressV = D3D11_TEXTURE_ADDRESS_CLAMP;
-        sampler_description.AddressW = D3D11_TEXTURE_ADDRESS_CLAMP;
-        sampler_description.MaxLOD = D3D11_FLOAT32_MAX;
-        check(device_->CreateSamplerState(&sampler_description, &sampler_), "Create sampler");
-        D3D11_BUFFER_DESC parameter_description{};
-        parameter_description.ByteWidth = sizeof(ShaderParameters);
-        parameter_description.Usage = D3D11_USAGE_DEFAULT;
-        parameter_description.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
-        check(device_->CreateBuffer(&parameter_description, nullptr, &parameter_buffer_),
-              "Create renderer parameter buffer");
-    }
-
-    void create_texture(const std::filesystem::path& path) {
-        ComPtr<IWICImagingFactory> factory;
-        check(CoCreateInstance(CLSID_WICImagingFactory2, nullptr, CLSCTX_INPROC_SERVER,
-                               IID_PPV_ARGS(&factory)), "Create WIC factory");
-        ComPtr<IWICBitmapDecoder> decoder;
-        check(factory->CreateDecoderFromFilename(path.c_str(), nullptr, GENERIC_READ,
-                                                 WICDecodeMetadataCacheOnLoad, &decoder),
-              "Open canonical Eyeball texture");
-        ComPtr<IWICBitmapFrameDecode> frame;
-        check(decoder->GetFrame(0, &frame), "Decode canonical Eyeball texture");
-        UINT width = 0, height = 0;
-        check(frame->GetSize(&width, &height), "Read Eyeball texture dimensions");
-        if (!width || !height) throw std::runtime_error("Canonical Eyeball texture is empty");
-        texture_width_ = static_cast<float>(width);
-        texture_height_ = static_cast<float>(height);
-        ComPtr<IWICFormatConverter> converter;
-        check(factory->CreateFormatConverter(&converter), "Create WIC converter");
-        check(converter->Initialize(frame.Get(), GUID_WICPixelFormat32bppRGBA,
-                                    WICBitmapDitherTypeNone, nullptr, 0.0,
-                                    WICBitmapPaletteTypeCustom), "Convert Eyeball texture");
-        std::vector<std::uint8_t> pixels(static_cast<size_t>(width) * height * 4);
-        check(converter->CopyPixels(nullptr, width * 4, static_cast<UINT>(pixels.size()), pixels.data()),
-              "Copy Eyeball texture pixels");
-        D3D11_TEXTURE2D_DESC description{};
-        description.Width = width;
-        description.Height = height;
-        description.MipLevels = 1;
-        description.ArraySize = 1;
-        description.Format = DXGI_FORMAT_R8G8B8A8_UNORM_SRGB;
-        description.SampleDesc.Count = 1;
-        description.Usage = D3D11_USAGE_IMMUTABLE;
-        description.BindFlags = D3D11_BIND_SHADER_RESOURCE;
-        D3D11_SUBRESOURCE_DATA data{pixels.data(), width * 4, 0};
-        ComPtr<ID3D11Texture2D> texture;
-        check(device_->CreateTexture2D(&description, &data, &texture), "Create Eyeball texture");
-        check(device_->CreateShaderResourceView(texture.Get(), nullptr, &texture_view_),
-              "Create Eyeball texture view");
-    }
-
-    HWND window_{};
-    bool force_warp_{};
-    Diagnostics diagnostics_{};
-    ComPtr<ID3D11Device> device_;
-    ComPtr<ID3D11DeviceContext> context_;
-    ComPtr<IDXGISwapChain1> swap_chain_;
-    ComPtr<ID3D11RenderTargetView> target_;
-    ComPtr<ID3D11VertexShader> vertex_shader_;
-    ComPtr<ID3D11PixelShader> pixel_shader_;
-    ComPtr<ID3D11InputLayout> input_layout_;
-    ComPtr<ID3D11Buffer> vertex_buffer_;
-    ComPtr<ID3D11Buffer> parameter_buffer_;
-    ComPtr<ID3D11SamplerState> sampler_;
-    ComPtr<ID3D11ShaderResourceView> texture_view_;
-    ComPtr<IDCompositionDevice> composition_;
-    ComPtr<IDCompositionTarget> composition_target_;
-    ComPtr<IDCompositionVisual> composition_visual_;
-    RendererParameters parameters_{};
-    float texture_width_ = 0.0f;
-    float texture_height_ = 0.0f;
+    static double elapsed(const Clock::time_point& start){return std::chrono::duration<double,std::milli>(Clock::now()-start).count();}
+    XMMATRIX root_matrix()const{return XMMatrixScaling(parameters_.scale,parameters_.scale,parameters_.scale)*XMMatrixRotationRollPitchYaw(radians(parameters_.rotation_x),radians(parameters_.rotation_y),radians(parameters_.rotation_z))*XMMatrixTranslation(parameters_.x,parameters_.y,parameters_.z);}
+    Mesh create_mesh(std::string name,const oes::geometry::MeshData& data,D3D11_PRIMITIVE_TOPOLOGY topology=D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST){if(data.vertices.empty()||data.indices.empty())throw std::runtime_error("Empty scene mesh");Mesh mesh;mesh.name=std::move(name);mesh.index_count=static_cast<UINT>(data.indices.size());mesh.topology=topology;D3D11_BUFFER_DESC vd{};vd.ByteWidth=static_cast<UINT>(data.vertices.size()*sizeof(oes::geometry::Vertex));vd.Usage=D3D11_USAGE_IMMUTABLE;vd.BindFlags=D3D11_BIND_VERTEX_BUFFER;D3D11_SUBRESOURCE_DATA vi{data.vertices.data(),0,0};check(device_->CreateBuffer(&vd,&vi,&mesh.vertices),"Create scene vertex buffer");D3D11_BUFFER_DESC id{};id.ByteWidth=static_cast<UINT>(data.indices.size()*sizeof(std::uint32_t));id.Usage=D3D11_USAGE_IMMUTABLE;id.BindFlags=D3D11_BIND_INDEX_BUFFER;D3D11_SUBRESOURCE_DATA ii{data.indices.data(),0,0};check(device_->CreateBuffer(&id,&ii,&mesh.indices),"Create scene index buffer");return mesh;}
+    void create_geometry(){using namespace oes::geometry;outer_=create_mesh("outer_sphere",sphere(1.18f,96,96));inner_=create_mesh("inner_sphere",sphere(1.11f,96,96));energy_=create_mesh("energy_lattice",icosphere_lines(1.04f,5),D3D11_PRIMITIVE_TOPOLOGY_LINELIST);glass_=create_mesh("glass_shell",sphere(1.23f,82,82));rim_=create_mesh("rim",torus(1.255f,.018f,16,180));iris_=create_mesh("outer_iris",sphere(.53f,72,48));iris_ring_=create_mesh("middle_iris",torus(.37f,.082f,24,160));pupil_=create_mesh("pupil",sphere(.22f,64,42));pupil_glow_=create_mesh("pupil_glow",annulus(.19f,.29f,120));logo_=create_mesh("oes_identity",plane(.39f,.39f));upper_lid_=create_mesh("upper_eyelid",sphere(1.285f,80,40,0,kPi*.5f));lower_lid_=create_mesh("lower_eyelid",sphere(1.285f,80,40,kPi*.5f,kPi*.5f));orbit_outer_=create_mesh("orbit_outer",torus(1.72f,.009f,14,180));orbit_middle_=create_mesh("orbit_middle",torus(1.51f,.011f,14,180));orbit_inner_=create_mesh("orbit_inner",torus(1.37f,.008f,14,180));std::array<float,5> sizes{.043f,.031f,.038f,.027f,.034f};for(std::size_t i=0;i<nodes_.size();++i)nodes_[i]=create_mesh("orbit_node",sphere(sizes[i],18,18));particles_=create_mesh("particles",particles(190,0x004f4553u,1.46f,2.71f),D3D11_PRIMITIVE_TOPOLOGY_POINTLIST);}
+    Material surface(XMFLOAT4 base,XMFLOAT4 emissive,float roughness,float metalness,BlendMode blend=BlendMode::opaque,float mode=0)const{Material m;m.base=base;m.emissive=emissive;m.roughness=roughness;m.metalness=metalness;m.blend=blend;m.mode=mode;return m;}
+    Material additive(XMFLOAT4 value)const{Material m;m.base=value;m.emissive={value.x,value.y,value.z,1};m.roughness=.2f;m.blend=BlendMode::additive;m.depth_write=false;m.mode=2;return m;}
+    void draw_core(FXMMATRIX root){draw(inner_,root,surface(color(0x010713,.95f),color(0x2563eb,.0889f),.3f,.26f),true);draw(energy_,XMMatrixRotationRollPitchYaw(.28f,-.24f,.08f)*root,additive(color(0x38bdf8,.1094f)),false);draw(outer_,root,surface(color(0x061426,.82f),color(0x38bdf8,.1542f),.2f,.38f,BlendMode::alpha),false);if(parameters_.glass_intensity>.001f)draw(glass_,root,surface(color(0x9bdcff,.1339f*parameters_.glass_intensity),color(0x9bdcff,.1f*parameters_.glass_intensity),.035f,.04f,BlendMode::alpha,1),false);if(parameters_.rim_intensity>.001f)draw(rim_,XMMatrixTranslation(0,0,.1f)*root,additive(color(0x38bdf8,.6052f*parameters_.rim_intensity)),false);XMMATRIX upper_open=XMMatrixRotationX(-kPi*.5f)*root,lower_open=XMMatrixRotationX(kPi*.5f)*root;(void)upper_open;(void)lower_open;}
+    void draw_face(FXMMATRIX root){draw(iris_,XMMatrixScaling(parameters_.iris_scale,parameters_.iris_scale,.18f)*XMMatrixTranslation(0,0,1.105f+parameters_.iris_depth)*root,surface(color(0x38bdf8,.96f),color(0x38bdf8,.3646f),.22f,.28f,BlendMode::alpha),true);draw(iris_ring_,XMMatrixScaling(parameters_.iris_scale,parameters_.iris_scale,1)*XMMatrixTranslation(0,0,1.205f+parameters_.iris_depth)*root,surface(color(0x2563eb,.96f),color(0x2563eb,.4108f),.18f,.38f,BlendMode::alpha),true);draw(pupil_,XMMatrixScaling(parameters_.pupil_scale,parameters_.pupil_scale,.22f)*XMMatrixTranslation(0,0,1.235f+parameters_.pupil_depth)*root,surface(color(0x01030a,.99f),color(0x020617,.22f),.12f,.54f),true);draw(pupil_glow_,XMMatrixScaling(parameters_.pupil_scale*1.04f,parameters_.pupil_scale*1.04f,1)*XMMatrixTranslation(0,0,1.275f+parameters_.pupil_depth)*root,additive(color(0x38bdf8,.4032f)),false);Material identity=additive(color(0xffffff));identity.textured=true;identity.blend=BlendMode::alpha;draw(logo_,XMMatrixScaling(parameters_.logo_scale,parameters_.logo_scale,1)*XMMatrixTranslation(0,0,1.325f+parameters_.logo_depth)*root,identity,false);}
+    void draw_node(std::size_t index,float radius,float angle,FXMMATRIX orbit,FXMMATRIX root,unsigned tint){draw(nodes_[index],XMMatrixTranslation(std::cos(angle)*radius,std::sin(angle)*radius,0)*orbit*root,additive(color(tint,.96f*parameters_.orbit_intensity)),false);}
+    void draw_orbits(FXMMATRIX root){if(parameters_.orbit_intensity<=.001f)return;XMMATRIX outer=XMMatrixRotationRollPitchYaw(1.12f,.1f,.16f),middle=XMMatrixRotationRollPitchYaw(.18f,1.12f,-.32f),inner=XMMatrixRotationRollPitchYaw(.74f,.82f,.42f);draw(orbit_outer_,outer*root,additive(color(0x38bdf8,.44f*parameters_.orbit_intensity)),false);draw(orbit_middle_,middle*root,additive(color(0x2563eb,.5f*parameters_.orbit_intensity)),false);draw(orbit_inner_,inner*root,additive(color(0xa855f7,.38f*parameters_.orbit_intensity)),false);draw_node(0,1.72f,0,outer,root,0x38bdf8);draw_node(1,1.72f,kPi,outer,root,0x2563eb);draw_node(2,1.51f,kPi*.5f,middle,root,0x2563eb);draw_node(3,1.51f,kPi*1.4f,middle,root,0x38bdf8);draw_node(4,1.37f,kPi*1.35f,inner,root,0xa855f7);}
+    void draw_particles(FXMMATRIX root){if(parameters_.particle_intensity<=.001f)return;draw(particles_,root,additive(color(0x38bdf8,.428f*parameters_.particle_intensity)),false);}
+    void draw(const Mesh& mesh,FXMMATRIX world,const Material& material,bool depth_write){ObjectConstants c{};XMStoreFloat4x4(&c.world,XMMatrixTranspose(world));XMVECTOR determinant{};XMStoreFloat4x4(&c.normal_world,XMMatrixInverse(&determinant,world));c.base_color=material.base;c.emissive=material.emissive;c.surface={material.roughness,material.metalness,material.mode,material.textured?1.0f:0.0f};context_->UpdateSubresource(object_buffer_.Get(),0,nullptr,&c,0,0);ID3D11BlendState* blend=material.blend==BlendMode::additive?additive_blend_.Get():(material.blend==BlendMode::alpha?alpha_blend_.Get():opaque_blend_.Get());float factor[4]={};context_->OMSetBlendState(blend,factor,0xffffffff);context_->OMSetDepthStencilState(depth_write&&material.depth_write?depth_write_state_.Get():depth_read_state_.Get(),0);UINT stride=sizeof(oes::geometry::Vertex),offset=0;context_->IASetVertexBuffers(0,1,mesh.vertices.GetAddressOf(),&stride,&offset);context_->IASetIndexBuffer(mesh.indices.Get(),DXGI_FORMAT_R32_UINT,0);context_->IASetPrimitiveTopology(mesh.topology);context_->DrawIndexed(mesh.index_count,0,0);}
+    void update_frame(){FrameConstants frame{};float aspect=float(diagnostics_.width)/float((std::max)(diagnostics_.height,1u));XMMATRIX view=XMMatrixLookAtLH(XMVectorSet(0,0,parameters_.camera_z,1),XMVectorZero(),XMVectorSet(0,1,0,0));XMMATRIX projection=XMMatrixPerspectiveFovLH(radians(parameters_.camera_fov),aspect,.1f,100);XMStoreFloat4x4(&frame.view_projection,XMMatrixTranspose(view*projection));frame.camera_exposure={0,0,parameters_.camera_z,parameters_.exposure*parameters_.brightness*parameters_.lighting_intensity};frame.ambient={.556f,.773f,1,.82f};XMVECTOR direction=XMVector3Normalize(XMVectorSet(-1.8f,2.5f,4.7f,0));XMStoreFloat4(&frame.directional,direction);frame.directional.w=3.15f;frame.directional_color={1,1,1,1};std::array<XMFLOAT4,4> positions{{{-2.4f,1.65f,2.8f,1},{2.35f,-1.5f,2.25f,1},{0,.4f,-3.2f,1},{2.6f,1.8f,2.2f,1}}};std::array<XMFLOAT4,4> colors{{color(0x38bdf8),color(0x2563eb),color(0xa855f7),color(0x38bdf8)}};std::array<float,4> intensities{{10,7.5f,8,4.5f}};for(std::size_t i=0;i<4;++i){frame.point_position[i]=positions[i];frame.point_color[i]=colors[i];frame.point_color[i].w=intensities[i];}context_->UpdateSubresource(frame_buffer_.Get(),0,nullptr,&frame,0,0);}
+    void resize(UINT width,UINT height){context_->OMSetRenderTargets(0,nullptr,nullptr);target_.Reset();depth_view_.Reset();depth_texture_.Reset();check(swap_chain_->ResizeBuffers(0,width,height,DXGI_FORMAT_UNKNOWN,0),"Resize renderer swap chain");create_targets(width,height);diagnostics_.width=width;diagnostics_.height=height;SetWindowPos(window_,nullptr,0,0,int(width),int(height),SWP_NOMOVE|SWP_NOZORDER|SWP_NOACTIVATE);}
+    void create_device(){ComPtr<IDXGIFactory6> factory;check(CreateDXGIFactory2(0,IID_PPV_ARGS(&factory)),"Create DXGI factory");ComPtr<IDXGIAdapter1> selected;if(!force_warp_)for(UINT index=0;;++index){ComPtr<IDXGIAdapter1> candidate;HRESULT result=factory->EnumAdapterByGpuPreference(index,DXGI_GPU_PREFERENCE_HIGH_PERFORMANCE,IID_PPV_ARGS(&candidate));if(result==DXGI_ERROR_NOT_FOUND)break;check(result,"Enumerate DXGI adapter");DXGI_ADAPTER_DESC1 d{};check(candidate->GetDesc1(&d),"Read DXGI adapter description");if(!(d.Flags&DXGI_ADAPTER_FLAG_SOFTWARE)){selected=candidate;diagnostics_.adapter_name=d.Description;diagnostics_.vendor_id=d.VendorId;diagnostics_.device_id=d.DeviceId;break;}}const D3D_FEATURE_LEVEL levels[]={D3D_FEATURE_LEVEL_11_1,D3D_FEATURE_LEVEL_11_0,D3D_FEATURE_LEVEL_10_1,D3D_FEATURE_LEVEL_10_0};auto create=[&](IDXGIAdapter* adapter,D3D_DRIVER_TYPE driver){HRESULT r=D3D11CreateDevice(adapter,driver,nullptr,D3D11_CREATE_DEVICE_BGRA_SUPPORT,levels,ARRAYSIZE(levels),D3D11_SDK_VERSION,&device_,&diagnostics_.feature_level,&context_);if(r==E_INVALIDARG)r=D3D11CreateDevice(adapter,driver,nullptr,D3D11_CREATE_DEVICE_BGRA_SUPPORT,levels+1,ARRAYSIZE(levels)-1,D3D11_SDK_VERSION,&device_,&diagnostics_.feature_level,&context_);return r;};HRESULT result=selected?create(selected.Get(),D3D_DRIVER_TYPE_UNKNOWN):create(nullptr,D3D_DRIVER_TYPE_WARP);if(FAILED(result)&&selected){selected.Reset();device_.Reset();context_.Reset();result=create(nullptr,D3D_DRIVER_TYPE_WARP);}check(result,"Create Direct3D 11 device");diagnostics_.hardware=selected!=nullptr;if(!selected){diagnostics_.adapter_name=L"Microsoft WARP";diagnostics_.vendor_id=0x1414;diagnostics_.device_id=0x008c;}}
+    void create_swap_chain(){ComPtr<IDXGIDevice> dxgi;check(device_.As(&dxgi),"Query DXGI device");ComPtr<IDXGIAdapter> adapter;check(dxgi->GetAdapter(&adapter),"Get DXGI adapter");ComPtr<IDXGIFactory2> factory;check(adapter->GetParent(IID_PPV_ARGS(&factory)),"Get DXGI factory");DXGI_SWAP_CHAIN_DESC1 d{};d.Width=kWidth;d.Height=kHeight;d.Format=DXGI_FORMAT_B8G8R8A8_UNORM;d.SampleDesc.Count=1;d.BufferUsage=DXGI_USAGE_RENDER_TARGET_OUTPUT;d.BufferCount=2;d.Scaling=DXGI_SCALING_STRETCH;d.SwapEffect=DXGI_SWAP_EFFECT_FLIP_SEQUENTIAL;d.AlphaMode=DXGI_ALPHA_MODE_PREMULTIPLIED;check(factory->CreateSwapChainForComposition(device_.Get(),&d,nullptr,&swap_chain_),"Create composition swap chain");create_targets(kWidth,kHeight);ComPtr<IDCompositionDevice> composition;check(DCompositionCreateDevice(dxgi.Get(),IID_PPV_ARGS(&composition)),"Create DirectComposition device");ComPtr<IDCompositionTarget> target;check(composition->CreateTargetForHwnd(window_,TRUE,&target),"Create composition target");ComPtr<IDCompositionVisual> visual;check(composition->CreateVisual(&visual),"Create composition visual");check(visual->SetContent(swap_chain_.Get()),"Attach swap chain to visual");check(target->SetRoot(visual.Get()),"Attach visual to window");check(composition->Commit(),"Commit composition tree");composition_=composition;composition_target_=target;composition_visual_=visual;}
+    void create_targets(UINT width,UINT height){ComPtr<ID3D11Texture2D> buffer;check(swap_chain_->GetBuffer(0,IID_PPV_ARGS(&buffer)),"Get swap-chain buffer");check(device_->CreateRenderTargetView(buffer.Get(),nullptr,&target_),"Create render target");D3D11_TEXTURE2D_DESC d{};d.Width=width;d.Height=height;d.MipLevels=1;d.ArraySize=1;d.Format=DXGI_FORMAT_D24_UNORM_S8_UINT;d.SampleDesc.Count=1;d.BindFlags=D3D11_BIND_DEPTH_STENCIL;check(device_->CreateTexture2D(&d,nullptr,&depth_texture_),"Create depth texture");check(device_->CreateDepthStencilView(depth_texture_.Get(),nullptr,&depth_view_),"Create depth view");}
+    void create_pipeline(){static constexpr char shader[]=R"(
+cbuffer Frame:register(b0){float4x4 view_projection;float4 camera_exposure;float4 ambient;float4 directional;float4 directional_color;float4 point_position[4];float4 point_color[4];};
+cbuffer Object:register(b1){float4x4 world;float4x4 normal_world;float4 base_color;float4 emissive;float4 surface;};
+Texture2D identity_texture:register(t0);SamplerState identity_sampler:register(s0);
+struct Input{float3 position:POSITION;float3 normal:NORMAL;float2 uv:TEXCOORD0;};struct Output{float4 position:SV_POSITION;float3 world_position:TEXCOORD0;float3 normal:TEXCOORD1;float2 uv:TEXCOORD2;};
+Output vs_main(Input v){Output o;float4 p=mul(world,float4(v.position,1));o.position=mul(view_projection,p);o.world_position=p.xyz;o.normal=normalize(mul((float3x3)normal_world,v.normal));o.uv=v.uv;return o;}
+float3 aces(float3 v){return saturate((v*(2.51*v+.03))/(v*(2.43*v+.59)+.14));}
+float4 ps_main(Output v):SV_TARGET{if(surface.w>.5){float4 t=identity_texture.Sample(identity_sampler,v.uv);clip(t.a-.015);float3 r=pow(saturate(t.rgb*camera_exposure.w),1.0/2.2);return float4(r*t.a,t.a);}if(surface.z>1.5){float a=saturate(base_color.a);float3 r=pow(aces((base_color.rgb+emissive.rgb*emissive.a)*camera_exposure.w),1.0/2.2);return float4(r*a,a);}float3 n=normalize(v.normal),view=normalize(camera_exposure.xyz-v.world_position);float3 light=ambient.rgb*ambient.a;float3 ld=normalize(directional.xyz);float diff=saturate(dot(n,ld));float spec=pow(saturate(dot(n,normalize(ld+view))),lerp(96.0,8.0,surface.x));light+=directional_color.rgb*directional.w*(diff+spec*lerp(.15,.8,surface.y));[unroll]for(int i=0;i<4;++i){float3 delta=point_position[i].xyz-v.world_position;float ds=max(dot(delta,delta),.01);float3 d=normalize(delta);float pd=saturate(dot(n,d));float ps=pow(saturate(dot(n,normalize(d+view))),lerp(112.0,10.0,surface.x));light+=point_color[i].rgb*point_color[i].w/(1+ds*.18)*(pd+ps*lerp(.12,.72,surface.y));}float fresnel=pow(1-saturate(dot(n,view)),5);float3 lit=base_color.rgb*light+emissive.rgb*emissive.a;if(surface.z>.5)lit=lerp(lit*.28,base_color.rgb+light*.18,.35+fresnel*.65);float3 r=pow(aces(lit*camera_exposure.w),1.0/2.2);float a=saturate(base_color.a);return float4(r*a,a);})";ComPtr<ID3DBlob> vs,ps,errors;check(D3DCompile(shader,sizeof(shader),"oes_eyeball_3d.hlsl",nullptr,nullptr,"vs_main","vs_4_0",D3DCOMPILE_ENABLE_STRICTNESS,0,&vs,&errors),"Compile 3D vertex shader");check(D3DCompile(shader,sizeof(shader),"oes_eyeball_3d.hlsl",nullptr,nullptr,"ps_main","ps_4_0",D3DCOMPILE_ENABLE_STRICTNESS,0,&ps,&errors),"Compile 3D pixel shader");check(device_->CreateVertexShader(vs->GetBufferPointer(),vs->GetBufferSize(),nullptr,&vertex_shader_),"Create 3D vertex shader");check(device_->CreatePixelShader(ps->GetBufferPointer(),ps->GetBufferSize(),nullptr,&pixel_shader_),"Create 3D pixel shader");D3D11_INPUT_ELEMENT_DESC elements[]={{"POSITION",0,DXGI_FORMAT_R32G32B32_FLOAT,0,0,D3D11_INPUT_PER_VERTEX_DATA,0},{"NORMAL",0,DXGI_FORMAT_R32G32B32_FLOAT,0,12,D3D11_INPUT_PER_VERTEX_DATA,0},{"TEXCOORD",0,DXGI_FORMAT_R32G32_FLOAT,0,24,D3D11_INPUT_PER_VERTEX_DATA,0}};check(device_->CreateInputLayout(elements,ARRAYSIZE(elements),vs->GetBufferPointer(),vs->GetBufferSize(),&input_layout_),"Create 3D input layout");D3D11_BUFFER_DESC fd{};fd.ByteWidth=sizeof(FrameConstants);fd.Usage=D3D11_USAGE_DEFAULT;fd.BindFlags=D3D11_BIND_CONSTANT_BUFFER;check(device_->CreateBuffer(&fd,nullptr,&frame_buffer_),"Create frame buffer");fd.ByteWidth=sizeof(ObjectConstants);check(device_->CreateBuffer(&fd,nullptr,&object_buffer_),"Create object buffer");}
+    void create_states(){D3D11_RASTERIZER_DESC r{};r.FillMode=D3D11_FILL_SOLID;r.CullMode=D3D11_CULL_NONE;r.DepthClipEnable=TRUE;check(device_->CreateRasterizerState(&r,&raster_),"Create rasterizer state");D3D11_DEPTH_STENCIL_DESC d{};d.DepthEnable=TRUE;d.DepthFunc=D3D11_COMPARISON_LESS_EQUAL;d.DepthWriteMask=D3D11_DEPTH_WRITE_MASK_ALL;check(device_->CreateDepthStencilState(&d,&depth_write_state_),"Create depth-write state");d.DepthWriteMask=D3D11_DEPTH_WRITE_MASK_ZERO;check(device_->CreateDepthStencilState(&d,&depth_read_state_),"Create depth-read state");D3D11_BLEND_DESC b{};b.RenderTarget[0].RenderTargetWriteMask=D3D11_COLOR_WRITE_ENABLE_ALL;check(device_->CreateBlendState(&b,&opaque_blend_),"Create opaque blend state");b.RenderTarget[0].BlendEnable=TRUE;b.RenderTarget[0].SrcBlend=D3D11_BLEND_ONE;b.RenderTarget[0].DestBlend=D3D11_BLEND_INV_SRC_ALPHA;b.RenderTarget[0].BlendOp=D3D11_BLEND_OP_ADD;b.RenderTarget[0].SrcBlendAlpha=D3D11_BLEND_ONE;b.RenderTarget[0].DestBlendAlpha=D3D11_BLEND_INV_SRC_ALPHA;b.RenderTarget[0].BlendOpAlpha=D3D11_BLEND_OP_ADD;check(device_->CreateBlendState(&b,&alpha_blend_),"Create alpha blend state");b.RenderTarget[0].DestBlend=D3D11_BLEND_ONE;b.RenderTarget[0].DestBlendAlpha=D3D11_BLEND_ONE;check(device_->CreateBlendState(&b,&additive_blend_),"Create additive blend state");D3D11_SAMPLER_DESC s{};s.Filter=D3D11_FILTER_MIN_MAG_MIP_LINEAR;s.AddressU=s.AddressV=s.AddressW=D3D11_TEXTURE_ADDRESS_CLAMP;s.MaxLOD=D3D11_FLOAT32_MAX;check(device_->CreateSamplerState(&s,&sampler_),"Create identity sampler");}
+    void create_texture(const std::filesystem::path& path){ComPtr<IWICImagingFactory> factory;check(CoCreateInstance(CLSID_WICImagingFactory2,nullptr,CLSCTX_INPROC_SERVER,IID_PPV_ARGS(&factory)),"Create WIC factory");ComPtr<IWICBitmapDecoder> decoder;check(factory->CreateDecoderFromFilename(path.c_str(),nullptr,GENERIC_READ,WICDecodeMetadataCacheOnLoad,&decoder),"Open OES identity texture");ComPtr<IWICBitmapFrameDecode> frame;check(decoder->GetFrame(0,&frame),"Decode OES identity texture");UINT width=0,height=0;check(frame->GetSize(&width,&height),"Read identity dimensions");ComPtr<IWICFormatConverter> converter;check(factory->CreateFormatConverter(&converter),"Create WIC converter");check(converter->Initialize(frame.Get(),GUID_WICPixelFormat32bppRGBA,WICBitmapDitherTypeNone,nullptr,0,WICBitmapPaletteTypeCustom),"Convert identity texture");std::vector<std::uint8_t> pixels(std::size_t(width)*height*4);check(converter->CopyPixels(nullptr,width*4,static_cast<UINT>(pixels.size()),pixels.data()),"Copy identity texture pixels");D3D11_TEXTURE2D_DESC d{};d.Width=width;d.Height=height;d.MipLevels=1;d.ArraySize=1;d.Format=DXGI_FORMAT_R8G8B8A8_UNORM_SRGB;d.SampleDesc.Count=1;d.Usage=D3D11_USAGE_IMMUTABLE;d.BindFlags=D3D11_BIND_SHADER_RESOURCE;D3D11_SUBRESOURCE_DATA data{pixels.data(),width*4,0};ComPtr<ID3D11Texture2D> texture;check(device_->CreateTexture2D(&d,&data,&texture),"Create identity texture");check(device_->CreateShaderResourceView(texture.Get(),nullptr,&texture_view_),"Create identity view");}
+    HWND window_{};bool force_warp_{};Diagnostics diagnostics_{};RendererParameters parameters_{};ComPtr<ID3D11Device> device_;ComPtr<ID3D11DeviceContext> context_;ComPtr<IDXGISwapChain1> swap_chain_;ComPtr<ID3D11RenderTargetView> target_;ComPtr<ID3D11Texture2D> depth_texture_;ComPtr<ID3D11DepthStencilView> depth_view_;ComPtr<ID3D11VertexShader> vertex_shader_;ComPtr<ID3D11PixelShader> pixel_shader_;ComPtr<ID3D11InputLayout> input_layout_;ComPtr<ID3D11Buffer> frame_buffer_,object_buffer_;ComPtr<ID3D11SamplerState> sampler_;ComPtr<ID3D11ShaderResourceView> texture_view_;ComPtr<ID3D11RasterizerState> raster_;ComPtr<ID3D11DepthStencilState> depth_write_state_,depth_read_state_;ComPtr<ID3D11BlendState> opaque_blend_,alpha_blend_,additive_blend_;ComPtr<IDCompositionDevice> composition_;ComPtr<IDCompositionTarget> composition_target_;ComPtr<IDCompositionVisual> composition_visual_;Mesh outer_,inner_,energy_,glass_,rim_,iris_,iris_ring_,pupil_,pupil_glow_,logo_,upper_lid_,lower_lid_,orbit_outer_,orbit_middle_,orbit_inner_,particles_;std::array<Mesh,5> nodes_{};
 };
 
-void write_diagnostics(const std::filesystem::path& path, const Diagnostics& value,
-                       const std::string& status, const std::string& error = {}) {
-    if (path.empty()) return;
-    std::error_code directory_error;
-    std::filesystem::create_directories(path.parent_path(), directory_error);
-    std::ofstream output(path, std::ios::trunc);
-    output << "{\n"
-           << "  \"status\": \"" << status << "\",\n"
-           << "  \"adapter_name\": \"" << json_escape(value.adapter_name) << "\",\n"
-           << "  \"vendor_id\": \"0x" << std::hex << std::setw(4) << std::setfill('0')
-           << value.vendor_id << "\",\n"
-           << "  \"device_id\": \"0x" << std::setw(4) << value.device_id << "\",\n"
-           << std::dec << "  \"feature_level\": \"" << feature_level_name(value.feature_level) << "\",\n"
-           << "  \"device_type\": \"" << (value.hardware ? "hardware" : "warp") << "\",\n"
-           << "  \"initialization_ms\": " << value.initialization_ms << ",\n"
-           << "  \"first_frame_ms\": " << value.first_frame_ms << ",\n"
-           << "  \"working_set_bytes\": " << value.working_set_bytes << ",\n"
-           << "  \"fps\": " << value.fps << ",\n"
-           << "  \"width\": " << value.width << ",\n"
-           << "  \"height\": " << value.height << ",\n"
-           << "  \"parameters\": {\n"
-           << "    \"scale\": " << value.parameters.scale << ",\n"
-           << "    \"x\": " << value.parameters.x << ",\n"
-           << "    \"y\": " << value.parameters.y << ",\n"
-           << "    \"rotation\": " << value.parameters.rotation << ",\n"
-           << "    \"opacity\": " << value.parameters.opacity << ",\n"
-           << "    \"glow_intensity\": " << value.parameters.glow_intensity << ",\n"
-           << "    \"glow_radius\": " << value.parameters.glow_radius << ",\n"
-           << "    \"brightness\": " << value.parameters.brightness << ",\n"
-           << "    \"exposure\": " << value.parameters.exposure << ",\n"
-           << "    \"lighting_intensity\": " << value.parameters.lighting_intensity << ",\n"
-           << "    \"depth\": " << value.parameters.depth << ",\n"
-           << "    \"perspective_x\": " << value.parameters.perspective_x << ",\n"
-           << "    \"perspective_y\": " << value.parameters.perspective_y << ",\n"
-           << "    \"width\": " << value.parameters.width << ",\n"
-           << "    \"height\": " << value.parameters.height << "\n"
-           << "  },\n"
-           << "  \"error\": \"";
-    for (char c : error) {
-        if (c == '"' || c == '\\') output << '\\';
-        output << c;
-    }
-    output << "\"\n}\n";
-}
-
-LRESULT CALLBACK window_procedure(HWND window, UINT message, WPARAM wparam, LPARAM lparam) {
-    if (message == WM_NCHITTEST) return HTCAPTION;
-    if (message == WM_DESTROY) {
-        PostQuitMessage(0);
-        return 0;
-    }
-    return DefWindowProcW(window, message, wparam, lparam);
-}
+void write_diagnostics(const std::filesystem::path& path,const Diagnostics& value,const std::string& status,const std::string& error={}){if(path.empty())return;std::error_code ignored;std::filesystem::create_directories(path.parent_path(),ignored);std::ofstream out(path,std::ios::trunc);const auto&p=value.parameters;out<<"{\n  \"status\": \""<<status<<"\",\n  \"renderer_mode\": \"native_3d_static\",\n  \"component_count\": 23,\n  \"particle_count\": 190,\n  \"adapter_name\": \""<<json_escape(value.adapter_name)<<"\",\n  \"vendor_id\": \"0x"<<std::hex<<std::setw(4)<<std::setfill('0')<<value.vendor_id<<"\",\n  \"device_id\": \"0x"<<std::setw(4)<<value.device_id<<"\",\n"<<std::dec<<"  \"feature_level\": \""<<feature_level_name(value.feature_level)<<"\",\n  \"device_type\": \""<<(value.hardware?"hardware":"warp")<<"\",\n  \"initialization_ms\": "<<value.initialization_ms<<",\n  \"first_frame_ms\": "<<value.first_frame_ms<<",\n  \"working_set_bytes\": "<<value.working_set_bytes<<",\n  \"fps\": "<<value.fps<<",\n  \"width\": "<<value.width<<",\n  \"height\": "<<value.height<<",\n  \"parameters\": {\n";
+    out<<"    \"scale\": "<<p.scale<<", \"x\": "<<p.x<<", \"y\": "<<p.y<<", \"z\": "<<p.z<<",\n    \"rotation_x\": "<<p.rotation_x<<", \"rotation_y\": "<<p.rotation_y<<", \"rotation_z\": "<<p.rotation_z<<",\n    \"brightness\": "<<p.brightness<<", \"exposure\": "<<p.exposure<<", \"lighting_intensity\": "<<p.lighting_intensity<<",\n    \"camera_fov\": "<<p.camera_fov<<", \"camera_z\": "<<p.camera_z<<",\n    \"iris_scale\": "<<p.iris_scale<<", \"iris_depth\": "<<p.iris_depth<<", \"pupil_scale\": "<<p.pupil_scale<<", \"pupil_depth\": "<<p.pupil_depth<<",\n    \"glass_intensity\": "<<p.glass_intensity<<", \"rim_intensity\": "<<p.rim_intensity<<", \"orbit_intensity\": "<<p.orbit_intensity<<", \"particle_intensity\": "<<p.particle_intensity<<",\n    \"logo_scale\": "<<p.logo_scale<<", \"logo_depth\": "<<p.logo_depth<<", \"width\": "<<p.width<<", \"height\": "<<p.height<<"\n  },\n  \"error\": \"";for(char c:error){if(c=='"'||c=='\\')out<<'\\';out<<c;}out<<"\"\n}\n";}
+LRESULT CALLBACK window_procedure(HWND window,UINT message,WPARAM wparam,LPARAM lparam){if(message==WM_NCHITTEST)return HTCAPTION;if(message==WM_DESTROY){PostQuitMessage(0);return 0;}return DefWindowProcW(window,message,wparam,lparam);}
 } // namespace
 
-int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int) {
-    const auto process_started = Clock::now();
-    const auto directory = executable_directory();
-    const auto texture = argument_path(L"--asset", directory / L"assets" / L"oes-logo.png");
-    const auto local_directory = local_renderer_directory();
-    const auto control_path = argument_path(
-        L"--control", local_directory / L"renderer-tuning.json");
-    const auto diagnostics_path = argument_path(
-        L"--diagnostics", local_directory / L"renderer-diagnostics.json");
-    Diagnostics diagnostics;
-    try {
-        check(CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED), "Initialize COM");
-        WNDCLASSEXW window_class{sizeof(window_class)};
-        window_class.hInstance = instance;
-        window_class.lpfnWndProc = window_procedure;
-        window_class.lpszClassName = kWindowClass;
-        window_class.hCursor = LoadCursor(nullptr, IDC_ARROW);
-        check(RegisterClassExW(&window_class) ? S_OK : HRESULT_FROM_WIN32(GetLastError()),
-              "Register renderer window");
-        HWND window = CreateWindowExW(
-            WS_EX_NOREDIRECTIONBITMAP | WS_EX_TOOLWINDOW, kWindowClass, L"OES Eyeball Native Proof",
-            WS_POPUP, CW_USEDEFAULT, CW_USEDEFAULT, kWidth, kHeight,
-            nullptr, nullptr, instance, nullptr);
-        if (!window) check(HRESULT_FROM_WIN32(GetLastError()), "Create renderer window");
-        Renderer renderer(window, has_argument(L"--force-warp"));
-        renderer.initialize(texture);
-        RendererParameters parameters;
-        if (read_parameters(control_path, parameters)) renderer.apply_parameters(parameters);
-        else renderer.apply_parameters(RendererParameters{});
-        ShowWindow(window, SW_SHOW);
-        renderer.render(process_started, true);
-        diagnostics = renderer.diagnostics();
-        write_diagnostics(diagnostics_path, diagnostics, "ready");
-
-        MSG message{};
-        auto diagnostics_started = Clock::now();
-        auto control_checked = Clock::now();
-        const auto milliseconds_since = [](const Clock::time_point& start) {
-            return std::chrono::duration<double, std::milli>(Clock::now() - start).count();
-        };
-        std::uint64_t frames = 1;
-        bool running = true;
-        while (running) {
-            while (PeekMessageW(&message, nullptr, 0, 0, PM_REMOVE)) {
-                if (message.message == WM_QUIT) {
-                    running = false;
-                    break;
-                }
-                TranslateMessage(&message);
-                DispatchMessageW(&message);
-            }
-            if (!running) break;
-            if (milliseconds_since(control_checked) >= 50.0) {
-                RendererParameters updated;
-                if (read_parameters(control_path, updated)) renderer.apply_parameters(updated);
-                control_checked = Clock::now();
-            }
-            renderer.render(process_started);
-            ++frames;
-            const double interval = milliseconds_since(diagnostics_started);
-            if (interval >= 1000.0) {
-                renderer.set_fps(static_cast<double>(frames) * 1000.0 / interval);
-                diagnostics = renderer.diagnostics();
-                write_diagnostics(diagnostics_path, diagnostics, "ready");
-                frames = 0;
-                diagnostics_started = Clock::now();
-            }
-        }
-        CoUninitialize();
-        return 0;
-    } catch (const std::exception& error) {
-        write_diagnostics(diagnostics_path, diagnostics, "failed", error.what());
-        return 1;
-    }
-}
+int WINAPI wWinMain(HINSTANCE instance,HINSTANCE,PWSTR,int){auto process_started=Clock::now();auto directory=executable_directory();auto texture=argument_path(L"--asset",directory/L"assets"/L"oes-logo.png");auto local=local_renderer_directory();auto control=argument_path(L"--control",local/L"renderer-tuning.json");auto diagnostics_path=argument_path(L"--diagnostics",local/L"renderer-diagnostics.json");Diagnostics diagnostics;try{check(CoInitializeEx(nullptr,COINIT_APARTMENTTHREADED),"Initialize COM");WNDCLASSEXW wc{sizeof(wc)};wc.hInstance=instance;wc.lpfnWndProc=window_procedure;wc.lpszClassName=kWindowClass;wc.hCursor=LoadCursor(nullptr,IDC_ARROW);check(RegisterClassExW(&wc)?S_OK:HRESULT_FROM_WIN32(GetLastError()),"Register renderer window");HWND window=CreateWindowExW(WS_EX_NOREDIRECTIONBITMAP|WS_EX_TOOLWINDOW,kWindowClass,L"OES Eyeball Native 3D",WS_POPUP,CW_USEDEFAULT,CW_USEDEFAULT,kWidth,kHeight,nullptr,nullptr,instance,nullptr);if(!window)check(HRESULT_FROM_WIN32(GetLastError()),"Create renderer window");Renderer renderer(window,has_argument(L"--force-warp"));renderer.initialize(texture);RendererParameters parameters;renderer.apply_parameters(read_parameters(control,parameters)?parameters:RendererParameters{});ShowWindow(window,SW_SHOW);renderer.render(process_started,true);diagnostics=renderer.diagnostics();write_diagnostics(diagnostics_path,diagnostics,"ready");MSG message{};auto diagnostics_started=Clock::now(),control_checked=Clock::now();auto elapsed=[](const Clock::time_point&s){return std::chrono::duration<double,std::milli>(Clock::now()-s).count();};std::uint64_t frames=1;bool running=true;while(running){while(PeekMessageW(&message,nullptr,0,0,PM_REMOVE)){if(message.message==WM_QUIT){running=false;break;}TranslateMessage(&message);DispatchMessageW(&message);}if(!running)break;if(elapsed(control_checked)>=50){RendererParameters updated;if(read_parameters(control,updated))renderer.apply_parameters(updated);control_checked=Clock::now();}renderer.render(process_started);++frames;double interval=elapsed(diagnostics_started);if(interval>=1000){renderer.set_fps(double(frames)*1000/interval);diagnostics=renderer.diagnostics();write_diagnostics(diagnostics_path,diagnostics,"ready");frames=0;diagnostics_started=Clock::now();}}CoUninitialize();return 0;}catch(const std::exception& error){write_diagnostics(diagnostics_path,diagnostics,"failed",error.what());return 1;}}

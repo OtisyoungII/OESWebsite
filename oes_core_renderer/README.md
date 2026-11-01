@@ -1,12 +1,13 @@
-# OES Eyeball native renderer proof of concept
+# OES Eyeball native renderer
 
-This subtree is intentionally limited to proving that the canonical OES Eyeball can be
-presented by a native Windows Direct3D 11 renderer. It is not the final animation system.
+This subtree contains the native Windows Direct3D 11 implementation of the OES Eyeball.
+Milestone 1 renders a static procedural 3D scene matching the live website reference. It
+is not yet the final animation system.
 
-The source of truth remains `static/images/oes-logo.svg`. The build verifies that file's
-SHA-256 and copies both it and the existing lossless 220x220 RGBA raster derivative into
-the renderer output. Direct3D samples that verified derivative without changing its aspect
-ratio. No generated or redrawn Eyeball is used.
+The renderer-neutral OES Eyeball visual specification is the design source of truth. The
+native scene uses indexed sphere, torus, annulus, hemisphere, icosphere-line and particle
+geometry. `static/images/oes-logo.svg` is identity artwork only: its verified lossless RGBA
+derivative is sampled exclusively on the small plane inside the pupil.
 
 ## Build on the Windows OES machine
 
@@ -32,8 +33,9 @@ Use `--force-warp` to prove the software fallback independently. A renderer fail
 only this process. It cannot terminate the Python launcher, worker, Ollama, telemetry, or
 tray, and the launcher's existing static canonical Eyeball remains its fallback.
 
-The renderer uses a transparent DirectComposition swap chain and a minimal HLSL textured
-quad. It intentionally has no animation, bat, particles, expression system, or glass shader.
+The renderer uses a transparent DirectComposition swap chain, depth buffer, reusable native
+material shaders, additive passes and explicit static lighting. Milestone 1 has no blinking,
+breathing, gaze, orbit motion, particle motion, autonomous rotation or expressions.
 
 ## Developer tuning panel
 
@@ -59,13 +61,10 @@ python -m oes_core_renderer.tuning_panel
 The accepted baseline is encoded as `CANONICAL_PARAMETERS` in `tuning.py`. **Reset to
 Canonical** republishes those exact values. **Hold Canonical** temporarily shows those values
 and restores the current tuning on release. Save/Load Preset operates only on parameter JSON;
-neither operation modifies `static/images/oes-logo.svg` or its verified raster derivative.
+neither operation modifies the identity artwork or any website asset.
 The renderer remains independently launchable and uses canonical defaults when no valid
 control file exists. `--control` and `--diagnostics` may select alternate local files for
 development/testing.
 
-The current verified raster is 220x220, so enlargement can soften it. A future fidelity pass
-can replace the WIC raster upload in `Renderer::create_texture` with a resolution-independent
-SVG/vector render target (or a separately approved higher-resolution canonical derivative)
-without changing identity ownership, the tuning schema, or a future animation/expression
-layer. That work is intentionally not part of this panel pass.
+The verified identity raster is 220x220. It remains intentionally limited to the small pupil
+plane; all surrounding Eyeball structure is true native geometry.

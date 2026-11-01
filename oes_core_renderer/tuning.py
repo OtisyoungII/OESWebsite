@@ -7,44 +7,61 @@ import tempfile
 from pathlib import Path
 
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 CONTROL_FILENAME = 'renderer-tuning.json'
 DIAGNOSTICS_FILENAME = 'renderer-diagnostics.json'
 
-# These values reproduce the accepted renderer baseline. The artwork scale of .86
-# is the same fixed quad extent used by the original native proof.
+# Canonical static native-3D parity values extracted from the live WebGL reference.
 CANONICAL_PARAMETERS = {
-    'scale': 0.86,
+    'scale': 1.0,
     'x': 0.0,
     'y': 0.0,
-    'rotation': 0.0,
-    'opacity': 1.0,
-    'glow_intensity': 0.0,
-    'glow_radius': 0.0,
+    'z': 0.0,
+    'rotation_x': 0.0,
+    'rotation_y': 0.0,
+    'rotation_z': 0.0,
     'brightness': 1.0,
-    'exposure': 0.0,
+    'exposure': 1.16,
     'lighting_intensity': 1.0,
-    'depth': 0.0,
-    'perspective_x': 0.0,
-    'perspective_y': 0.0,
+    'camera_fov': 50.0,
+    'camera_z': 9.0,
+    'iris_scale': 1.0,
+    'iris_depth': 0.0,
+    'pupil_scale': 1.0,
+    'pupil_depth': 0.0,
+    'glass_intensity': 1.0,
+    'rim_intensity': 1.0,
+    'orbit_intensity': 1.0,
+    'particle_intensity': 1.0,
+    'logo_scale': 1.0,
+    'logo_depth': 0.0,
     'width': 512,
     'height': 512,
 }
 
 PARAMETER_LIMITS = {
-    'scale': (0.10, 1.50),
+    'scale': (0.25, 1.50),
     'x': (-1.0, 1.0),
     'y': (-1.0, 1.0),
-    'rotation': (-180.0, 180.0),
-    'opacity': (0.0, 1.0),
-    'glow_intensity': (0.0, 2.0),
-    'glow_radius': (0.0, 32.0),
+    'z': (-3.0, 3.0),
+    'rotation_x': (-180.0, 180.0),
+    'rotation_y': (-180.0, 180.0),
+    'rotation_z': (-180.0, 180.0),
     'brightness': (0.25, 2.5),
-    'exposure': (-2.0, 2.0),
+    'exposure': (0.25, 2.5),
     'lighting_intensity': (0.25, 2.5),
-    'depth': (-1.0, 1.0),
-    'perspective_x': (-0.5, 0.5),
-    'perspective_y': (-0.5, 0.5),
+    'camera_fov': (25.0, 80.0),
+    'camera_z': (5.0, 14.0),
+    'iris_scale': (0.6, 1.4),
+    'iris_depth': (-0.35, 0.35),
+    'pupil_scale': (0.6, 1.4),
+    'pupil_depth': (-0.35, 0.35),
+    'glass_intensity': (0.0, 2.0),
+    'rim_intensity': (0.0, 2.0),
+    'orbit_intensity': (0.0, 2.0),
+    'particle_intensity': (0.0, 2.0),
+    'logo_scale': (0.5, 1.5),
+    'logo_depth': (-0.3, 0.3),
     'width': (220, 1600),
     'height': (220, 1600),
 }
@@ -129,7 +146,8 @@ def read_diagnostics(path):
         return None
     allowed = {
         'status', 'adapter_name', 'feature_level', 'device_type', 'fps',
-        'width', 'height', 'parameters',
+        'width', 'height', 'parameters', 'renderer_mode', 'component_count',
+        'particle_count',
     }
     return {key: value[key] for key in allowed if key in value}
 
