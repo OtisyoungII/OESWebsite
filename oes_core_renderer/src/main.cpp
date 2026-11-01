@@ -9,10 +9,13 @@
 #include <wrl/client.h>
 
 #include <chrono>
+#include <cmath>
 #include <cstdint>
+#include <cstdlib>
 #include <filesystem>
 #include <fstream>
 #include <iomanip>
+#include <iterator>
 #include <sstream>
 #include <stdexcept>
 #include <string>
@@ -25,6 +28,24 @@ namespace {
 constexpr UINT kWidth = 512;
 constexpr UINT kHeight = 512;
 constexpr wchar_t kWindowClass[] = L"OesEyeballNativeRenderer";
+
+struct RendererParameters {
+    float scale = 0.86f;
+    float x = 0.0f;
+    float y = 0.0f;
+    float rotation = 0.0f;
+    float opacity = 1.0f;
+    float glow_intensity = 0.0f;
+    float glow_radius = 0.0f;
+    float brightness = 1.0f;
+    float exposure = 0.0f;
+    float lighting_intensity = 1.0f;
+    float depth = 0.0f;
+    float perspective_x = 0.0f;
+    float perspective_y = 0.0f;
+    UINT width = kWidth;
+    UINT height = kHeight;
+};
 
 struct Vertex {
     float x, y;
@@ -40,6 +61,17 @@ struct Diagnostics {
     double initialization_ms = 0.0;
     double first_frame_ms = 0.0;
     SIZE_T working_set_bytes = 0;
+    double fps = 0.0;
+    UINT width = kWidth;
+    UINT height = kHeight;
+    RendererParameters parameters{};
+};
+
+struct alignas(16) ShaderParameters {
+    float transform[4]{};       // cosine, sine, scale, depth
+    float translation[4]{};     // x, y, perspective x, perspective y
+    float appearance[4]{};      // opacity, brightness multiplier, glow intensity, glow radius UV
+    float texture[4]{};         // inverse width, inverse height, reserved, reserved
 };
 
 std::string json_escape(const std::wstring& value) {
@@ -83,6 +115,64 @@ std::filesystem::path executable_directory() {
     return std::filesystem::path(std::wstring(value.data(), length)).parent_path();
 }
 
+std::filesystem::path local_renderer_directory() {
+    std::vector<wchar_t> value(32768);
+    DWORD length = GetEnvironmentVariableW(L"LOCALAPPDATA", value.data(),
+                                           static_cast<DWORD>(value.size()));
+    if (!length || length >= value.size()) return executable_directory();
+    return std::filesystem::path(std::wstring(value.data(), length)) /
+           L"OES" / L"Core" / L"Renderer";
+}
+
+bool read_json_number(const std::string& json, const char* name, double& result) {
+    const std::string needle = std::string("\"") + name + "\"";
+    const auto key = json.find(needle);
+    if (key == std::string::npos) return false;
+    const auto colon = json.find(':', key + needle.size());
+    if (colon == std::string::npos) return false;
+    const char* start = json.c_str() + colon + 1;
+    char* end = nullptr;
+    result = std::strtod(start, &end);
+    return end != start && std::isfinite(result);
+}
+
+template <typename T>
+bool assign_bounded(const std::string& json, const char* name, T& target,
+                    double low, double high) {
+    double value = 0.0;
+    if (!read_json_number(json, name, value) || value < low || value > high) return false;
+    target = static_cast<T>(value);
+    return true;
+}
+
+bool read_parameters(const std::filesystem::path& path, RendererParameters& output) {
+    std::ifstream input(path, std::ios::binary);
+    if (!input) return false;
+    std::string json((std::istreambuf_iterator<char>(input)), std::istreambuf_iterator<char>());
+    double version = 0.0;
+    if (!read_json_number(json, "version", version) || version != 1.0) return false;
+    RendererParameters value;
+    bool valid = true;
+    valid &= assign_bounded(json, "scale", value.scale, .10, 1.50);
+    valid &= assign_bounded(json, "x", value.x, -1.0, 1.0);
+    valid &= assign_bounded(json, "y", value.y, -1.0, 1.0);
+    valid &= assign_bounded(json, "rotation", value.rotation, -180.0, 180.0);
+    valid &= assign_bounded(json, "opacity", value.opacity, 0.0, 1.0);
+    valid &= assign_bounded(json, "glow_intensity", value.glow_intensity, 0.0, 2.0);
+    valid &= assign_bounded(json, "glow_radius", value.glow_radius, 0.0, 32.0);
+    valid &= assign_bounded(json, "brightness", value.brightness, .25, 2.50);
+    valid &= assign_bounded(json, "exposure", value.exposure, -2.0, 2.0);
+    valid &= assign_bounded(json, "lighting_intensity", value.lighting_intensity, .25, 2.50);
+    valid &= assign_bounded(json, "depth", value.depth, -1.0, 1.0);
+    valid &= assign_bounded(json, "perspective_x", value.perspective_x, -.50, .50);
+    valid &= assign_bounded(json, "perspective_y", value.perspective_y, -.50, .50);
+    valid &= assign_bounded(json, "width", value.width, 220.0, 1600.0);
+    valid &= assign_bounded(json, "height", value.height, 220.0, 1600.0);
+    if (!valid) return false;
+    output = value;
+    return true;
+}
+
 std::filesystem::path argument_path(const wchar_t* name, const std::filesystem::path& fallback) {
     int count = 0;
     wchar_t** values = CommandLineToArgvW(GetCommandLineW(), &count);
@@ -118,36 +208,87 @@ public:
         diagnostics_.initialization_ms = elapsed_ms(started);
     }
 
-    void render_first_frame(const Clock::time_point& process_started) {
+    void apply_parameters(const RendererParameters& value) {
+        parameters_ = value;
+        if (value.width != diagnostics_.width || value.height != diagnostics_.height) {
+            resize(value.width, value.height);
+        }
+        diagnostics_.parameters = parameters_;
+    }
+
+    void render(const Clock::time_point& process_started, bool first_frame = false) {
         const float transparent[] = {0.0f, 0.0f, 0.0f, 0.0f};
         context_->ClearRenderTargetView(target_.Get(), transparent);
         context_->OMSetRenderTargets(1, target_.GetAddressOf(), nullptr);
-        const D3D11_VIEWPORT viewport{0.0f, 0.0f, static_cast<float>(kWidth),
-                                      static_cast<float>(kHeight), 0.0f, 1.0f};
+        const D3D11_VIEWPORT viewport{0.0f, 0.0f, static_cast<float>(diagnostics_.width),
+                                      static_cast<float>(diagnostics_.height), 0.0f, 1.0f};
         context_->RSSetViewports(1, &viewport);
         context_->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
         UINT stride = sizeof(Vertex), offset = 0;
         context_->IASetVertexBuffers(0, 1, vertex_buffer_.GetAddressOf(), &stride, &offset);
         context_->IASetInputLayout(input_layout_.Get());
         context_->VSSetShader(vertex_shader_.Get(), nullptr, 0);
+        update_shader_parameters();
+        context_->VSSetConstantBuffers(0, 1, parameter_buffer_.GetAddressOf());
         context_->PSSetShader(pixel_shader_.Get(), nullptr, 0);
+        context_->PSSetConstantBuffers(0, 1, parameter_buffer_.GetAddressOf());
         context_->PSSetShaderResources(0, 1, texture_view_.GetAddressOf());
         context_->PSSetSamplers(0, 1, sampler_.GetAddressOf());
         context_->Draw(4, 0);
-        check(swap_chain_->Present(1, 0), "Present first frame");
-        diagnostics_.first_frame_ms = elapsed_ms(process_started);
-        PROCESS_MEMORY_COUNTERS memory{};
-        memory.cb = sizeof(memory);
-        if (GetProcessMemoryInfo(GetCurrentProcess(), &memory, sizeof(memory))) {
-            diagnostics_.working_set_bytes = memory.WorkingSetSize;
+        check(swap_chain_->Present(1, 0), "Present renderer frame");
+        if (first_frame) {
+            diagnostics_.first_frame_ms = elapsed_ms(process_started);
+            PROCESS_MEMORY_COUNTERS memory{};
+            memory.cb = sizeof(memory);
+            if (GetProcessMemoryInfo(GetCurrentProcess(), &memory, sizeof(memory))) {
+                diagnostics_.working_set_bytes = memory.WorkingSetSize;
+            }
         }
     }
 
     const Diagnostics& diagnostics() const { return diagnostics_; }
+    void set_fps(double value) { diagnostics_.fps = value; }
 
 private:
     static double elapsed_ms(const Clock::time_point& start) {
         return std::chrono::duration<double, std::milli>(Clock::now() - start).count();
+    }
+
+    void resize(UINT width, UINT height) {
+        context_->OMSetRenderTargets(0, nullptr, nullptr);
+        target_.Reset();
+        check(swap_chain_->ResizeBuffers(0, width, height, DXGI_FORMAT_UNKNOWN, 0),
+              "Resize renderer swap chain");
+        ComPtr<ID3D11Texture2D> buffer;
+        check(swap_chain_->GetBuffer(0, IID_PPV_ARGS(&buffer)), "Get resized swap-chain buffer");
+        check(device_->CreateRenderTargetView(buffer.Get(), nullptr, &target_),
+              "Create resized render target");
+        diagnostics_.width = width;
+        diagnostics_.height = height;
+        SetWindowPos(window_, nullptr, 0, 0, static_cast<int>(width), static_cast<int>(height),
+                     SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE);
+    }
+
+    void update_shader_parameters() {
+        constexpr float pi = 3.14159265358979323846f;
+        const float radians = parameters_.rotation * pi / 180.0f;
+        ShaderParameters value{};
+        value.transform[0] = std::cos(radians);
+        value.transform[1] = std::sin(radians);
+        value.transform[2] = parameters_.scale;
+        value.transform[3] = parameters_.depth;
+        value.translation[0] = parameters_.x;
+        value.translation[1] = parameters_.y;
+        value.translation[2] = parameters_.perspective_x;
+        value.translation[3] = parameters_.perspective_y;
+        value.appearance[0] = parameters_.opacity;
+        value.appearance[1] = parameters_.brightness * parameters_.lighting_intensity *
+                              std::pow(2.0f, parameters_.exposure);
+        value.appearance[2] = parameters_.glow_intensity;
+        value.appearance[3] = parameters_.glow_radius / 220.0f;
+        value.texture[0] = texture_width_ ? 1.0f / texture_width_ : 0.0f;
+        value.texture[1] = texture_height_ ? 1.0f / texture_height_ : 0.0f;
+        context_->UpdateSubresource(parameter_buffer_.Get(), 0, nullptr, &value, 0, 0);
     }
 
     void create_device() {
@@ -253,20 +394,45 @@ private:
 
     void create_pipeline() {
         static constexpr char shader[] = R"(
+            cbuffer Parameters : register(b0) {
+                float4 transform;
+                float4 translation;
+                float4 appearance;
+                float4 texture_size;
+            };
             struct Input { float2 position : POSITION; float2 uv : TEXCOORD0; };
             struct Output { float4 position : SV_POSITION; float2 uv : TEXCOORD0; };
             Output vs_main(Input value) {
                 Output result;
-                result.position = float4(value.position, 0.0, 1.0);
+                float2 rotated = float2(
+                    value.position.x * transform.x - value.position.y * transform.y,
+                    value.position.x * transform.y + value.position.y * transform.x);
+                float depth_scale = 1.0 + transform.w * 0.15;
+                float2 positioned = rotated * transform.z * depth_scale;
+                positioned += float2(positioned.y * translation.z,
+                                     positioned.x * translation.w);
+                positioned += translation.xy;
+                result.position = float4(positioned, 0.0, 1.0);
                 result.uv = value.uv;
                 return result;
             }
             Texture2D identity_texture : register(t0);
             SamplerState identity_sampler : register(s0);
             float4 ps_main(Output value) : SV_TARGET {
-                float4 color = identity_texture.Sample(identity_sampler, value.uv);
-                color.rgb *= color.a;
-                return color;
+                float4 base = identity_texture.Sample(identity_sampler, value.uv);
+                float2 offset = float2(appearance.w, appearance.w);
+                float glow_alpha = 0.0;
+                glow_alpha = max(glow_alpha, identity_texture.Sample(identity_sampler, value.uv + float2( offset.x, 0)).a);
+                glow_alpha = max(glow_alpha, identity_texture.Sample(identity_sampler, value.uv + float2(-offset.x, 0)).a);
+                glow_alpha = max(glow_alpha, identity_texture.Sample(identity_sampler, value.uv + float2(0,  offset.y)).a);
+                glow_alpha = max(glow_alpha, identity_texture.Sample(identity_sampler, value.uv + float2(0, -offset.y)).a);
+                glow_alpha = max(glow_alpha, identity_texture.Sample(identity_sampler, value.uv + offset).a);
+                glow_alpha = max(glow_alpha, identity_texture.Sample(identity_sampler, value.uv - offset).a);
+                glow_alpha = saturate((glow_alpha - base.a) * appearance.z);
+                float alpha = saturate(max(base.a, glow_alpha) * appearance.x);
+                float3 lit = base.rgb * appearance.y;
+                float3 rgb = lerp(lit, float3(0.55, 0.82, 1.0), glow_alpha);
+                return float4(rgb * alpha, alpha);
             }
         )";
         ComPtr<ID3DBlob> vertex_blob, pixel_blob, errors;
@@ -288,8 +454,8 @@ private:
                                           vertex_blob->GetBufferSize(), &input_layout_),
               "Create input layout");
         const Vertex vertices[] = {
-            {-0.86f,  0.86f, 0.0f, 0.0f}, { 0.86f,  0.86f, 1.0f, 0.0f},
-            {-0.86f, -0.86f, 0.0f, 1.0f}, { 0.86f, -0.86f, 1.0f, 1.0f},
+            {-1.0f,  1.0f, 0.0f, 0.0f}, { 1.0f,  1.0f, 1.0f, 0.0f},
+            {-1.0f, -1.0f, 0.0f, 1.0f}, { 1.0f, -1.0f, 1.0f, 1.0f},
         };
         D3D11_BUFFER_DESC buffer_description{};
         buffer_description.ByteWidth = sizeof(vertices);
@@ -305,6 +471,12 @@ private:
         sampler_description.AddressW = D3D11_TEXTURE_ADDRESS_CLAMP;
         sampler_description.MaxLOD = D3D11_FLOAT32_MAX;
         check(device_->CreateSamplerState(&sampler_description, &sampler_), "Create sampler");
+        D3D11_BUFFER_DESC parameter_description{};
+        parameter_description.ByteWidth = sizeof(ShaderParameters);
+        parameter_description.Usage = D3D11_USAGE_DEFAULT;
+        parameter_description.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
+        check(device_->CreateBuffer(&parameter_description, nullptr, &parameter_buffer_),
+              "Create renderer parameter buffer");
     }
 
     void create_texture(const std::filesystem::path& path) {
@@ -320,6 +492,8 @@ private:
         UINT width = 0, height = 0;
         check(frame->GetSize(&width, &height), "Read Eyeball texture dimensions");
         if (!width || !height) throw std::runtime_error("Canonical Eyeball texture is empty");
+        texture_width_ = static_cast<float>(width);
+        texture_height_ = static_cast<float>(height);
         ComPtr<IWICFormatConverter> converter;
         check(factory->CreateFormatConverter(&converter), "Create WIC converter");
         check(converter->Initialize(frame.Get(), GUID_WICPixelFormat32bppRGBA,
@@ -355,16 +529,22 @@ private:
     ComPtr<ID3D11PixelShader> pixel_shader_;
     ComPtr<ID3D11InputLayout> input_layout_;
     ComPtr<ID3D11Buffer> vertex_buffer_;
+    ComPtr<ID3D11Buffer> parameter_buffer_;
     ComPtr<ID3D11SamplerState> sampler_;
     ComPtr<ID3D11ShaderResourceView> texture_view_;
     ComPtr<IDCompositionDevice> composition_;
     ComPtr<IDCompositionTarget> composition_target_;
     ComPtr<IDCompositionVisual> composition_visual_;
+    RendererParameters parameters_{};
+    float texture_width_ = 0.0f;
+    float texture_height_ = 0.0f;
 };
 
 void write_diagnostics(const std::filesystem::path& path, const Diagnostics& value,
                        const std::string& status, const std::string& error = {}) {
     if (path.empty()) return;
+    std::error_code directory_error;
+    std::filesystem::create_directories(path.parent_path(), directory_error);
     std::ofstream output(path, std::ios::trunc);
     output << "{\n"
            << "  \"status\": \"" << status << "\",\n"
@@ -377,6 +557,26 @@ void write_diagnostics(const std::filesystem::path& path, const Diagnostics& val
            << "  \"initialization_ms\": " << value.initialization_ms << ",\n"
            << "  \"first_frame_ms\": " << value.first_frame_ms << ",\n"
            << "  \"working_set_bytes\": " << value.working_set_bytes << ",\n"
+           << "  \"fps\": " << value.fps << ",\n"
+           << "  \"width\": " << value.width << ",\n"
+           << "  \"height\": " << value.height << ",\n"
+           << "  \"parameters\": {\n"
+           << "    \"scale\": " << value.parameters.scale << ",\n"
+           << "    \"x\": " << value.parameters.x << ",\n"
+           << "    \"y\": " << value.parameters.y << ",\n"
+           << "    \"rotation\": " << value.parameters.rotation << ",\n"
+           << "    \"opacity\": " << value.parameters.opacity << ",\n"
+           << "    \"glow_intensity\": " << value.parameters.glow_intensity << ",\n"
+           << "    \"glow_radius\": " << value.parameters.glow_radius << ",\n"
+           << "    \"brightness\": " << value.parameters.brightness << ",\n"
+           << "    \"exposure\": " << value.parameters.exposure << ",\n"
+           << "    \"lighting_intensity\": " << value.parameters.lighting_intensity << ",\n"
+           << "    \"depth\": " << value.parameters.depth << ",\n"
+           << "    \"perspective_x\": " << value.parameters.perspective_x << ",\n"
+           << "    \"perspective_y\": " << value.parameters.perspective_y << ",\n"
+           << "    \"width\": " << value.parameters.width << ",\n"
+           << "    \"height\": " << value.parameters.height << "\n"
+           << "  },\n"
            << "  \"error\": \"";
     for (char c : error) {
         if (c == '"' || c == '\\') output << '\\';
@@ -399,8 +599,11 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int) {
     const auto process_started = Clock::now();
     const auto directory = executable_directory();
     const auto texture = argument_path(L"--asset", directory / L"assets" / L"oes-logo.png");
+    const auto local_directory = local_renderer_directory();
+    const auto control_path = argument_path(
+        L"--control", local_directory / L"renderer-tuning.json");
     const auto diagnostics_path = argument_path(
-        L"--diagnostics", directory / L"oes-eyeball-renderer-diagnostics.json");
+        L"--diagnostics", local_directory / L"renderer-diagnostics.json");
     Diagnostics diagnostics;
     try {
         check(CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED), "Initialize COM");
@@ -418,15 +621,47 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int) {
         if (!window) check(HRESULT_FROM_WIN32(GetLastError()), "Create renderer window");
         Renderer renderer(window, has_argument(L"--force-warp"));
         renderer.initialize(texture);
+        RendererParameters parameters;
+        if (read_parameters(control_path, parameters)) renderer.apply_parameters(parameters);
+        else renderer.apply_parameters(RendererParameters{});
         ShowWindow(window, SW_SHOW);
-        renderer.render_first_frame(process_started);
+        renderer.render(process_started, true);
         diagnostics = renderer.diagnostics();
         write_diagnostics(diagnostics_path, diagnostics, "ready");
 
         MSG message{};
-        while (GetMessageW(&message, nullptr, 0, 0) > 0) {
-            TranslateMessage(&message);
-            DispatchMessageW(&message);
+        auto diagnostics_started = Clock::now();
+        auto control_checked = Clock::now();
+        const auto milliseconds_since = [](const Clock::time_point& start) {
+            return std::chrono::duration<double, std::milli>(Clock::now() - start).count();
+        };
+        std::uint64_t frames = 1;
+        bool running = true;
+        while (running) {
+            while (PeekMessageW(&message, nullptr, 0, 0, PM_REMOVE)) {
+                if (message.message == WM_QUIT) {
+                    running = false;
+                    break;
+                }
+                TranslateMessage(&message);
+                DispatchMessageW(&message);
+            }
+            if (!running) break;
+            if (milliseconds_since(control_checked) >= 50.0) {
+                RendererParameters updated;
+                if (read_parameters(control_path, updated)) renderer.apply_parameters(updated);
+                control_checked = Clock::now();
+            }
+            renderer.render(process_started);
+            ++frames;
+            const double interval = milliseconds_since(diagnostics_started);
+            if (interval >= 1000.0) {
+                renderer.set_fps(static_cast<double>(frames) * 1000.0 / interval);
+                diagnostics = renderer.diagnostics();
+                write_diagnostics(diagnostics_path, diagnostics, "ready");
+                frames = 0;
+                diagnostics_started = Clock::now();
+            }
         }
         CoUninitialize();
         return 0;
