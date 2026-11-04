@@ -21,6 +21,13 @@ database.
   be combined as “users.”
 - **Returning session/person:** not measured. There is no durable browser identifier or
   fingerprint.
+- **Visit:** initial session creation or the first page initialization after at least 30
+  minutes without a page initialization. Concurrent requests carrying the same cookie are
+  serialized by PostgreSQL so only one request advances the visit count.
+- **Page view:** one successful page initialization reported as a fixed page category. The
+  system stores no URL or referrer.
+- **Product-card activation:** one completed click within an explicitly instrumented product
+  card, excluding a nested link that has its own more-specific activation event.
 
 ## Fixed contract
 
@@ -33,6 +40,9 @@ The first measured events are `website_session_started`, `eyeball_opened`,
 `eyeball_closed`, `eyeball_message_submitted`, `eyeball_language_changed`,
 `testflight_link_activated`, `web_app_link_activated`,
 `external_product_link_activated`, and `contact_action_activated`.
+Phase 1B.2 adds `website_visit_started`, `website_page_viewed`, and real
+`product_card_activated` events. Sessions, visits, page views, and activations are separate
+metrics and must never be presented as interchangeable users.
 
 Existing authoritative server events remain the source for completed Eyeball responses,
 SAFE_ERROR, grounding, capability use, inference attempts, and response latency. The browser
@@ -91,3 +101,11 @@ This is an intentional availability-first limitation, not a claim of lossless an
 Phase 1B.1 does not switch browser sessions to PostgreSQL, expose analytics publicly, or
 enable owner access. The `analytics_sessions` table is reserved for a separately reviewed
 durable-session phase.
+
+Phase 1B.2 uses that table only when optional persistence is enabled and both server-only
+database and digest-key configuration are present. The browser retains a random cookie; the
+database stores only its HMAC-SHA256 digest under `OES_ANALYTICS_SESSION_DIGEST_KEY`. The raw
+cookie, digest key, IP address, user agent, and browser fingerprint are not stored as event
+data. Session expiry remains a sliding 12 hours. PostgreSQL unavailability falls back to the
+bounded in-process behavior, so the website remains available but durable continuity and
+exact visit classification can be temporarily unavailable.

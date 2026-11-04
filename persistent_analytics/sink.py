@@ -10,6 +10,7 @@ import time
 from uuid import UUID
 
 from oes_telemetry import DIMENSIONS, validate_event
+from .sessions import DisabledSessionStore, PsycopgSessionStore
 
 
 LOG = logging.getLogger('oes.analytics')
@@ -208,9 +209,11 @@ def init_persistent_analytics(app):
     """Attach the optional sink without changing public startup availability."""
     for key, default in (
             ('OES_PERSISTENT_ANALYTICS_ENABLED', 'false'),
-            ('OES_ANALYTICS_DATABASE_URL', '')):
+            ('OES_ANALYTICS_DATABASE_URL', ''),
+            ('OES_ANALYTICS_SESSION_DIGEST_KEY', '')):
         app.config.setdefault(key, os.environ.get(key, default))
     sink = DisabledAnalyticsSink()
+    sessions = DisabledSessionStore()
     if enabled(app.config['OES_PERSISTENT_ANALYTICS_ENABLED']):
         database_url = str(app.config['OES_ANALYTICS_DATABASE_URL']).strip()
         if database_url:
@@ -219,8 +222,14 @@ def init_persistent_analytics(app):
                 atexit.register(sink.close)
             except Exception:
                 LOG.warning('persistent analytics disabled category=initialization_failure')
+            digest_key = str(app.config['OES_ANALYTICS_SESSION_DIGEST_KEY']).strip()
+            try:
+                sessions = PsycopgSessionStore(database_url, digest_key)
+            except Exception:
+                LOG.warning('persistent analytics sessions disabled category=configuration_missing')
         else:
             LOG.warning('persistent analytics disabled category=configuration_missing')
     app.extensions['persistent_analytics'] = sink
+    app.extensions['persistent_analytics_sessions'] = sessions
     app.extensions['worker_relay'].persistent_analytics = sink
     return sink

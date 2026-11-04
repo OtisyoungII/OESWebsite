@@ -80,14 +80,17 @@ class SinkTests(unittest.TestCase):
         writer = Mock()
         with patch.dict('os.environ', {
                 'OES_PERSISTENT_ANALYTICS_ENABLED': 'true',
-                'OES_ANALYTICS_DATABASE_URL': 'postgresql://private'}, clear=False), \
+                'OES_ANALYTICS_DATABASE_URL': 'postgresql://private',
+                'OES_ANALYTICS_SESSION_DIGEST_KEY': '12' * 32}, clear=False), \
                 patch('persistent_analytics.sink.PsycopgAnalyticsWriter', return_value=writer), \
                 patch('persistent_analytics.sink.PersistentAnalyticsSink') as sink_type, \
+                patch('persistent_analytics.sink.PsycopgSessionStore') as session_type, \
                 patch('persistent_analytics.sink.atexit.register') as register:
             sink_type.return_value = Mock(enabled=True)
             sink = init_persistent_analytics(app)
         self.assertIs(sink, sink_type.return_value)
         sink_type.assert_called_once_with(writer)
+        session_type.assert_called_once_with('postgresql://private', '12' * 32)
         register.assert_called_once_with(sink.close)
         self.assertIs(relay.persistent_analytics, sink)
 
@@ -205,7 +208,7 @@ class SinkTests(unittest.TestCase):
 class SchemaAndWriterTests(unittest.TestCase):
     def test_initial_schema_is_versioned_fixed_and_privacy_bounded(self):
         migrations = discover_migrations()
-        self.assertEqual([migration.version for migration in migrations], [1])
+        self.assertEqual([migration.version for migration in migrations], [1, 2])
         sql = migrations[0].sql.lower()
         for table in ('analytics_sessions', 'analytics_events', 'analytics_daily_metrics',
                       'analytics_metadata', 'analytics_dropped_events'):
@@ -215,16 +218,19 @@ class SchemaAndWriterTests(unittest.TestCase):
         for forbidden in ('raw_message', 'chat_text', 'ip_address', 'user_agent',
                           'browser_fingerprint', 'password', 'api_key'):
             self.assertNotIn(forbidden, sql)
+        self.assertIn('add column if not exists page text', migrations[1].sql.lower())
 
     def test_repeatable_migration_skips_matching_history(self):
-        migration = discover_migrations()[0]
+        migrations = discover_migrations()
 
         class Cursor:
             def __init__(self): self.executed = []
             def __enter__(self): return self
             def __exit__(self, *args): return False
             def execute(self, sql, params=None): self.executed.append((sql, params))
-            def fetchall(self): return [(migration.version, migration.name, migration.checksum)]
+            def fetchall(self):
+                return [(migration.version, migration.name, migration.checksum)
+                        for migration in migrations]
 
         class Connection:
             def __init__(self): self.value = Cursor(); self.commits = 0
@@ -232,9 +238,9 @@ class SchemaAndWriterTests(unittest.TestCase):
             def commit(self): self.commits += 1
 
         connection = Connection()
-        self.assertEqual(apply_migrations(connection), (1,))
+        self.assertEqual(apply_migrations(connection), (1, 2))
         self.assertEqual(connection.commits, 1)
-        self.assertFalse(any(params and params[0] == migration.version
+        self.assertFalse(any(params and params[0] in {1, 2}
                              for _, params in connection.value.executed))
 
     def test_migration_history_checksum_mismatch_fails_closed(self):

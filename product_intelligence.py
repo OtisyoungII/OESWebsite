@@ -10,6 +10,7 @@ from flask import Blueprint, current_app, jsonify, request
 bp = Blueprint('product_intelligence', __name__)
 COOKIE = 'oes_product_session'
 SESSION_SECONDS = 12 * 60 * 60
+VISIT_SECONDS = 30 * 60
 MAX_SESSIONS = 10000
 MAX_EVENTS_PER_SESSION = 500
 PRODUCTS = frozenset({'chaseingreen', 'lottovate', 'sportfolio', 'drinkswithfriendz'})
@@ -17,9 +18,12 @@ PLATFORMS = frozenset({'desktop', 'tablet', 'mobile', 'unknown'})
 LANGUAGES = frozenset({'en', 'es', 'fr', 'ar', 'zh-CN'})
 CLARIFICATION_REASONS = frozenset({
     'ambiguous_typo', 'high_impact_ambiguity', 'low_confidence'})
+PAGES = frozenset({'home', 'privacy', 'drinks_with_friendz_privacy', 'other'})
 
 EVENT_RULES = {
     'website_session_started': frozenset({'platform', 'language'}),
+    'website_visit_started': frozenset({'platform', 'language'}),
+    'website_page_viewed': frozenset({'page'}),
     'product_card_activated': frozenset({'product_target'}),
     'eyeball_opened': frozenset({'platform', 'language'}),
     'eyeball_closed': frozenset(),
@@ -44,8 +48,8 @@ def same_origin():
 
 class ProductIntelligence:
     """Keep bounded live tokens only; persisted telemetry receives no token."""
-    def __init__(self, emit, clock=time.time):
-        self.emit, self.clock = emit, clock
+    def __init__(self, emit, clock=time.time, session_store=None):
+        self.emit, self.clock, self.session_store = emit, clock, session_store
         self.started_at = int(clock())
         self.total_sessions = 0
         self.sessions = OrderedDict()
@@ -60,18 +64,45 @@ class ProductIntelligence:
 
     def open_session(self, token=None):
         now = self.clock()
+        durable = None
+        if self.session_store is not None and getattr(self.session_store, 'enabled', False):
+            try:
+                durable = self.session_store.open(token, now)
+            except Exception:
+                durable = None
         with self.lock:
             self._expire(now)
+            if durable is not None:
+                token = durable.token
+                observed = token in self.sessions
+                state = self.sessions.pop(token, None) or {
+                    'events': 0, 'started': not durable.created, 'last': None,
+                    'last_seen': now,
+                }
+                state['expires'] = now + SESSION_SECONDS
+                state['last_seen'] = now
+                self.sessions[token] = state
+                if not observed:
+                    self.total_sessions += 1
+                return (token, durable.created, self.total_sessions,
+                        durable.visit_started)
             if token in self.sessions:
                 state = self.sessions.pop(token)
+                visit_started = now - state['last_seen'] >= VISIT_SECONDS
                 state['expires'] = now + SESSION_SECONDS
+                state['last_seen'] = now
                 self.sessions[token] = state
-                return token, False, self.total_sessions
-            token = secrets.token_hex(16)
+                return token, False, self.total_sessions, visit_started
+            if not (self.session_store is not None
+                    and getattr(self.session_store, 'enabled', False)
+                    and isinstance(token, str) and len(token) == 32
+                    and all(character in '0123456789abcdef' for character in token)):
+                token = secrets.token_hex(16)
             self.sessions[token] = {'expires': now + SESSION_SECONDS,
-                                    'events': 0, 'started': False, 'last': None}
+                                    'events': 0, 'started': False, 'last': None,
+                                    'last_seen': now}
             self.total_sessions += 1
-            return token, True, self.total_sessions
+            return token, True, self.total_sessions, True
 
     def record(self, token, payload):
         if not isinstance(payload, dict) or set(payload) != {'event', 'dimensions'}:
@@ -85,6 +116,8 @@ class ProductIntelligence:
         if 'language' in supplied and supplied['language'] not in LANGUAGES:
             raise ValueError('Invalid product event')
         if 'product_target' in supplied and supplied['product_target'] not in PRODUCTS:
+            raise ValueError('Invalid product event')
+        if 'page' in supplied and supplied['page'] not in PAGES:
             raise ValueError('Invalid product event')
         if ('clarification_reason' in supplied
                 and supplied['clarification_reason'] not in CLARIFICATION_REASONS):
@@ -120,7 +153,9 @@ class ProductIntelligence:
 
 
 def init_product_intelligence(app):
-    tracker = ProductIntelligence(app.extensions['worker_relay'].emit)
+    tracker = ProductIntelligence(
+        app.extensions['worker_relay'].emit,
+        session_store=app.extensions.get('persistent_analytics_sessions'))
     app.extensions['product_intelligence'] = tracker
     app.register_blueprint(bp)
 
@@ -130,9 +165,10 @@ def session():
     if not same_origin():
         return jsonify(error='same_origin_required'), 403
     tracker = current_app.extensions['product_intelligence']
-    token, created, count = tracker.open_session(request.cookies.get(COOKIE))
+    token, created, count, visit_started = tracker.open_session(request.cookies.get(COOKIE))
     response = jsonify(sessions=count, scope='service_runtime',
-                       started_at=tracker.started_at, created=created)
+                       started_at=tracker.started_at, created=created,
+                       visit_started=visit_started)
     response.headers['Cache-Control'] = 'no-store'
     host = request.host.split(':', 1)[0].strip('[]').lower()
     response.set_cookie(COOKIE, token, httponly=True, samesite='Lax',

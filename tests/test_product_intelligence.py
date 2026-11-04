@@ -31,6 +31,8 @@ class ProductIntelligenceTests(unittest.TestCase):
         self.assertTrue(first.json['created'])
         self.assertEqual(second.json['sessions'], 1)
         self.assertFalse(second.json['created'])
+        self.assertTrue(first.json['visit_started'])
+        self.assertFalse(second.json['visit_started'])
         self.assertEqual(first.json['scope'], 'service_runtime')
         self.assertIn('HttpOnly', first.headers['Set-Cookie'])
 
@@ -66,6 +68,21 @@ class ProductIntelligenceTests(unittest.TestCase):
         self.assertEqual(calls[1].kwargs['dimensions'], {
             'product':'oeswebsite', 'surface':'web', 'product_target':'chaseingreen',
             'destination':'testflight'})
+
+    def test_visits_page_views_and_product_activations_are_distinct(self):
+        self.open_session()
+        events = (
+            ('website_session_started', {'platform':'desktop', 'language':'en'}),
+            ('website_visit_started', {'platform':'desktop', 'language':'en'}),
+            ('website_page_viewed', {'page':'home'}),
+            ('product_card_activated', {'product_target':'sportfolio'}),
+        )
+        for event, dimensions in events:
+            self.assertTrue(self.post(event, dimensions).json['recorded'])
+        self.assertEqual([call.args[0] for call in self.emit.call_args_list],
+                         [event for event, _ in events])
+        self.assertEqual(self.emit.call_args_list[2].kwargs['dimensions'], {
+            'product':'oeswebsite', 'surface':'web', 'page':'home'})
 
     def test_duplicate_session_event_and_immediate_duplicate_activation_are_deduped(self):
         self.open_session()
@@ -117,6 +134,7 @@ class ProductIntelligenceTests(unittest.TestCase):
         self.assertIn('data-product-counter', body)
         self.assertIn('data-product-event="testflight_link_activated"', body)
         self.assertIn('data-product-target="chaseingreen"', body)
+        self.assertIn('data-product-event="product_card_activated"', body)
         self.assertNotIn('VISITORS', body)
 
 
