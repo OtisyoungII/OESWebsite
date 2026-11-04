@@ -66,7 +66,7 @@ class FakeQuery:
         }
 
 
-def configured_app():
+def configured_app(*, secure=False):
     app = Flask(__name__)
     app.config.update(
         TESTING=True, OES_OWNER_ANALYTICS_ENABLED='true',
@@ -75,7 +75,7 @@ def configured_app():
         OES_OWNER_PASSWORD_HASH=password_hash('correct horse battery staple', salt=b'fixed-owner-salt!'),
         OES_OWNER_TOTP_SECRET=TOTP_SECRET,
         OES_OWNER_SESSION_SECRET='s' * 48,
-        OES_OWNER_COOKIE_SECURE='false',
+        OES_OWNER_COOKIE_SECURE='true' if secure else 'false',
     )
     assert init_owner_analytics(app)
     app.extensions['owner_analytics_auth'] = FakeAuth()
@@ -122,6 +122,18 @@ class OwnerAnalyticsTests(unittest.TestCase):
         response = app.test_client().get('/owner/analytics/')
         self.assertEqual(response.status_code, 302)
         query.snapshot.assert_not_called()
+
+    def test_every_owner_route_fails_closed_for_anonymous_and_allows_authenticated_flow(self):
+        app = configured_app(); client = app.test_client()
+        self.assertEqual(client.get('/owner/analytics/login').status_code, 200)
+        self.assertEqual(client.get('/owner/analytics/').status_code, 302)
+        self.assertEqual(client.post('/owner/analytics/logout').status_code, 400)
+        self.assertEqual(client.post('/owner/analytics/login', data={}).status_code, 400)
+        self.assertEqual(self.login(client).status_code, 302)
+        self.assertEqual(client.get('/owner/analytics/login').status_code, 302)
+        self.assertEqual(client.get('/owner/analytics/').status_code, 200)
+        self.assertEqual(client.post('/owner/analytics/logout',
+                                    data={'csrf_token':'owner-csrf'}).status_code, 302)
 
     def test_login_requires_signed_csrf_password_totp_and_consumes_replay(self):
         app = configured_app()
@@ -183,6 +195,30 @@ class OwnerAnalyticsTests(unittest.TestCase):
         self.assertTrue(limiter.allow(b'fixed'))
         self.assertTrue(limiter.allow(b'fixed'))
         self.assertFalse(limiter.allow(b'fixed'))
+
+    def test_rate_limit_is_process_local_and_requires_edge_enforcement(self):
+        workers = [LoginLimiter(maximum=2, window=60, clock=lambda: 10) for _ in range(2)]
+        accepted = sum(worker.allow(b'same-client') for worker in workers for _ in range(2))
+        self.assertEqual(accepted, 4)
+        self.assertFalse(workers[0].allow(b'same-client'))
+        self.assertFalse(workers[1].allow(b'same-client'))
+
+    def test_secure_cookie_policy_is_server_authoritative_behind_proxy(self):
+        app = configured_app(secure=True); client = app.test_client()
+        response = client.get('/owner/analytics/login', base_url='https://oes.example',
+                              headers={'X-Forwarded-Proto':'http'})
+        token = re.search(r'name="csrf_token" value="([^"]+)"',
+                          response.get_data(as_text=True)).group(1)
+        self.assertIn('Secure', '\n'.join(response.headers.getlist('Set-Cookie')))
+        with unittest.mock.patch('owner_analytics.routes.totp_counter', return_value=60000000):
+            response = client.post('/owner/analytics/login', base_url='https://oes.example',
+                                   headers={'X-Forwarded-Proto':'http'}, data={
+                                       'csrf_token':token,'username':'owner',
+                                       'password':'correct horse battery staple','totp':'123456'})
+        cookies = '\n'.join(response.headers.getlist('Set-Cookie'))
+        self.assertIn('Secure', cookies)
+        self.assertIn('HttpOnly', cookies)
+        self.assertIn('SameSite=Strict', cookies)
 
     def test_owner_session_storage_receives_only_keyed_digests(self):
         connection = MagicMock()

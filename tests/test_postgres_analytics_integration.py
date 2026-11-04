@@ -11,6 +11,7 @@ from persistent_analytics.maintenance import AnalyticsMaintenance, MAINTENANCE_L
 from persistent_analytics.migration_runner import apply_migrations
 from persistent_analytics.sessions import PsycopgSessionStore, SESSION_SECONDS, VISIT_SECONDS
 from persistent_analytics.sink import PersistentAnalyticsSink, PsycopgAnalyticsWriter
+from owner_analytics.auth import OwnerAuthStore, SESSION_SECONDS as OWNER_SESSION_SECONDS
 
 
 DATABASE_URL = os.environ.get('OES_ANALYTICS_TEST_DATABASE_URL', '').strip()
@@ -34,6 +35,9 @@ class PostgreSQLAnalyticsIntegrationTests(unittest.TestCase):
                     'TRUNCATE analytics_events, analytics_sessions, '
                     'analytics_daily_metrics, analytics_dropped_events, '
                     'analytics_aggregation_days, analytics_metadata, analytics_owner_sessions')
+                cursor.execute(
+                    "UPDATE analytics_owner_auth_state SET last_totp_counter=-1 "
+                    "WHERE owner_id='owner'")
             connection.commit()
 
     def scalar(self, sql, params=None):
@@ -57,6 +61,22 @@ class PostgreSQLAnalyticsIntegrationTests(unittest.TestCase):
                 'SELECT rolsuper,rolcreatedb,rolcreaterole,rolreplication '
                 'FROM pg_roles WHERE rolname=current_user').fetchone()
         self.assertEqual(privileges, (False, False, False, False))
+
+    def test_migration_history_failure_rolls_back_without_schema_damage(self):
+        with self.psycopg.connect(DATABASE_URL) as connection:
+            original = connection.execute(
+                'SELECT checksum FROM analytics_schema_migrations WHERE version=4').fetchone()[0]
+            connection.execute(
+                "UPDATE analytics_schema_migrations SET checksum=%s WHERE version=4",
+                ('0' * 64,))
+            with self.assertRaisesRegex(RuntimeError, 'history mismatch'):
+                apply_migrations(connection)
+            connection.rollback()
+        self.assertEqual(self.scalar(
+            'SELECT checksum FROM analytics_schema_migrations WHERE version=4'), original)
+        self.assertEqual(self.scalar(
+            "SELECT COUNT(*) FROM information_schema.tables WHERE table_name="
+            "'analytics_owner_sessions'"), 1)
 
     def test_actual_insert_and_duplicate_event_id_are_idempotent(self):
         writer = PsycopgAnalyticsWriter(DATABASE_URL)
@@ -235,6 +255,63 @@ class PostgreSQLAnalyticsIntegrationTests(unittest.TestCase):
         self.assertEqual(self.scalar(
             'SELECT COUNT(*) FROM analytics_events WHERE event_id=%s',
             (UUID(completed['event_id']),)), 1)
+
+    def test_owner_session_creation_uses_only_token_and_csrf_digests(self):
+        current = [datetime(2026, 11, 4, 12, tzinfo=timezone.utc)]
+        store = OwnerAuthStore(DATABASE_URL, 'owner-test-session-secret-' + 'x' * 24,
+                               now=lambda: current[0])
+        session = store.create()
+        self.assertTrue(store.validate(session.token, session.csrf, touch=False))
+        with self.psycopg.connect(DATABASE_URL) as connection:
+            row = connection.execute(
+                'SELECT token_digest,csrf_digest FROM analytics_owner_sessions').fetchone()
+        self.assertEqual(row[0], store.digest(session.token))
+        self.assertEqual(row[1], store.digest(session.csrf))
+        rendered = repr(row)
+        self.assertNotIn(session.token, rendered)
+        self.assertNotIn(session.csrf, rendered)
+
+    def test_owner_session_idle_and_absolute_expiry_fail_closed(self):
+        current = [datetime(2026, 11, 4, 12, tzinfo=timezone.utc)]
+        store = OwnerAuthStore(DATABASE_URL, 'owner-test-session-secret-' + 'x' * 24,
+                               now=lambda: current[0])
+        idle = store.create()
+        current[0] += timedelta(seconds=OWNER_SESSION_SECONDS + 1)
+        self.assertFalse(store.validate(idle.token))
+        current[0] = datetime(2026, 11, 4, 12, tzinfo=timezone.utc)
+        absolute = store.create()
+        for _ in range(15):
+            current[0] += timedelta(minutes=29)
+            store.validate(absolute.token)
+        current[0] = datetime(2026, 11, 4, 20, tzinfo=timezone.utc)
+        self.assertFalse(store.validate(absolute.token))
+
+    def test_owner_session_revocation_is_immediate(self):
+        store = OwnerAuthStore(DATABASE_URL, 'owner-test-session-secret-' + 'x' * 24)
+        session = store.create()
+        self.assertTrue(store.validate(session.token, touch=False))
+        store.delete(session.token)
+        self.assertFalse(store.validate(session.token, touch=False))
+        self.assertEqual(self.scalar('SELECT COUNT(*) FROM analytics_owner_sessions'), 0)
+
+    def test_totp_counter_replay_is_atomic_across_connections(self):
+        store = OwnerAuthStore(DATABASE_URL, 'owner-test-session-secret-' + 'x' * 24)
+        results = []
+        threads = [threading.Thread(target=lambda: results.append(store.consume_totp(12345)))
+                   for _ in range(8)]
+        for thread in threads: thread.start()
+        for thread in threads: thread.join()
+        self.assertEqual(sum(results), 1)
+        self.assertFalse(store.consume_totp(12345))
+        self.assertFalse(store.consume_totp(12344))
+        self.assertTrue(store.consume_totp(12346))
+
+    def test_csrf_digest_must_match_owning_owner_session(self):
+        store = OwnerAuthStore(DATABASE_URL, 'owner-test-session-secret-' + 'x' * 24)
+        first, second = store.create(), store.create()
+        self.assertTrue(store.validate(first.token, first.csrf, touch=False))
+        self.assertFalse(store.validate(first.token, second.csrf, touch=False))
+        self.assertFalse(store.validate('invalid-token', first.csrf, touch=False))
 
 
 if __name__ == '__main__':
