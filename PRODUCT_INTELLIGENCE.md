@@ -69,3 +69,25 @@ the shared allowlists; products may not submit arbitrary names or prose.
 Public Eyeball must never query telemetry tables. A future public analytics capability may
 return reviewed aggregates only. Private Scout may receive a separately authorized,
 least-privilege aggregate capability; it must not gain direct database access from this work.
+
+## Optional PostgreSQL persistence foundation
+
+The Phase 1B.1 foundation can copy the same server-validated telemetry events into fixed
+PostgreSQL columns. It is disabled by default with
+`OES_PERSISTENT_ANALYTICS_ENABLED=false`; `OES_ANALYTICS_DATABASE_URL` is read only on the
+server. Migrations are explicit and never run from a public request:
+
+```
+python -m persistent_analytics.migrate
+```
+
+The existing authenticated relay and OES Core SQLite store remain operational regardless of
+PostgreSQL state. When enabled, a bounded daemon queue isolates database latency and outages
+from Flask and Eyeball streaming. Queue overflow and failed batches increment fixed drop
+categories. Those counters are written after database recovery when possible; if the process
+terminates while PostgreSQL remains unavailable, unflushed events and drop counters are lost.
+This is an intentional availability-first limitation, not a claim of lossless analytics.
+
+Phase 1B.1 does not switch browser sessions to PostgreSQL, expose analytics publicly, or
+enable owner access. The `analytics_sessions` table is reserved for a separately reviewed
+durable-session phase.

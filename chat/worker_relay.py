@@ -13,7 +13,7 @@ from .worker_protocol import (MAX_BODY, MAX_OUTPUT, JOB_SECONDS, LEASE_SECONDS,
                               POLL_SECONDS, canonical, decode, fields, messages_valid,
                               settings, signature, token, WORKER_FAILURE_CATEGORIES)
 from oes_telemetry import (MAX_ACK_EVENTS, MAX_BATCH_BYTES, MAX_BATCH_EVENTS,
-                           MAX_BUFFER_EVENTS, make_event)
+                           MAX_BUFFER_EVENTS, make_event, validate_event)
 
 bp = Blueprint('worker', __name__)
 PREFIX = '/api/worker/v1/'
@@ -30,6 +30,13 @@ class TelemetryBuffer:
     def emit(self, event_type, **fields):
         try:
             event = make_event(event_type, **fields)
+        except (TypeError, ValueError):
+            return False
+        return self.emit_event(event)
+
+    def emit_event(self, event):
+        try:
+            event = validate_event(event)
         except (TypeError, ValueError):
             return False
         with self.lock:
@@ -87,9 +94,22 @@ class WorkerRelay:
         self.job = None
         self.polling = False
         self.telemetry = TelemetryBuffer()
+        self.persistent_analytics = None
 
     def emit(self, event_type, **fields):
-        return self.telemetry.emit(event_type, **fields)
+        try:
+            event = make_event(event_type, **fields)
+        except (TypeError, ValueError):
+            return False
+        accepted = self.telemetry.emit_event(event)
+        sink = self.persistent_analytics
+        if accepted and sink is not None:
+            try:
+                sink.enqueue(event)
+            except Exception:
+                # Optional analytics cannot affect relay or public request behavior.
+                pass
+        return accepted
 
     def _telemetry_response(self, result):
         if self.session and self.session.get('telemetry'):
