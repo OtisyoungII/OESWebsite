@@ -41,6 +41,8 @@ class Cursor:
 
     def execute(self, sql, params=None):
         normalized = ' '.join(sql.split())
+        if params is not None and normalized.count('%s') != len(params):
+            raise AssertionError('SQL placeholder mismatch')
         self.database.calls.append((normalized, params))
         if normalized.startswith('SELECT pg_try_advisory'):
             self.result = [(True,)]
@@ -96,8 +98,10 @@ class MaintenanceTests(unittest.TestCase):
         sql = '\n'.join(call[0] for call in database.calls if isinstance(call[0], str))
         self.assertEqual(sql.count('DELETE FROM analytics_daily_metrics WHERE day=%s'), 4)
         for event in ('website_session_started', 'website_visit_started',
-                      'website_page_viewed', 'product_card_activated', 'eyeball_opened'):
+                      'website_page_viewed', 'product_card_activated', 'eyeball_opened',
+                      'response_completed', 'safe_error', 'request_cancelled'):
             self.assertIn(event, sql)
+        self.assertIn('duration_sum=latency.total', sql)
         self.assertIn("AT TIME ZONE 'UTC'", sql)
         self.assertIn('ON CONFLICT(day) DO UPDATE', sql)
         self.assertEqual(database.commits, 2)

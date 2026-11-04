@@ -208,7 +208,7 @@ class SinkTests(unittest.TestCase):
 class SchemaAndWriterTests(unittest.TestCase):
     def test_initial_schema_is_versioned_fixed_and_privacy_bounded(self):
         migrations = discover_migrations()
-        self.assertEqual([migration.version for migration in migrations], [1, 2, 3])
+        self.assertEqual([migration.version for migration in migrations], [1, 2, 3, 4])
         sql = migrations[0].sql.lower()
         for table in ('analytics_sessions', 'analytics_events', 'analytics_daily_metrics',
                       'analytics_metadata', 'analytics_dropped_events'):
@@ -221,6 +221,7 @@ class SchemaAndWriterTests(unittest.TestCase):
         self.assertIn('add column if not exists page text', migrations[1].sql.lower())
         self.assertIn('analytics_aggregation_days', migrations[2].sql.lower())
         self.assertIn('late_after_finalization', migrations[2].sql.lower())
+        self.assertIn('analytics_owner_sessions', migrations[3].sql.lower())
 
     def test_repeatable_migration_skips_matching_history(self):
         migrations = discover_migrations()
@@ -240,9 +241,9 @@ class SchemaAndWriterTests(unittest.TestCase):
             def commit(self): self.commits += 1
 
         connection = Connection()
-        self.assertEqual(apply_migrations(connection), (1, 2, 3))
+        self.assertEqual(apply_migrations(connection), (1, 2, 3, 4))
         self.assertEqual(connection.commits, 1)
-        self.assertFalse(any(params and params[0] in {1, 2, 3}
+        self.assertFalse(any(params and params[0] in {1, 2, 3, 4}
                              for _, params in connection.value.executed))
 
     def test_migration_history_checksum_mismatch_fails_closed(self):

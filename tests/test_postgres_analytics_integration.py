@@ -33,7 +33,7 @@ class PostgreSQLAnalyticsIntegrationTests(unittest.TestCase):
                 cursor.execute(
                     'TRUNCATE analytics_events, analytics_sessions, '
                     'analytics_daily_metrics, analytics_dropped_events, '
-                    'analytics_aggregation_days, analytics_metadata')
+                    'analytics_aggregation_days, analytics_metadata, analytics_owner_sessions')
             connection.commit()
 
     def scalar(self, sql, params=None):
@@ -44,13 +44,14 @@ class PostgreSQLAnalyticsIntegrationTests(unittest.TestCase):
 
     def test_real_migrations_are_repeatable_and_complete(self):
         with self.psycopg.connect(DATABASE_URL) as connection:
-            self.assertEqual(apply_migrations(connection), (1, 2, 3))
-        self.assertEqual(self.scalar('SELECT COUNT(*) FROM analytics_schema_migrations'), 3)
+            self.assertEqual(apply_migrations(connection), (1, 2, 3, 4))
+        self.assertEqual(self.scalar('SELECT COUNT(*) FROM analytics_schema_migrations'), 4)
         self.assertEqual(self.scalar(
             "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='public' "
             "AND table_name IN ('analytics_sessions','analytics_events',"
             "'analytics_daily_metrics','analytics_dropped_events',"
-            "'analytics_aggregation_days','analytics_metadata')"), 6)
+            "'analytics_aggregation_days','analytics_metadata','analytics_owner_sessions',"
+            "'analytics_owner_auth_state')"), 8)
         with self.psycopg.connect(DATABASE_URL) as connection:
             privileges = connection.execute(
                 'SELECT rolsuper,rolcreatedb,rolcreaterole,rolreplication '
@@ -137,7 +138,9 @@ class PostgreSQLAnalyticsIntegrationTests(unittest.TestCase):
                 (date(2026, 11, 3),)).fetchall())
         self.assertEqual(rows, {
             'sessions':1, 'visits':1, 'page_views':1, 'product_activations':1,
-            'eyeball_interactions':0, 'analytics_drops':2, 'telemetry_gaps':3})
+            'eyeball_interactions':0, 'response_successes':0, 'safe_errors':0,
+            'cancelled_requests':0, 'response_latency':0,
+            'analytics_drops':2, 'telemetry_gaps':3})
         self.assertEqual(self.scalar(
             "SELECT count FROM analytics_daily_metrics WHERE day=%s "
             "AND metric='eyeball_interactions'", (date(2026, 11, 4),)), 1)

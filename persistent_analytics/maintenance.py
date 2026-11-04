@@ -12,7 +12,8 @@ EXPIRED_SESSION_DAYS = 30
 AGGREGATE_MONTHS = 13
 METRICS = (
     'sessions', 'visits', 'page_views', 'product_activations',
-    'eyeball_interactions', 'analytics_drops', 'telemetry_gaps',
+    'eyeball_interactions', 'response_successes', 'safe_errors',
+    'cancelled_requests', 'response_latency', 'analytics_drops', 'telemetry_gaps',
 )
 
 
@@ -78,6 +79,8 @@ class AnalyticsMaintenance:
                     'DELETE FROM analytics_sessions WHERE expires_at < %s',
                     (current - timedelta(days=EXPIRED_SESSION_DAYS),))
                 cursor.execute(
+                    'DELETE FROM analytics_owner_sessions WHERE expires_at <= %s', (current,))
+                cursor.execute(
                     "DELETE FROM analytics_daily_metrics WHERE day < "
                     "(%s::date - INTERVAL '13 months')::date", (today,))
                 cursor.execute(
@@ -98,10 +101,21 @@ class AnalyticsMaintenance:
             "('page_views', (SELECT COUNT(*) FROM analytics_events WHERE event_type='website_page_viewed' AND (occurred_at AT TIME ZONE 'UTC')::date=%s)),"
             "('product_activations', (SELECT COUNT(*) FROM analytics_events WHERE event_type='product_card_activated' AND (occurred_at AT TIME ZONE 'UTC')::date=%s)),"
             "('eyeball_interactions', (SELECT COUNT(*) FROM analytics_events WHERE event_type IN ('eyeball_opened','eyeball_closed','eyeball_message_submitted','eyeball_language_changed','eyeball_clarification_requested','eyeball_clarification_selected','eyeball_clarification_rephrase') AND (occurred_at AT TIME ZONE 'UTC')::date=%s)),"
+            "('response_successes', (SELECT COUNT(*) FROM analytics_events WHERE event_type='response_completed' AND outcome='success' AND (occurred_at AT TIME ZONE 'UTC')::date=%s)),"
+            "('safe_errors', (SELECT COUNT(*) FROM analytics_events WHERE event_type='safe_error' AND (occurred_at AT TIME ZONE 'UTC')::date=%s)),"
+            "('cancelled_requests', (SELECT COUNT(*) FROM analytics_events WHERE event_type='request_cancelled' AND (occurred_at AT TIME ZONE 'UTC')::date=%s)),"
+            "('response_latency', 0),"
             "('analytics_drops', (SELECT COALESCE(SUM(count),0) FROM analytics_dropped_events WHERE day=%s)),"
             "('telemetry_gaps', (SELECT COALESCE(SUM(value),0) FROM analytics_events WHERE event_type='telemetry_gap' AND (occurred_at AT TIME ZONE 'UTC')::date=%s))"
             ") AS totals(metric,count)",
-            (day, day, day, day, day, day, day, day))
+            (day, day, day, day, day, day, day, day, day, day, day))
+        cursor.execute(
+            "UPDATE analytics_daily_metrics SET duration_count=latency.samples, "
+            "duration_sum=latency.total FROM (SELECT COUNT(duration_ms) AS samples, "
+            "COALESCE(SUM(duration_ms),0) AS total FROM analytics_events "
+            "WHERE event_type='response_completed' AND outcome='success' "
+            "AND (occurred_at AT TIME ZONE 'UTC')::date=%s) latency "
+            "WHERE day=%s AND metric='response_latency'", (day, day))
         cursor.execute(
             "SELECT COUNT(*), COALESCE(SUM(CASE WHEN event_type='telemetry_gap' THEN value ELSE 0 END),0) "
             "FROM analytics_events WHERE (occurred_at AT TIME ZONE 'UTC')::date=%s", (day,))

@@ -138,3 +138,22 @@ months. `analytics_metadata.earliest_available_date` is recalculated after reten
 records the earliest currently available legitimate session, event, drop, or aggregate
 date; the job never invents pre-telemetry history. PostgreSQL failure produces a content-free operational failure and does not affect
 the website, Eyeball, or `/healthz`.
+
+## Private owner dashboard (Phase 1B.4)
+
+The owner dashboard is an independent Flask blueprint and is absent unless
+`OES_OWNER_ANALYTICS_ENABLED=true` and every owner configuration value is valid. It does not
+use Auth0, add a public analytics API, or grant Eyeball database access. Authentication
+requires a PBKDF2-SHA256 password hash and TOTP. TOTP counters are consumed atomically to
+prevent replay. Random owner-session and CSRF tokens are stored only as keyed digests in
+PostgreSQL; browser cookies are `HttpOnly`, `SameSite=Strict`, path-scoped, secure by default,
+idle-expiring after 30 minutes, and absolutely bounded to eight hours. Logout deletes the
+server-side session. Login attempts receive bounded in-process rate limiting; production
+should add edge rate limiting as defense in depth.
+
+Authenticated views under `/owner/analytics/` query fixed aggregates and aggregate metadata
+only. They expose no prompts, responses, cookies, visitor identifiers, IP addresses, or raw
+event exports. Reporting uses UTC with fixed 7-day, 30-day, 90-day and 13-month ranges.
+Database failure renders an accurate unavailable state while public routes remain
+independent. Owner responses disable caching and framing and apply a narrow content security
+policy.
