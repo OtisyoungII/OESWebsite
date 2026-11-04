@@ -208,7 +208,7 @@ class SinkTests(unittest.TestCase):
 class SchemaAndWriterTests(unittest.TestCase):
     def test_initial_schema_is_versioned_fixed_and_privacy_bounded(self):
         migrations = discover_migrations()
-        self.assertEqual([migration.version for migration in migrations], [1, 2])
+        self.assertEqual([migration.version for migration in migrations], [1, 2, 3])
         sql = migrations[0].sql.lower()
         for table in ('analytics_sessions', 'analytics_events', 'analytics_daily_metrics',
                       'analytics_metadata', 'analytics_dropped_events'):
@@ -219,6 +219,8 @@ class SchemaAndWriterTests(unittest.TestCase):
                           'browser_fingerprint', 'password', 'api_key'):
             self.assertNotIn(forbidden, sql)
         self.assertIn('add column if not exists page text', migrations[1].sql.lower())
+        self.assertIn('analytics_aggregation_days', migrations[2].sql.lower())
+        self.assertIn('late_after_finalization', migrations[2].sql.lower())
 
     def test_repeatable_migration_skips_matching_history(self):
         migrations = discover_migrations()
@@ -238,9 +240,9 @@ class SchemaAndWriterTests(unittest.TestCase):
             def commit(self): self.commits += 1
 
         connection = Connection()
-        self.assertEqual(apply_migrations(connection), (1, 2))
+        self.assertEqual(apply_migrations(connection), (1, 2, 3))
         self.assertEqual(connection.commits, 1)
-        self.assertFalse(any(params and params[0] in {1, 2}
+        self.assertFalse(any(params and params[0] in {1, 2, 3}
                              for _, params in connection.value.executed))
 
     def test_migration_history_checksum_mismatch_fails_closed(self):
@@ -262,10 +264,13 @@ class SchemaAndWriterTests(unittest.TestCase):
         operations = []
 
         class Cursor:
+            def __init__(self): self.result = None
             def __enter__(self): return self
             def __exit__(self, *args): return False
-            def executemany(self, sql, rows): operations.append(('many', sql, list(rows)))
-            def execute(self, sql, params): operations.append(('one', sql, params))
+            def execute(self, sql, params):
+                operations.append(('one', sql, params))
+                self.result = ((False,) if sql.strip().startswith('SELECT EXISTS') else None)
+            def fetchone(self): return self.result
 
         class Connection:
             def __enter__(self): return self
@@ -278,8 +283,10 @@ class SchemaAndWriterTests(unittest.TestCase):
         writer.write([make_event('request_accepted', outcome='accepted')],
                      {'queue_overflow': 2})
         connect.assert_called_once_with('postgresql://private', connect_timeout=2)
-        self.assertEqual(operations[0][0], 'many')
+        self.assertIn('pg_advisory_xact_lock', operations[0][1])
         self.assertEqual(operations[1][0], 'one')
+        self.assertIn('SELECT EXISTS', operations[1][1])
+        self.assertIn('INSERT INTO analytics_events', operations[2][1])
         self.assertEqual(operations[-1], ('commit',))
         rendered = repr(operations)
         self.assertNotIn('message', rendered)

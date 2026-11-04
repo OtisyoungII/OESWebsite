@@ -109,3 +109,32 @@ cookie, digest key, IP address, user agent, and browser fingerprint are not stor
 data. Session expiry remains a sliding 12 hours. PostgreSQL unavailability falls back to the
 bounded in-process behavior, so the website remains available but durable continuity and
 exact visit classification can be temporarily unavailable.
+
+## Offline aggregation and retention (Phase 1B.3)
+
+Daily maintenance is a separate explicit process and never runs in Flask request handling.
+It remains disabled unless `OES_ANALYTICS_MAINTENANCE_ENABLED=true` and is invoked with:
+
+```
+python -m persistent_analytics.maintenance
+```
+
+The job uses one PostgreSQL advisory transaction lock, aggregates only completed UTC days,
+and replaces each provisional day's seven fixed metrics from persisted source rows. This
+makes retries and historical backfill idempotent. Sessions, visits, page views, product-card
+activations, Eyeball interactions, operational analytics drops, and telemetry-gap values are
+kept distinct. A browser session spanning midnight contributes each event to the UTC day on
+which that event occurred.
+
+Completed days remain provisional and are recomputed while their detailed events are
+retained. A day becomes final only after the 30-day detail window. Events presented after
+that finalization boundary are rejected from detail storage and counted under the fixed
+`late_after_finalization` drop category; they cannot silently rewrite a finalized total.
+The per-day source-event, drop, and telemetry-gap counts record known completeness limits.
+
+Detailed events are retained for 30 days. Session rows are eligible for deletion 30 days
+after their sliding expiry. Daily metrics and finalization records are retained for 13
+months. `analytics_metadata.earliest_available_date` is recalculated after retention and
+records the earliest currently available legitimate session, event, drop, or aggregate
+date; the job never invents pre-telemetry history. PostgreSQL failure produces a content-free operational failure and does not affect
+the website, Eyeball, or `/healthz`.

@@ -10,13 +10,15 @@ import time
 from uuid import UUID
 
 from oes_telemetry import DIMENSIONS, validate_event
+from .constants import MAINTENANCE_LOCK_ID
 from .sessions import DisabledSessionStore, PsycopgSessionStore
 
 
 LOG = logging.getLogger('oes.analytics')
 DEFAULT_QUEUE_CAPACITY = 512
 DEFAULT_BATCH_SIZE = 24
-DROP_REASONS = frozenset({'queue_overflow', 'database_unavailable', 'shutdown'})
+DROP_REASONS = frozenset({
+    'queue_overflow', 'database_unavailable', 'shutdown', 'late_after_finalization'})
 DIMENSION_COLUMNS = tuple(DIMENSIONS)
 EVENT_COLUMNS = (
     'event_id', 'occurred_at', 'event_type', 'request_id', 'attempt', 'duration_ms',
@@ -70,8 +72,22 @@ class PsycopgAnalyticsWriter:
         rows = [event_row(event) for event in events]
         with self._connection() as connection:
             with connection.cursor() as cursor:
-                if rows:
-                    cursor.executemany(INSERT_SQL, rows)
+                # Serialize the finalization boundary with offline maintenance.
+                cursor.execute('SELECT pg_advisory_xact_lock(%s)',
+                               (MAINTENANCE_LOCK_ID,))
+                late = 0
+                for row in rows:
+                    cursor.execute(
+                        "SELECT EXISTS(SELECT 1 FROM analytics_aggregation_days "
+                        "WHERE day=(%s AT TIME ZONE 'UTC')::date AND finalized_at IS NOT NULL)",
+                        (row[1],))
+                    if cursor.fetchone() == (True,):
+                        late += 1
+                    else:
+                        cursor.execute(INSERT_SQL, row)
+                if late:
+                    dropped = Counter(dropped)
+                    dropped['late_after_finalization'] += late
                 day = datetime.now(timezone.utc).date()
                 for reason, count in dropped.items():
                     if reason not in DROP_REASONS or type(count) is not int or count <= 0:
