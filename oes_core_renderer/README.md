@@ -1,8 +1,9 @@
 # OES Eyeball native renderer
 
 This subtree contains the native Windows Direct3D 11 implementation of the OES Eyeball.
-Milestone 1 renders a static procedural 3D scene matching the live website reference. It
-is not yet the final animation system.
+Milestone 1 renders a static procedural 3D scene matching the live website reference. Its
+face uses curved spherical bands and a recessed pupil over a solid lit sphere; the iris is
+not a stack of flat billboard discs. It is not yet the final animation system.
 
 The renderer-neutral OES Eyeball visual specification is the design source of truth. The
 native scene uses indexed sphere, torus, annulus, hemisphere, icosphere-line and particle
@@ -34,7 +35,9 @@ only this process. It cannot terminate the Python launcher, worker, Ollama, tele
 tray, and the launcher's existing static canonical Eyeball remains its fallback.
 
 The renderer uses a transparent DirectComposition swap chain, depth buffer, reusable native
-material shaders, additive passes and explicit static lighting. Milestone 1 has no blinking,
+material shaders, restrained additive passes and explicit static lighting. The standalone
+window has normal Windows chrome and taskbar discoverability; its close button and Escape
+both terminate it cleanly. Milestone 1 has no blinking,
 breathing, gaze, orbit motion, particle motion, autonomous rotation or expressions.
 
 ## Developer tuning panel
@@ -48,8 +51,9 @@ the other direction through `renderer-diagnostics.json` in the same directory.
 While both processes are running, the tuner finds the renderer by its fixed private window
 class and temporarily uses the Win32 `SetParent` boundary to host that **actual D3D11 HWND**
 inside its Live Native Preview frame. No Python or tkinter approximation of the Eyeball is
-drawn. Closing the tuner restores the renderer's original top-level style, parent, position,
-and dimensions, so standalone renderer operation remains unchanged.
+drawn. Closing the tuner closes the embedded renderer by default so no hidden native process
+is left behind. Selecting **Keep renderer running when tuner closes (explicit detach)** first
+restores the renderer's original top-level style, parent, position, and dimensions.
 
 After building the renderer, launch it normally and then launch the panel from the repository:
 

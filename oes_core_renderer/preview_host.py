@@ -10,6 +10,9 @@ RENDERER_WINDOW_CLASS = 'OesEyeballNativeRenderer'
 GWL_STYLE = -16
 WS_CHILD = 0x40000000
 WS_POPUP = 0x80000000
+WS_VISIBLE = 0x10000000
+WS_OVERLAPPEDWINDOW = 0x00CF0000
+WM_CLOSE = 0x0010
 SWP_NOZORDER = 0x0004
 SWP_NOACTIVATE = 0x0010
 SWP_FRAMECHANGED = 0x0020
@@ -48,6 +51,9 @@ class Win32PreviewApi:
         self.user32.InvalidateRect.restype = wintypes.BOOL
         self.user32.UpdateWindow.argtypes = (wintypes.HWND,)
         self.user32.UpdateWindow.restype = wintypes.BOOL
+        self.user32.PostMessageW.argtypes = (
+            wintypes.HWND, wintypes.UINT, wintypes.WPARAM, wintypes.LPARAM)
+        self.user32.PostMessageW.restype = wintypes.BOOL
 
     def find_renderer(self):
         return self.user32.FindWindowW(RENDERER_WINDOW_CLASS, None)
@@ -85,6 +91,10 @@ class Win32PreviewApi:
         self.user32.InvalidateRect(hwnd, None, True)
         self.user32.UpdateWindow(hwnd)
 
+    def close(self, hwnd):
+        if not self.user32.PostMessageW(hwnd, WM_CLOSE, 0, 0):
+            raise OSError('Renderer window could not be closed')
+
 
 class NativePreviewHost:
     """Temporarily parents the native renderer into a developer preview surface."""
@@ -110,7 +120,8 @@ class NativePreviewHost:
         original_parent = self.api.parent(hwnd)
         original_style = self.api.style(hwnd)
         original_rect = self.api.rect(hwnd)
-        child_style = (original_style & ~WS_POPUP) | WS_CHILD
+        child_style = ((original_style & ~WS_POPUP & ~WS_OVERLAPPEDWINDOW)
+                       | WS_CHILD | WS_VISIBLE)
         try:
             self.api.set_style(hwnd, child_style)
             self.api.set_parent(hwnd, parent_hwnd)
@@ -148,6 +159,22 @@ class NativePreviewHost:
             self.api.set_parent(hwnd, parent)
             self.api.set_style(hwnd, style)
             self.api.position(hwnd, x, y, width, height)
+        finally:
+            self.hwnd = None
+            self._original_parent = None
+            self._original_style = None
+            self._original_rect = None
+            self._host_hwnd = None
+            self.api.invalidate(host_hwnd)
+        return True
+
+    def close_renderer(self):
+        """Close the attached renderer with its normal WM_CLOSE lifecycle."""
+        if not self.attached:
+            return False
+        hwnd, host_hwnd = self.hwnd, self._host_hwnd
+        try:
+            self.api.close(hwnd)
         finally:
             self.hwnd = None
             self._original_parent = None

@@ -6,7 +6,9 @@ from pathlib import Path
 from unittest.mock import Mock
 
 from oes_core_launcher.renderer_process import NativeRendererProcess
-from oes_core_renderer.preview_host import (NativePreviewHost, WS_CHILD, WS_POPUP)
+from oes_core_renderer.preview_host import (NativePreviewHost, WS_CHILD,
+                                             WS_OVERLAPPEDWINDOW, WS_POPUP,
+                                             WS_VISIBLE)
 from oes_core_renderer.tuning import (CANONICAL_PARAMETERS, default_paths,
                                       load_preset, read_diagnostics,
                                       read_parameters, save_preset,
@@ -77,10 +79,10 @@ class NativeRendererTests(unittest.TestCase):
         self.assertEqual(CANONICAL_PARAMETERS['rotation_y'], 0.0)
         self.assertEqual(CANONICAL_PARAMETERS['rotation_z'], 0.0)
         self.assertEqual(CANONICAL_PARAMETERS['brightness'], 1.0)
-        self.assertEqual(CANONICAL_PARAMETERS['exposure'], 1.16)
+        self.assertEqual(CANONICAL_PARAMETERS['exposure'], 0.92)
         self.assertEqual(CANONICAL_PARAMETERS['lighting_intensity'], 1.0)
         self.assertEqual(CANONICAL_PARAMETERS['camera_fov'], 50.0)
-        self.assertEqual(CANONICAL_PARAMETERS['camera_z'], 9.0)
+        self.assertEqual(CANONICAL_PARAMETERS['camera_z'], 7.4)
         for name in ('iris_scale', 'pupil_scale', 'glass_intensity',
                      'rim_intensity', 'orbit_intensity', 'particle_intensity',
                      'logo_scale'):
@@ -149,11 +151,40 @@ class NativeRendererTests(unittest.TestCase):
             'orbit_middle', 'orbit_inner', 'orbit_node', 'particles',
         ):
             self.assertIn(f'"{component}"', source)
-        for dimension in ('sphere(1.18f,96,96)', 'sphere(1.11f,96,96)',
-                          'icosphere_lines(1.04f,5)', 'sphere(1.23f,82,82)',
-                          'torus(1.255f,.018f,16,180)',
-                          'annulus(.19f,.29f,120)'):
+        for dimension in ('sphere(1.18f,112,96)', 'sphere(1.135f,96,80)',
+                          'icosphere_lines(1.158f,5)', 'sphere(1.205f,96,80)',
+                          'spherical_annulus(1.203f,.225f,.565f,128,32)',
+                          'spherical_cap(1.187f,.235f,112,24)'):
             self.assertIn(dimension, source)
+
+    def test_curved_face_geometry_has_radial_normals_and_outward_identity_uv(self):
+        root = Path(__file__).resolve().parents[1]
+        geometry = (root / 'oes_core_renderer' / 'src' / 'scene_geometry.h').read_text(
+            encoding='utf-8')
+        source = (root / 'oes_core_renderer' / 'src' / 'main.cpp').read_text(
+            encoding='utf-8')
+        self.assertIn('MeshData spherical_annulus', geometry)
+        self.assertIn('const Vec3 normal{radial * std::cos(theta)', geometry)
+        self.assertIn('normal.z * radius', geometry)
+        self.assertIn('{a, a + 1, b, a + 1, b + 1, b}', geometry)
+        self.assertIn('result.indices = {0, 2, 1, 0, 3, 2}', geometry)
+        self.assertIn('MeshData spherical_cap', geometry)
+        self.assertIn('outward_identity_plane', geometry)
+        self.assertIn('vertex.u = 1.0f - vertex.u', geometry)
+        self.assertIn('outward_identity_plane(.45f,.45f)', source)
+        self.assertNotIn('XMMatrixScaling(parameters_.iris_scale,parameters_.iris_scale,.18f)',
+                         source)
+
+    def test_native_window_has_normal_close_escape_and_no_toolwindow_topmost_style(self):
+        root = Path(__file__).resolve().parents[1]
+        source = (root / 'oes_core_renderer' / 'src' / 'main.cpp').read_text(
+            encoding='utf-8')
+        self.assertIn('WS_OVERLAPPEDWINDOW', source)
+        self.assertIn('WS_EX_APPWINDOW|WS_EX_NOREDIRECTIONBITMAP', source)
+        self.assertNotIn('WS_EX_TOOLWINDOW', source)
+        self.assertNotIn('HWND_TOPMOST', source)
+        self.assertIn('message==WM_CLOSE', source)
+        self.assertIn('wparam==VK_ESCAPE&&!GetParent(window)', source)
 
     def test_geometry_generators_are_indexed_and_particles_are_deterministic(self):
         root = Path(__file__).resolve().parents[1]
@@ -200,6 +231,7 @@ class NativeRendererTests(unittest.TestCase):
                 self.styles = []
                 self.positions = []
                 self.invalidations = []
+                self.closed = []
 
             def find_renderer(self):
                 return self.renderer
@@ -210,7 +242,7 @@ class NativeRendererTests(unittest.TestCase):
 
             @staticmethod
             def style(_hwnd):
-                return WS_POPUP | 0x10000000
+                return WS_OVERLAPPEDWINDOW | WS_VISIBLE
 
             @staticmethod
             def rect(_hwnd):
@@ -228,20 +260,29 @@ class NativeRendererTests(unittest.TestCase):
             def invalidate(self, hwnd):
                 self.invalidations.append(hwnd)
 
+            def close(self, hwnd):
+                self.closed.append(hwnd)
+
         api = FakePreviewApi()
         preview = NativePreviewHost(api)
         self.assertTrue(preview.attach(700))
         self.assertEqual(api.parents[-1], (91, 700))
         self.assertTrue(api.styles[-1][1] & WS_CHILD)
         self.assertFalse(api.styles[-1][1] & WS_POPUP)
+        self.assertFalse(api.styles[-1][1] & WS_OVERLAPPEDWINDOW)
         self.assertTrue(preview.place(700, 650, 512, 512))
         self.assertEqual(api.positions[-1], (91, 94, 69, 512, 512))
         self.assertEqual(api.invalidations[-1], 700)
         self.assertTrue(preview.detach())
         self.assertEqual(api.parents[-1], (91, 0))
-        self.assertTrue(api.styles[-1][1] & WS_POPUP)
+        self.assertTrue(api.styles[-1][1] & WS_OVERLAPPEDWINDOW)
         self.assertEqual(api.positions[-1], (91, 40, 50, 512, 512))
         self.assertEqual(api.invalidations[-1], 700)
+        self.assertFalse(preview.attached)
+
+        self.assertTrue(preview.attach(700))
+        self.assertTrue(preview.close_renderer())
+        self.assertEqual(api.closed, [91])
         self.assertFalse(preview.attached)
 
     def test_visual_tuner_does_not_require_renderer_or_change_native_source(self):

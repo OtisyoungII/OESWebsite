@@ -62,7 +62,7 @@ inline MeshData sphere(float radius, std::uint32_t slices, std::uint32_t stacks,
             const std::uint32_t row = slices + 1;
             const std::uint32_t a = stack * row + slice;
             const std::uint32_t b = a + row;
-            result.indices.insert(result.indices.end(), {a, b, a + 1, a + 1, b, b + 1});
+            result.indices.insert(result.indices.end(), {a, a + 1, b, a + 1, b + 1, b});
         }
     }
     return result;
@@ -91,7 +91,7 @@ inline MeshData torus(float major_radius, float tube_radius, std::uint32_t radia
         for (std::uint32_t radial = 0; radial < radial_segments; ++radial) {
             const std::uint32_t a = tube * row + radial;
             const std::uint32_t b = (tube + 1) * row + radial;
-            result.indices.insert(result.indices.end(), {a, b, a + 1, a + 1, b, b + 1});
+            result.indices.insert(result.indices.end(), {a, a + 1, b, a + 1, b + 1, b});
         }
     }
     return result;
@@ -109,9 +109,47 @@ inline MeshData annulus(float inner_radius, float outer_radius, std::uint32_t se
     }
     for (std::uint32_t index = 0; index < segments; ++index) {
         const std::uint32_t a = index * 2;
-        result.indices.insert(result.indices.end(), {a, a + 1, a + 2, a + 1, a + 3, a + 2});
+        result.indices.insert(result.indices.end(), {a, a + 2, a + 1, a + 1, a + 2, a + 3});
     }
     return result;
+}
+
+// Curved, outward-facing band on the +Z side of a sphere. Face features use
+// this instead of flattened spheres and planes so their normals and depth
+// remain readable from oblique viewpoints.
+inline MeshData spherical_annulus(float radius, float inner_angle, float outer_angle,
+                                  std::uint32_t segments, std::uint32_t rings) {
+    MeshData result;
+    result.vertices.reserve(static_cast<std::size_t>(segments + 1) * (rings + 1));
+    for (std::uint32_t ring = 0; ring <= rings; ++ring) {
+        const float v = static_cast<float>(ring) / static_cast<float>(rings);
+        const float angle = inner_angle + (outer_angle - inner_angle) * v;
+        const float radial = std::sin(angle);
+        const float z = std::cos(angle);
+        for (std::uint32_t segment = 0; segment <= segments; ++segment) {
+            const float u = static_cast<float>(segment) / static_cast<float>(segments);
+            const float theta = u * pi * 2.0f;
+            const Vec3 normal{radial * std::cos(theta), radial * std::sin(theta), z};
+            result.vertices.push_back({{normal.x * radius, normal.y * radius,
+                                        normal.z * radius}, normal, u, v});
+        }
+    }
+    const std::uint32_t row = segments + 1;
+    for (std::uint32_t ring = 0; ring < rings; ++ring) {
+        for (std::uint32_t segment = 0; segment < segments; ++segment) {
+            const std::uint32_t a = ring * row + segment;
+            const std::uint32_t b = a + row;
+            // This +Z polar parameterization has the opposite tangent order
+            // from sphere(); keep winding aligned with its outward normals.
+            result.indices.insert(result.indices.end(), {a, b, a + 1, a + 1, b, b + 1});
+        }
+    }
+    return result;
+}
+
+inline MeshData spherical_cap(float radius, float outer_angle,
+                              std::uint32_t segments, std::uint32_t rings) {
+    return spherical_annulus(radius, 0.0f, outer_angle, segments, rings);
 }
 
 inline MeshData plane(float width, float height) {
@@ -122,7 +160,16 @@ inline MeshData plane(float width, float height) {
         {{-x, -y, 0}, {0, 0, 1}, 0, 1}, {{-x, y, 0}, {0, 0, 1}, 0, 0},
         {{x, y, 0}, {0, 0, 1}, 1, 0}, {{x, -y, 0}, {0, 0, 1}, 1, 1},
     };
-    result.indices = {0, 1, 2, 0, 2, 3};
+    result.indices = {0, 2, 1, 0, 3, 2};
+    return result;
+}
+
+// Looking from +Z toward the origin reverses world X in the established
+// left-handed view. Reverse U locally so the immutable OES identity reads
+// outward correctly without mirroring the source asset.
+inline MeshData outward_identity_plane(float width, float height) {
+    MeshData result = plane(width, height);
+    for (auto& vertex : result.vertices) vertex.u = 1.0f - vertex.u;
     return result;
 }
 

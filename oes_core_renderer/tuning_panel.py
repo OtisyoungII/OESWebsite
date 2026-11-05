@@ -49,6 +49,7 @@ class TuningPanel:
         self._write_pending = None
         self._suspend_writes = False
         self._canonical_hold = None
+        self.keep_renderer = tk.BooleanVar(value=False)
         self.variables = {}
         try:
             initial_parameters = read_parameters(self.control_path)
@@ -113,6 +114,11 @@ class TuningPanel:
         hold.bind('<ButtonRelease-1>', self._release_canonical)
         ttk.Button(compare, text='Save Preset', command=self.save).pack(side='left', padx=5)
         ttk.Button(compare, text='Load Preset', command=self.load).pack(side='left', padx=5)
+        ttk.Checkbutton(
+            self.control_body,
+            text='Keep renderer running when tuner closes (explicit detach)',
+            variable=self.keep_renderer,
+        ).pack(anchor='w', padx=10, pady=(2, 6))
 
         footer = ttk.Frame(root, padding=(16, 5, 16, 10))
         footer.pack(fill='x')
@@ -268,7 +274,10 @@ class TuningPanel:
 
     def close(self):
         try:
-            self.preview.detach()
+            if self.keep_renderer.get():
+                self.preview.detach()
+            else:
+                self.preview.close_renderer()
         except OSError:
             pass
         self.root.destroy()
