@@ -1,0 +1,16 @@
+body { overflow-x: hidden; }
+.hero__copy, .section, .product, .info-card { min-width: 0; }
+.hero h1, .hero p, .section h2, .product h3 { overflow-wrap: anywhere; }
+.action { max-width: 100%; }
+
+@media (max-width: 580px) {
+  .site-head { gap: .5rem; }
+  .brand { min-width: 0; }
+  .brand span { min-width: 0; }
+  .brand strong { overflow-wrap: anywhere; }
+  .hero h1 { font-size: clamp(2.55rem, 13vw, 3.15rem); }
+  .hero .kicker { white-space: normal; }
+  .hero .actions { display: grid; grid-template-columns: 1fr; }
+  .hero .action { width: 100%; }
+  .hero .eyeball { right: auto; bottom: auto; margin: 3rem auto 0; }
+}
