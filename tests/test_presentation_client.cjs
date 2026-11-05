@@ -71,6 +71,20 @@ const assert = require('node:assert/strict');
     assert.match(chatSource, /if \(shouldRefocusComposer\(\)\) input\.focus\(\)/);
     assert.match(chatSource, /dialog\.dataset\.initialized/);
 
+    // The real clarification SSE lifecycle owns the presentation state. It must
+    // remain clarifying until either bounded choice path explicitly resolves it.
+    const clarificationBranch = chatSource.slice(
+        chatSource.indexOf("kind === 'clarification'"),
+        chatSource.indexOf("kind === 'done'")
+    );
+    assert.match(clarificationBranch, /presentationLifecycle\.clarifying\(\)/);
+    assert.equal(
+        (clarificationBranch.match(/presentationLifecycle\.clarified\(\)/g) || []).length,
+        2
+    );
+    assert.doesNotMatch(chatSource, /oes:eyeballclarifying/);
+    assert.match(chatSource, /complete && !hadSafeError && !clarificationShown/);
+
     presentation.destroy();
     assert.deepEqual(target.dataset, {});
     assert.equal(timers.size, 0);
