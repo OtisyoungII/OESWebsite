@@ -2309,11 +2309,49 @@ function updateBehaviorInputs() {
             "oes-core-stage--aware"
         );
 
+    const presentationState =
+        coreButton?.dataset.eyeballState ||
+        'idle';
+
+    const presentationFocus =
+        ['aware', 'open', 'attentive', 'thinking', 'speaking', 'clarifying']
+            .includes(presentationState);
+
+    const stateScale = {
+        aware: 1.012,
+        open: 1.026,
+        attentive: 1.008,
+        thinking: 1.01,
+        speaking: 1.012,
+        success: 1.018,
+        clarifying: 1.012,
+        error: 0.988
+    }[presentationState] || 1;
+
+    const stateGlow = {
+        aware: 0.06,
+        open: 0.14,
+        attentive: 0.04,
+        thinking: 0.09,
+        speaking: 0.1,
+        success: 0.12,
+        clarifying: 0.08,
+        error: -0.08
+    }[presentationState] || 0;
+
+    targetScale *= reducedMotion ? 1 : stateScale;
+    targetGlow = clamp(targetGlow + stateGlow, 0.2, 1.25);
+    if (!reducedMotion) {
+        if (presentationState === 'thinking') targetOrbitSpeed *= 0.72;
+        if (presentationState === 'speaking') targetOrbitSpeed *= 1.1;
+        if (presentationState === 'clarifying') targetOrbitSpeed *= 0.86;
+    }
+
     targetIrisScale =
         isActivated
             ? CORE_3D_CONFIG
                 .irisActivationScale
-            : isFocused
+            : isFocused || presentationFocus
                 ? CORE_3D_CONFIG
                     .irisFocusedScale
                 : CORE_3D_CONFIG
@@ -2343,7 +2381,11 @@ function updateBehaviorInputs() {
         isActivated
             ? CORE_3D_CONFIG
                 .pupilMaximumScale
-            : dilation;
+            : presentationState === 'thinking'
+                ? 0.92
+                : presentationState === 'clarifying'
+                    ? 1.08
+                    : dilation;
 }
 
 function handleCoreActivated() {
@@ -2837,9 +2879,19 @@ function updateCoreMotion(
                     .breathingStrength
             );
 
+    const presentationState = coreButton?.dataset.eyeballState || 'idle';
+    const presentationPulse = reducedMotion
+        ? 1
+        : presentationState === 'thinking'
+            ? 1 + Math.sin(elapsed * 0.00125) * 0.004
+            : presentationState === 'speaking'
+                ? 1 + Math.sin(elapsed * 0.0034) * 0.005
+                : 1;
+
     coreGroup.scale.setScalar(
         currentScale *
-        breath
+        breath *
+        presentationPulse
     );
 
     const pointerRotationY =
@@ -2871,6 +2923,12 @@ function updateCoreMotion(
         externalRotationY +
         pointerRotationY +
         userRotationY;
+
+    if (!reducedMotion && presentationState === 'clarifying') {
+        sphereGroup.rotation.z = Math.sin(elapsed * 0.0018) * 0.035;
+    } else if (!isDragging) {
+        sphereGroup.rotation.z = lerp(sphereGroup.rotation.z, 0, 0.08);
+    }
 
     if (!reducedMotion) {
         energySphere.rotation.y -=
