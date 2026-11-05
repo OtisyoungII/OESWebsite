@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "id": "pirate-minimal",
+  "label": "Pirate eyepatch accessory",
+  "status": "reserved",
+  "base_character": "procedural-robotic-eye-v1",
+  "material_variant": "unassigned",
+  "accessories": ["eyepatch-reserved"],
+  "animation_variant": "unassigned"
+}

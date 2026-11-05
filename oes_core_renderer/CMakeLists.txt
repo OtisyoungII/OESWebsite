@@ -31,6 +31,7 @@ endif()
 
 add_executable(oes-eyeball-renderer WIN32
     src/main.cpp
+    src/character_system.h
     src/scene_geometry.h
 )
 
@@ -61,4 +62,7 @@ add_custom_command(TARGET oes-eyeball-renderer POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
         "${OES_CANONICAL_RASTER}"
         "$<TARGET_FILE_DIR:oes-eyeball-renderer>/assets/oes-logo.png"
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+        "${CMAKE_CURRENT_SOURCE_DIR}/themes"
+        "$<TARGET_FILE_DIR:oes-eyeball-renderer>/assets/themes"
 )

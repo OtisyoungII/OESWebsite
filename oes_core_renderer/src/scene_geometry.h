@@ -5,6 +5,7 @@
 #include <cmath>
 #include <cstdint>
 #include <random>
+#include <stdexcept>
 #include <vector>
 
 namespace oes::geometry {
@@ -170,6 +171,35 @@ inline MeshData plane(float width, float height) {
 inline MeshData outward_identity_plane(float width, float height) {
     MeshData result = plane(width, height);
     for (auto& vertex : result.vertices) vertex.u = 1.0f - vertex.u;
+    return result;
+}
+
+inline MeshData aperture_blade(float inner_radius, float outer_radius,
+                               float start_angle, float end_angle, float depth) {
+    if (inner_radius <= 0 || outer_radius <= inner_radius || end_angle <= start_angle || depth <= 0)
+        throw std::invalid_argument("Invalid aperture blade dimensions");
+    MeshData result;
+    const float middle = (start_angle + end_angle) * .5f;
+    const float leading = start_angle + (end_angle - start_angle) * .18f;
+    const std::array<Vec3, 4> face{{
+        {std::cos(leading) * inner_radius, std::sin(leading) * inner_radius, depth * .5f},
+        {std::cos(start_angle) * outer_radius, std::sin(start_angle) * outer_radius, depth * .5f},
+        {std::cos(end_angle) * outer_radius, std::sin(end_angle) * outer_radius, depth * .5f},
+        {std::cos(middle) * inner_radius, std::sin(middle) * inner_radius, depth * .5f},
+    }};
+    for (int side = 0; side < 2; ++side) {
+        const float z = side ? -depth * .5f : depth * .5f;
+        const Vec3 normal{0, 0, side ? -1.0f : 1.0f};
+        for (const auto& point : face)
+            result.vertices.push_back({point.x, point.y, z, normal.x, normal.y, normal.z,
+                                       (point.x / outer_radius + 1) * .5f,
+                                       (1 - point.y / outer_radius) * .5f});
+    }
+    result.indices.insert(result.indices.end(), {0, 1, 2, 0, 2, 3, 4, 6, 5, 4, 7, 6});
+    for (std::uint32_t edge = 0; edge < 4; ++edge) {
+        const std::uint32_t next = (edge + 1) % 4;
+        result.indices.insert(result.indices.end(), {edge, edge + 4, next, next, edge + 4, next + 4});
+    }
     return result;
 }
 

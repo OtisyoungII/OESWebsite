@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "id": "default",
+  "label": "Futuristic robotic eye",
+  "status": "complete",
+  "base_character": "procedural-robotic-eye-v1",
+  "material_variant": "cyan-metal-glass",
+  "accessories": [],
+  "animation_variant": "restrained-standard"
+}

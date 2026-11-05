@@ -139,9 +139,10 @@ class NativeRendererTests(unittest.TestCase):
         self.assertIn('RSSetViewports', source)
         self.assertIn('D3D_DRIVER_TYPE_WARP', source)
         self.assertIn('"oes_identity"', source)
-        self.assertIn('native_3d_static', source)
+        self.assertIn('native_character_animated', source)
         self.assertNotIn('TRIANGLESTRIP', source)
-        self.assertNotIn('three', source.lower())
+        self.assertNotIn('three.js', source.lower())
+        self.assertNotIn('THREE.', source)
 
     def test_canonical_tuning_values_reproduce_static_3d_reference(self):
         self.assertEqual(CANONICAL_PARAMETERS['scale'], 1.0)
@@ -217,9 +218,10 @@ class NativeRendererTests(unittest.TestCase):
         root = Path(__file__).resolve().parents[1]
         source = (root / 'oes_core_renderer' / 'src' / 'main.cpp').read_text(encoding='utf-8')
         for component in (
-            'outer_sphere', 'inner_sphere', 'energy_lattice', 'glass_shell',
-            'rim', 'outer_iris', 'middle_iris', 'pupil', 'pupil_glow',
-            'oes_identity', 'upper_eyelid', 'lower_eyelid', 'orbit_outer',
+            'mechanical_body', 'recessed_core', 'energy_lattice', 'optical_glass',
+            'housing_seam', 'front_housing', 'body_rib', 'aperture_blade',
+            'layered_iris', 'iris_focusing_ring', 'recessed_pupil', 'pupil_light_ring',
+            'oes_identity', 'orbit_outer',
             'orbit_middle', 'orbit_inner', 'orbit_node', 'particles',
         ):
             self.assertIn(f'"{component}"', source)
@@ -242,6 +244,7 @@ class NativeRendererTests(unittest.TestCase):
         self.assertIn('result.indices = {0, 2, 1, 0, 3, 2}', geometry)
         self.assertIn('MeshData spherical_cap', geometry)
         self.assertIn('outward_identity_plane', geometry)
+        self.assertIn('MeshData aperture_blade', geometry)
         self.assertIn('vertex.u = 1.0f - vertex.u', geometry)
         self.assertIn('outward_identity_plane(.45f,.45f)', source)
         self.assertNotIn('XMMatrixScaling(parameters_.iris_scale,parameters_.iris_scale,.18f)',
@@ -264,16 +267,20 @@ class NativeRendererTests(unittest.TestCase):
             encoding='utf-8')
         source = (root / 'oes_core_renderer' / 'src' / 'main.cpp').read_text(encoding='utf-8')
         self.assertIn('std::mt19937 random(seed)', geometry)
-        self.assertIn('particles(190,0x004f4553u,1.46f,2.71f)', source)
+        self.assertIn('particles(110,0x004f4553u,1.46f,2.71f)', source)
         self.assertIn('result.indices.insert', geometry)
         self.assertIn('D3D11_PRIMITIVE_TOPOLOGY_POINTLIST', source)
 
-    def test_static_milestone_contains_no_autonomous_animation(self):
+    def test_character_animation_is_state_driven_restrained_and_reduced_motion_aware(self):
         root = Path(__file__).resolve().parents[1]
         source = (root / 'oes_core_renderer' / 'src' / 'main.cpp').read_text(encoding='utf-8')
-        for forbidden in ('blink', 'breathing', 'gaze', 'orbit_speed',
-                          'moving_light_time', 'sin(time', 'cos(time'):
-            self.assertNotIn(forbidden, source.lower())
+        character = (root / 'oes_core_renderer' / 'src' / 'character_system.h').read_text(
+            encoding='utf-8')
+        self.assertIn('AnimationController', source)
+        self.assertIn('reduced_motion_enabled()', source)
+        for state in ('idle', 'blink', 'focus', 'scan'):
+            self.assertIn(state, character)
+        self.assertNotIn('spin', character.lower())
 
     def test_transposed_directx_matrices_use_row_vector_hlsl_convention(self):
         root = Path(__file__).resolve().parents[1]

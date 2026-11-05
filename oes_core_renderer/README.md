@@ -1,5 +1,24 @@
 # OES Eyeball native renderer
 
+## Eyeball 2.0 character preview
+
+The character-system branch provides an isolated preview that resolves only the renderer
+built in its own worktree:
+
+```powershell
+python -m oes_core_renderer.character_preview --view front --animation idle
+python -m oes_core_renderer.character_preview --view three-quarter --animation blink
+python -m oes_core_renderer.character_preview --view side --animation focus
+python -m oes_core_renderer.character_preview --animation scan
+python -m oes_core_renderer.character_preview --reduced-motion
+```
+
+Views are `front`, `three-quarter`, and `side`; animation states are `idle`, `blink`,
+`focus`, and `scan`. Reduced motion freezes the character at its stable canonical pose.
+The default theme is complete. `pirate-minimal` and `pirate-full` are schema-valid reserved
+metadata only and are not represented as finished artwork. See `ASSET_PIPELINE.md` for the
+Blender/glTF contract and the explicitly deferred runtime-loader milestone.
+
 This subtree contains the native Windows Direct3D 11 implementation of the OES Eyeball.
 Milestone 1 renders a static procedural 3D scene matching the live website reference. Its
 face uses curved spherical bands and a recessed pupil over a solid lit sphere; the iris is

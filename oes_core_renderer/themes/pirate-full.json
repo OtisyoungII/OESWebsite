@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "id": "pirate-full",
+  "label": "Complete pirate costume",
+  "status": "reserved",
+  "base_character": "procedural-robotic-eye-v1",
+  "material_variant": "unassigned",
+  "accessories": ["full-costume-reserved"],
+  "animation_variant": "unassigned"
+}
