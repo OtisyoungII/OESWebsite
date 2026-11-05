@@ -18,6 +18,11 @@ inference, relay communication, or public chat policy.
    on the desktop to start it manually. For direct development startup, run
    `.venv\Scripts\pythonw.exe -m oes_core_launcher`.
 
+The checked-in Eyeball icon and launch PNGs preserve the website artwork from
+`static/images/oes-logo.svg`; only the icon container, baseball bat, and impact accent are
+composed around it. Rebuild every Windows icon size and both launch states with
+`.venv\Scripts\python.exe tools\build_oes_core_icon.py`.
+
 Normal startup never asks for or displays the secret. Stop sends a private stdin
 control message to the launcher-owned worker and waits before using bounded process
 termination as a fallback. Ollama is probed every ten seconds; no inference is used
