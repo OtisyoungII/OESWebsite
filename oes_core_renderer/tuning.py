@@ -150,4 +150,3 @@ def read_diagnostics(path):
         'particle_count',
     }
     return {key: value[key] for key in allowed if key in value}
-
