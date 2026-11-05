@@ -11,8 +11,10 @@ from .controller import CoreController
 from .credentials import WindowsCredentialStore
 from .instance import SingleInstance
 from .launch import launch_is_ready, reduced_motion_enabled
+from .renderer_process import RENDERER_BUILD_COMMAND, NativeEyeballManager
 from .telemetry import (TAB_METRICS, TelemetryStore, console_view, copy_text,
                         format_diagnostics, format_tab)
+from oes_core_renderer.tuning import default_paths
 
 
 def telemetry_refresh_allowed(window_state):
@@ -64,6 +66,7 @@ class LauncherUI:
             self.notebook.add(frame, text=name)
         for tab in ('Overview', 'Eyeball', 'Health'):
             self._build_metrics_tab(tab, TAB_METRICS[tab])
+        self._build_eyeball_controls()
         self.activity = self._build_event_tree(self.tabs['Activity'])
         self.audit = self._build_event_tree(self.tabs['Audit'])
         controls = tk.Frame(self.root)
@@ -73,6 +76,9 @@ class LauncherUI:
         self.controller = CoreController(secret_store=WindowsCredentialStore(),
                                          callback=self.on_status,
                                          telemetry_store=self.telemetry)
+        _control, diagnostics = default_paths()
+        self.native_eyeball = NativeEyeballManager(
+            Path(__file__).resolve().parents[1], diagnostics)
         image = Image.open(icon_path)
         self.tray = pystray.Icon('oes-core', image, 'OES Core', pystray.Menu(
             pystray.MenuItem('Open Status', self.show, default=True),
@@ -149,6 +155,41 @@ class LauncherUI:
             self.metric_labels[key] = label
         frame.columnconfigure(1, weight=1)
 
+    def _build_eyeball_controls(self):
+        controls = ttk.LabelFrame(self.tabs['Eyeball'], text='Native 3D Eyeball', padding=10)
+        controls.grid(row=len(TAB_METRICS['Eyeball']), column=0, columnspan=2,
+                      sticky='ew', padx=12, pady=10)
+        ttk.Button(controls, text='Open 3D Eyeball', command=self.open_3d_eyeball).pack(
+            side='left', padx=4)
+        ttk.Button(controls, text='Open 3D Tuner', command=self.open_3d_tuner).pack(
+            side='left', padx=4)
+        ttk.Button(controls, text='Close Eyeball', command=self.close_3d_eyeball).pack(
+            side='left', padx=4)
+
+    def _native_result(self, result):
+        success, reason = result
+        if success:
+            return
+        messages = {
+            'already_running': 'The repaired 3D Eyeball is already open.',
+            'tuner_already_running': 'The 3D Tuner is already open.',
+            'missing_executable': (
+                'The repaired 3D Eyeball has not been built in this OES Core checkout.\n\n'
+                'Build it from the repository with:\n' + RENDERER_BUILD_COMMAND),
+            'launch_failed': 'The repaired 3D Eyeball could not be opened.',
+            'tuner_launch_failed': 'The 3D Tuner could not be opened.',
+        }
+        messagebox.showinfo('OES Core', messages.get(reason, 'The 3D Eyeball is unavailable.'))
+
+    def open_3d_eyeball(self):
+        self._native_result(self.native_eyeball.open_renderer())
+
+    def open_3d_tuner(self):
+        self._native_result(self.native_eyeball.open_tuner())
+
+    def close_3d_eyeball(self):
+        self.native_eyeball.close_all()
+
     @staticmethod
     def _build_event_tree(frame):
         tree = ttk.Treeview(frame, columns=('time', 'event'), show='headings')
@@ -224,6 +265,7 @@ class LauncherUI:
 
     def exit(self, *_):
         def close():
+            self.native_eyeball.close_all()
             self.controller.close()
             self.tray.stop()
             self.instance.release()

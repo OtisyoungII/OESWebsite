@@ -1,5 +1,11 @@
 # OES Core Windows Launcher
 
+The **Eyeball** tab includes **Open 3D Eyeball**, **Open 3D Tuner**, and
+**Close Eyeball** controls. OES Core resolves only
+`build/oes-core-renderer/Release/oes-eyeball-renderer.exe` beneath its own
+repository checkout; it never searches PATH or another checkout for an older binary. If the
+renderer has not been built, the launcher displays the exact local CMake build command.
+
 The launcher controls the existing `python -m worker` process. It does not implement
 inference, relay communication, or public chat policy.
 

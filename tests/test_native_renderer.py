@@ -5,7 +5,10 @@ import unittest
 from pathlib import Path
 from unittest.mock import Mock
 
-from oes_core_launcher.renderer_process import NativeRendererProcess
+from oes_core_launcher.renderer_process import (RENDERER_BUILD_COMMAND,
+                                                 NativeEyeballManager,
+                                                 NativeRendererProcess,
+                                                 renderer_executable)
 from oes_core_renderer.preview_host import (NativePreviewHost, WS_CHILD,
                                              WS_OVERLAPPEDWINDOW, WS_POPUP,
                                              WS_VISIBLE)
@@ -16,6 +19,75 @@ from oes_core_renderer.tuning import (CANONICAL_PARAMETERS, default_paths,
 
 
 class NativeRendererTests(unittest.TestCase):
+    def test_launcher_resolves_only_renderer_from_its_own_checkout(self):
+        root = Path(r'C:\OES\RepairCheckout')
+        self.assertEqual(
+            renderer_executable(root),
+            root / 'build' / 'oes-core-renderer' / 'Release' / 'oes-eyeball-renderer.exe')
+        self.assertIn('cmake --build build/oes-core-renderer --config Release',
+                      RENDERER_BUILD_COMMAND)
+
+    def test_launcher_prevents_duplicate_renderer_and_tuner_processes(self):
+        class Process:
+            def __init__(self, command):
+                self.command, self.returncode = command, None
+            def poll(self): return self.returncode
+            def terminate(self): self.returncode = 0
+            def wait(self, timeout=None): return self.returncode
+            def kill(self): self.returncode = -9
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            executable = renderer_executable(root)
+            executable.parent.mkdir(parents=True)
+            executable.touch()
+            calls = []
+            def popen(command, **_kwargs):
+                calls.append(command)
+                return Process(command)
+            manager = NativeEyeballManager(
+                root, root / 'diagnostics.json', popen, root / 'pythonw.exe')
+            self.assertEqual(manager.open_renderer(), (True, 'started'))
+            self.assertEqual(manager.open_renderer(), (False, 'already_running'))
+            self.assertEqual(manager.open_tuner(), (True, 'started'))
+            self.assertEqual(manager.open_tuner(), (False, 'tuner_already_running'))
+            self.assertEqual(len(calls), 2)
+            self.assertEqual(calls[0][0], str(executable))
+            self.assertEqual(calls[1][1:], ['-m', 'oes_core_renderer.tuning_panel'])
+
+    def test_launcher_missing_renderer_does_not_search_or_start_tuner(self):
+        with tempfile.TemporaryDirectory() as directory:
+            popen = Mock()
+            root = Path(directory)
+            manager = NativeEyeballManager(root, root / 'diagnostics.json', popen)
+            self.assertEqual(manager.open_renderer(), (False, 'missing_executable'))
+            self.assertEqual(manager.open_tuner(), (False, 'missing_executable'))
+            popen.assert_not_called()
+
+    def test_launcher_closes_only_its_owned_renderer_and_tuner(self):
+        process = Mock()
+        process.poll.return_value = None
+        manager = NativeEyeballManager(Path.cwd(), Path('diagnostics.json'))
+        manager.renderer.process = process
+        tuner = Mock()
+        tuner.poll.return_value = None
+        manager.tuner_process = tuner
+        manager.close_all()
+        tuner.terminate.assert_called_once_with()
+        process.terminate.assert_called_once_with()
+        self.assertIsNone(manager.renderer.process)
+        self.assertIsNone(manager.tuner_process)
+
+    def test_existing_oes_core_ui_exposes_native_actions_without_replacing_shortcut(self):
+        root = Path(__file__).resolve().parents[1]
+        ui = (root / 'oes_core_launcher' / 'ui.py').read_text(encoding='utf-8')
+        shortcut = (root / 'oes_core_launcher' / 'install_shortcut.py').read_text(
+            encoding='utf-8')
+        for label in ('Open 3D Eyeball', 'Open 3D Tuner', 'Close Eyeball'):
+            self.assertIn(label, ui)
+        self.assertIn("'OES Core.lnk'", shortcut)
+        self.assertNotIn('3D Eyeball.lnk', shortcut)
+
     def test_missing_or_failed_renderer_preserves_launcher_process(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
