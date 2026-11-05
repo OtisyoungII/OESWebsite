@@ -8,6 +8,7 @@ from uuid import UUID
 
 from oes_telemetry import make_event
 from persistent_analytics.maintenance import AnalyticsMaintenance, MAINTENANCE_LOCK_ID
+from persistent_analytics.database import AnalyticsTarget
 from persistent_analytics.migration_runner import apply_migrations
 from persistent_analytics.sessions import PsycopgSessionStore, SESSION_SECONDS, VISIT_SECONDS
 from persistent_analytics.sink import PersistentAnalyticsSink, PsycopgAnalyticsWriter
@@ -34,7 +35,8 @@ class PostgreSQLAnalyticsIntegrationTests(unittest.TestCase):
                 cursor.execute(
                     'TRUNCATE analytics_events, analytics_sessions, '
                     'analytics_daily_metrics, analytics_dropped_events, '
-                    'analytics_aggregation_days, analytics_metadata, analytics_owner_sessions')
+                    'analytics_aggregation_days, analytics_metadata, analytics_owner_sessions, '
+                    'analytics_owner_login_attempts')
                 cursor.execute(
                     "UPDATE analytics_owner_auth_state SET last_totp_counter=-1 "
                     "WHERE owner_id='owner'")
@@ -48,14 +50,14 @@ class PostgreSQLAnalyticsIntegrationTests(unittest.TestCase):
 
     def test_real_migrations_are_repeatable_and_complete(self):
         with self.psycopg.connect(DATABASE_URL) as connection:
-            self.assertEqual(apply_migrations(connection), (1, 2, 3, 4))
-        self.assertEqual(self.scalar('SELECT COUNT(*) FROM analytics_schema_migrations'), 4)
+            self.assertEqual(apply_migrations(connection), (1, 2, 3, 4, 5))
+        self.assertEqual(self.scalar('SELECT COUNT(*) FROM analytics_schema_migrations'), 5)
         self.assertEqual(self.scalar(
             "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='public' "
             "AND table_name IN ('analytics_sessions','analytics_events',"
             "'analytics_daily_metrics','analytics_dropped_events',"
             "'analytics_aggregation_days','analytics_metadata','analytics_owner_sessions',"
-            "'analytics_owner_auth_state')"), 8)
+            "'analytics_owner_auth_state','analytics_owner_login_attempts')"), 9)
         with self.psycopg.connect(DATABASE_URL) as connection:
             privileges = connection.execute(
                 'SELECT rolsuper,rolcreatedb,rolcreaterole,rolreplication '
@@ -312,6 +314,57 @@ class PostgreSQLAnalyticsIntegrationTests(unittest.TestCase):
         self.assertTrue(store.validate(first.token, first.csrf, touch=False))
         self.assertFalse(store.validate(first.token, second.csrf, touch=False))
         self.assertFalse(store.validate('invalid-token', first.csrf, touch=False))
+
+    def test_owner_login_limit_is_atomic_across_connections(self):
+        store = OwnerAuthStore(DATABASE_URL, 'owner-test-session-secret-' + 'x' * 24)
+        fingerprint = b'f' * 32
+        self.assertEqual(len(fingerprint), 32)
+        results = []
+        threads = [threading.Thread(
+            target=lambda: results.append(store.allow_login(fingerprint)))
+            for _ in range(8)]
+        for thread in threads: thread.start()
+        for thread in threads: thread.join()
+        self.assertEqual(sum(results), 5)
+        store.clear_login(fingerprint)
+        self.assertTrue(store.allow_login(fingerprint))
+
+    def test_dedicated_schema_keeps_migrations_and_events_out_of_public(self):
+        schema = 'oes_website_analytics_isolation'
+        target = AnalyticsTarget('oes_analytics_test', schema)
+        try:
+            with self.psycopg.connect(DATABASE_URL) as connection:
+                connection.execute(f'CREATE SCHEMA {schema}')
+                connection.commit()
+            with self.psycopg.connect(
+                    DATABASE_URL, options=target.options('statement_timeout=30000')) as connection:
+                target.verify(connection)
+                self.assertEqual(apply_migrations(connection), (1, 2, 3, 4, 5))
+            writer = PsycopgAnalyticsWriter(DATABASE_URL, target=target)
+            event = make_event('request_accepted', outcome='accepted')
+            writer.write([event], {})
+            session_store = PsycopgSessionStore(DATABASE_URL, DIGEST_KEY, target=target)
+            self.assertTrue(session_store.open(TOKEN, 1793743200).created)
+            owner_store = OwnerAuthStore(
+                DATABASE_URL, 'owner-test-session-secret-' + 'x' * 24, target=target)
+            self.assertTrue(owner_store.allow_login(b's' * 32))
+            owner_session = owner_store.create()
+            self.assertTrue(owner_store.validate(
+                owner_session.token, owner_session.csrf, touch=False))
+            self.assertEqual(AnalyticsMaintenance(
+                DATABASE_URL, target=target,
+                now=lambda: datetime(2026, 11, 5, tzinfo=timezone.utc)).run()['status'],
+                'completed')
+            with self.psycopg.connect(DATABASE_URL) as connection:
+                self.assertEqual(connection.execute(
+                    'SELECT COUNT(*) FROM information_schema.tables WHERE table_schema=%s',
+                    (schema,)).fetchone()[0], 10)
+                self.assertEqual(connection.execute(
+                    f'SELECT COUNT(*) FROM {schema}.analytics_events').fetchone()[0], 1)
+        finally:
+            with self.psycopg.connect(DATABASE_URL) as connection:
+                connection.execute(f'DROP SCHEMA IF EXISTS {schema} CASCADE')
+                connection.commit()
 
 
 if __name__ == '__main__':

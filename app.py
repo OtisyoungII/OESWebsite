@@ -3,12 +3,14 @@ import os
 from flask import Flask, redirect, render_template, url_for
 from chat import init_chat
 from persistent_analytics import init_persistent_analytics
+from persistent_analytics.maintenance import init_maintenance_scheduler
 from product_intelligence import init_product_intelligence
 from owner_analytics import init_owner_analytics
 
 app = Flask(__name__)
 init_chat(app)
 init_persistent_analytics(app)
+init_maintenance_scheduler(app)
 init_product_intelligence(app)
 init_owner_analytics(app)
 

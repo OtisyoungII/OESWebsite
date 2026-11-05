@@ -9,6 +9,7 @@ from app import app as website_app
 from chat.worker_relay import WorkerRelay
 from oes_telemetry import make_event
 from persistent_analytics.migration_runner import apply_migrations, discover_migrations
+from persistent_analytics.database import AnalyticsTarget, connection_options
 from persistent_analytics.sink import (
     DIMENSION_COLUMNS,
     DisabledAnalyticsSink,
@@ -81,6 +82,7 @@ class SinkTests(unittest.TestCase):
         with patch.dict('os.environ', {
                 'OES_PERSISTENT_ANALYTICS_ENABLED': 'true',
                 'OES_ANALYTICS_DATABASE_URL': 'postgresql://private',
+                'OES_ANALYTICS_EXPECTED_DATABASE': 'oes_website_analytics',
                 'OES_ANALYTICS_SESSION_DIGEST_KEY': '12' * 32}, clear=False), \
                 patch('persistent_analytics.sink.PsycopgAnalyticsWriter', return_value=writer), \
                 patch('persistent_analytics.sink.PersistentAnalyticsSink') as sink_type, \
@@ -90,7 +92,9 @@ class SinkTests(unittest.TestCase):
             sink = init_persistent_analytics(app)
         self.assertIs(sink, sink_type.return_value)
         sink_type.assert_called_once_with(writer)
-        session_type.assert_called_once_with('postgresql://private', '12' * 32)
+        session_type.assert_called_once_with(
+            'postgresql://private', '12' * 32,
+            target=AnalyticsTarget('oes_website_analytics'))
         register.assert_called_once_with(sink.close)
         self.assertIs(relay.persistent_analytics, sink)
 
@@ -208,7 +212,7 @@ class SinkTests(unittest.TestCase):
 class SchemaAndWriterTests(unittest.TestCase):
     def test_initial_schema_is_versioned_fixed_and_privacy_bounded(self):
         migrations = discover_migrations()
-        self.assertEqual([migration.version for migration in migrations], [1, 2, 3, 4])
+        self.assertEqual([migration.version for migration in migrations], [1, 2, 3, 4, 5])
         sql = migrations[0].sql.lower()
         for table in ('analytics_sessions', 'analytics_events', 'analytics_daily_metrics',
                       'analytics_metadata', 'analytics_dropped_events'):
@@ -241,10 +245,26 @@ class SchemaAndWriterTests(unittest.TestCase):
             def commit(self): self.commits += 1
 
         connection = Connection()
-        self.assertEqual(apply_migrations(connection), (1, 2, 3, 4))
+        self.assertEqual(apply_migrations(connection), (1, 2, 3, 4, 5))
         self.assertEqual(connection.commits, 1)
-        self.assertFalse(any(params and params[0] in {1, 2, 3, 4}
+        self.assertFalse(any(params and params[0] in {1, 2, 3, 4, 5}
                              for _, params in connection.value.executed))
+
+    def test_database_target_isolation_is_strict_and_content_free(self):
+        target = AnalyticsTarget('oes_scout', 'oes_website_analytics')
+        self.assertEqual(
+            connection_options(target.schema, 'statement_timeout=750'),
+            '-c search_path=oes_website_analytics,pg_catalog -c statement_timeout=750')
+        connection = Mock()
+        connection.execute.return_value.fetchone.return_value = (
+            'oes_scout', 'oes_website_analytics')
+        target.verify(connection)
+        connection.execute.return_value.fetchone.return_value = ('oes_scout', 'public')
+        with self.assertRaisesRegex(RuntimeError, 'target mismatch'):
+            target.verify(connection)
+        for value in ('public', 'pg_catalog', 'bad-name', 'x;DROP TABLE scout'):
+            with self.assertRaises(ValueError):
+                AnalyticsTarget('oes_scout', value)
 
     def test_migration_history_checksum_mismatch_fails_closed(self):
         migration = discover_migrations()[0]

@@ -3,7 +3,8 @@ from datetime import date, datetime, timedelta, timezone
 import unittest
 from unittest.mock import patch
 
-from persistent_analytics.maintenance import AnalyticsMaintenance, main
+from persistent_analytics.maintenance import (AnalyticsMaintenance, MaintenanceScheduler,
+                                               init_maintenance_scheduler, main)
 from persistent_analytics.sink import PsycopgAnalyticsWriter
 from oes_telemetry import make_event
 
@@ -190,6 +191,43 @@ class MaintenanceTests(unittest.TestCase):
                         and call[0].startswith('INSERT INTO analytics_metadata'))
         self.assertEqual(metadata[1], ('2026-11-03',))
         self.assertIn('value=EXCLUDED.value', metadata[0])
+
+    def test_each_pass_is_bounded_and_repeated_runs_catch_up(self):
+        days = [date(2026, 9, 1) + timedelta(days=value) for value in range(40)]
+        database = MaintenanceDatabase(days)
+        job = AnalyticsMaintenance('postgresql://private', connect=database.connect,
+                                   now=lambda: NOW, max_days=8)
+        job.run()
+        candidates = next(call for call in database.calls
+                          if isinstance(call[0], str) and call[0].startswith('SELECT day FROM'))
+        self.assertIn('ORDER BY day LIMIT %s', candidates[0])
+        self.assertEqual(candidates[1], (NOW.date(), 8))
+
+    def test_inprocess_scheduler_is_failure_isolated_and_stoppable(self):
+        job = unittest.mock.Mock()
+        job.run.side_effect = [RuntimeError('private'), {'status':'completed', 'days':2}]
+        scheduler = MaintenanceScheduler(job, interval=300, startup_delay=0, start=False)
+        with patch('persistent_analytics.maintenance.LOG.warning') as warning:
+            self.assertFalse(scheduler._run_once())
+            warning.assert_called_once_with(
+                'analytics maintenance failed category=database_unavailable')
+        with patch('persistent_analytics.maintenance.LOG.info') as info:
+            self.assertTrue(scheduler._run_once())
+            info.assert_called_once_with(
+                'analytics maintenance status=%s days=%s', 'completed', 2)
+        self.assertTrue(scheduler.close())
+
+    def test_inprocess_scheduler_stays_disabled_without_isolated_target(self):
+        from flask import Flask
+        app = Flask(__name__)
+        app.config.update(
+            OES_ANALYTICS_INPROCESS_MAINTENANCE_ENABLED='true',
+            OES_ANALYTICS_DATABASE_URL='postgresql://private')
+        app.extensions['persistent_analytics'] = type('Sink', (), {'enabled':True})()
+        with patch('persistent_analytics.maintenance.LOG.warning') as warning:
+            self.assertIsNone(init_maintenance_scheduler(app))
+            warning.assert_called_once_with(
+                'analytics maintenance disabled category=configuration_missing')
 
 
 if __name__ == '__main__':

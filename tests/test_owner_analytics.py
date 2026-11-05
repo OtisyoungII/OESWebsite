@@ -44,6 +44,8 @@ class FakeAuth:
         return token == 'owner-token' and (csrf is None or csrf == 'owner-csrf')
 
     def delete(self, token): self.deleted.append(token)
+    def allow_login(self, key): return True
+    def clear_login(self, key): pass
 
 
 class FakeQuery:
@@ -66,16 +68,18 @@ class FakeQuery:
         }
 
 
-def configured_app(*, secure=False):
+def configured_app(*, secure=False, canonical='localhost'):
     app = Flask(__name__)
     app.config.update(
         TESTING=True, OES_OWNER_ANALYTICS_ENABLED='true',
         OES_ANALYTICS_DATABASE_URL='postgresql://private',
+        OES_ANALYTICS_EXPECTED_DATABASE='oes_website_analytics',
         OES_OWNER_USERNAME='owner',
         OES_OWNER_PASSWORD_HASH=password_hash('correct horse battery staple', salt=b'fixed-owner-salt!'),
         OES_OWNER_TOTP_SECRET=TOTP_SECRET,
         OES_OWNER_SESSION_SECRET='s' * 48,
         OES_OWNER_COOKIE_SECURE='true' if secure else 'false',
+        OES_OWNER_CANONICAL_HOST=canonical,
     )
     assert init_owner_analytics(app)
     app.extensions['owner_analytics_auth'] = FakeAuth()
@@ -204,7 +208,7 @@ class OwnerAnalyticsTests(unittest.TestCase):
         self.assertFalse(workers[1].allow(b'same-client'))
 
     def test_secure_cookie_policy_is_server_authoritative_behind_proxy(self):
-        app = configured_app(secure=True); client = app.test_client()
+        app = configured_app(secure=True, canonical='oes.example'); client = app.test_client()
         response = client.get('/owner/analytics/login', base_url='https://oes.example',
                               headers={'X-Forwarded-Proto':'http'})
         token = re.search(r'name="csrf_token" value="([^"]+)"',
@@ -219,6 +223,27 @@ class OwnerAnalyticsTests(unittest.TestCase):
         self.assertIn('Secure', cookies)
         self.assertIn('HttpOnly', cookies)
         self.assertIn('SameSite=Strict', cookies)
+
+    def test_owner_routes_reject_noncanonical_render_hostname(self):
+        app = configured_app(canonical='otisexecutionsystems.com')
+        response = app.test_client().get(
+            '/owner/analytics/login', base_url='https://oeswebsite.onrender.com')
+        self.assertEqual(response.status_code, 404)
+        self.assertEqual(app.test_client().get(
+            '/owner/analytics/login',
+            base_url='https://otisexecutionsystems.com').status_code, 200)
+
+    def test_distributed_limiter_failure_fails_login_closed(self):
+        app = configured_app()
+        app.extensions['owner_analytics_auth'].allow_login = Mock(
+            side_effect=RuntimeError('private database error'))
+        client = app.test_client()
+        token = self.csrf(client)
+        response = client.post('/owner/analytics/login', data={
+            'csrf_token':token, 'username':'owner',
+            'password':'correct horse battery staple', 'totp':'123456'})
+        self.assertEqual(response.status_code, 503)
+        self.assertNotIn('private database error', response.get_data(as_text=True))
 
     def test_owner_session_storage_receives_only_keyed_digests(self):
         connection = MagicMock()

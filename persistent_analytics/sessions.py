@@ -7,6 +7,8 @@ import re
 import secrets
 from uuid import uuid4
 
+from .database import AnalyticsTarget
+
 
 SESSION_SECONDS = 12 * 60 * 60
 VISIT_SECONDS = 30 * 60
@@ -32,12 +34,13 @@ class PsycopgSessionStore:
     """Synchronous bounded lookup used only by the lightweight session endpoint."""
     enabled = True
 
-    def __init__(self, database_url, digest_key, *, connect=None):
+    def __init__(self, database_url, digest_key, *, connect=None, target=None):
         if not KEY.fullmatch(str(digest_key)):
             raise ValueError('Invalid analytics session digest key')
         self.database_url = database_url
         self.digest_key = bytes.fromhex(digest_key)
         self._connect = connect
+        self.target = target or AnalyticsTarget()
 
     def _connection(self):
         if self._connect is None:
@@ -46,7 +49,7 @@ class PsycopgSessionStore:
         return self._connect(
             self.database_url,
             connect_timeout=1,
-            options='-c statement_timeout=750',
+            options=self.target.options('statement_timeout=750'),
         )
 
     def digest(self, token):

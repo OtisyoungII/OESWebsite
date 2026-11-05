@@ -2,6 +2,7 @@
 import hashlib
 import hmac
 import os
+import re
 import secrets
 
 from flask import (Blueprint, current_app, make_response, redirect, render_template,
@@ -10,9 +11,11 @@ from flask import (Blueprint, current_app, make_response, redirect, render_templ
 from .auth import (COOKIE, CSRF_COOKIE, LoginLimiter, OwnerAuthStore, PASSWORD, SESSION_SECONDS,
                    totp_counter, verify_password)
 from .query import AnalyticsQuery, RANGES
+from persistent_analytics.database import AnalyticsTarget
 
 
 bp = Blueprint('owner_analytics', __name__, template_folder='templates')
+HOST = re.compile(r'^[a-z0-9](?:[a-z0-9.-]{0,251}[a-z0-9])?$')
 
 
 def _enabled(value):
@@ -87,6 +90,13 @@ def secure_owner_response(response):
     return _security(response)
 
 
+@bp.before_request
+def canonical_owner_host():
+    expected = current_app.config['OES_OWNER_CANONICAL_HOST']
+    if request.host.lower() != expected:
+        return 'Not found.', 404
+
+
 @bp.get('/login')
 def login_form():
     if _authenticated():
@@ -100,6 +110,11 @@ def login():
     key = _fingerprint()
     if not limiter.allow(key):
         return _login_page('Sign-in unavailable.', 429)
+    try:
+        if not current_app.extensions['owner_analytics_auth'].allow_login(key):
+            return _login_page('Sign-in unavailable.', 429)
+    except Exception:
+        return _login_page('Sign-in unavailable.', 503)
     csrf = request.form.get('csrf_token', '')
     if not (_valid_login_csrf(csrf)
             and hmac.compare_digest(csrf, request.cookies.get(CSRF_COOKIE, ''))):
@@ -120,6 +135,10 @@ def login():
     except Exception:
         return _login_page('Sign-in unavailable.', 503)
     limiter.clear(key)
+    try:
+        current_app.extensions['owner_analytics_auth'].clear_login(key)
+    except Exception:
+        pass
     response = redirect(url_for('owner_analytics.dashboard'))
     _set_cookie(response, COOKIE, session.token, SESSION_SECONDS)
     _set_cookie(response, CSRF_COOKIE, session.csrf, SESSION_SECONDS)
@@ -164,7 +183,7 @@ def init_owner_analytics(app):
         'OES_OWNER_ANALYTICS_ENABLED': 'false',
         'OES_OWNER_USERNAME': '', 'OES_OWNER_PASSWORD_HASH': '',
         'OES_OWNER_TOTP_SECRET': '', 'OES_OWNER_SESSION_SECRET': '',
-        'OES_OWNER_COOKIE_SECURE': 'true',
+        'OES_OWNER_COOKIE_SECURE': 'true', 'OES_OWNER_CANONICAL_HOST': '',
     }
     for key, default in defaults.items():
         app.config.setdefault(key, os.environ.get(key, default))
@@ -174,7 +193,7 @@ def init_owner_analytics(app):
     database_url = str(app.config.get('OES_ANALYTICS_DATABASE_URL', '')).strip()
     required = (database_url, app.config['OES_OWNER_USERNAME'],
                 app.config['OES_OWNER_PASSWORD_HASH'], app.config['OES_OWNER_TOTP_SECRET'],
-                app.config['OES_OWNER_SESSION_SECRET'])
+                app.config['OES_OWNER_SESSION_SECRET'], app.config['OES_OWNER_CANONICAL_HOST'])
     if not all(required):
         return False
     try:
@@ -183,15 +202,24 @@ def init_owner_analytics(app):
             str(app.config['OES_OWNER_TOTP_SECRET']).strip().upper(), casefold=True)
     except Exception:
         return False
+    canonical = str(app.config['OES_OWNER_CANONICAL_HOST']).strip().lower()
     if (not PASSWORD.fullmatch(str(app.config['OES_OWNER_PASSWORD_HASH']))
             or len(totp_key) < 20 or not 1 <= len(str(app.config['OES_OWNER_USERNAME'])) <= 64):
         return False
+    if not HOST.fullmatch(canonical) or '..' in canonical:
+        return False
+    app.config['OES_OWNER_CANONICAL_HOST'] = canonical
     try:
-        auth = OwnerAuthStore(database_url, app.config['OES_OWNER_SESSION_SECRET'])
+        target = AnalyticsTarget(app.config.get('OES_ANALYTICS_EXPECTED_DATABASE', ''),
+                                 app.config.get('OES_ANALYTICS_SCHEMA', ''))
+        if not target.isolated:
+            return False
+        auth = OwnerAuthStore(database_url, app.config['OES_OWNER_SESSION_SECRET'],
+                              target=target)
     except ValueError:
         return False
     app.extensions['owner_analytics_auth'] = auth
-    app.extensions['owner_analytics_query'] = AnalyticsQuery(database_url)
+    app.extensions['owner_analytics_query'] = AnalyticsQuery(database_url, target=target)
     app.extensions['owner_analytics_limiter'] = LoginLimiter()
     app.register_blueprint(bp, url_prefix='/owner/analytics')
     return True

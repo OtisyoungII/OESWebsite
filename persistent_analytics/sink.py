@@ -11,6 +11,7 @@ from uuid import UUID
 
 from oes_telemetry import DIMENSIONS, validate_event
 from .constants import MAINTENANCE_LOCK_ID
+from .database import AnalyticsTarget
 from .sessions import DisabledSessionStore, PsycopgSessionStore
 
 
@@ -58,15 +59,20 @@ def event_row(event):
 
 class PsycopgAnalyticsWriter:
     """Small batch writer; connections exist only on the background thread."""
-    def __init__(self, database_url, *, connect=None):
+    def __init__(self, database_url, *, connect=None, target=None):
         self.database_url = database_url
         self._connect = connect
+        self.target = target or AnalyticsTarget()
 
     def _connection(self):
         if self._connect is None:
             import psycopg
             self._connect = psycopg.connect
-        return self._connect(self.database_url, connect_timeout=2)
+        kwargs = {'connect_timeout': 2}
+        options = self.target.options()
+        if options:
+            kwargs['options'] = options
+        return self._connect(self.database_url, **kwargs)
 
     def write(self, events, dropped):
         rows = [event_row(event) for event in events]
@@ -226,7 +232,9 @@ def init_persistent_analytics(app):
     for key, default in (
             ('OES_PERSISTENT_ANALYTICS_ENABLED', 'false'),
             ('OES_ANALYTICS_DATABASE_URL', ''),
-            ('OES_ANALYTICS_SESSION_DIGEST_KEY', '')):
+            ('OES_ANALYTICS_SESSION_DIGEST_KEY', ''),
+            ('OES_ANALYTICS_EXPECTED_DATABASE', ''),
+            ('OES_ANALYTICS_SCHEMA', '')):
         app.config.setdefault(key, os.environ.get(key, default))
     sink = DisabledAnalyticsSink()
     sessions = DisabledSessionStore()
@@ -234,15 +242,20 @@ def init_persistent_analytics(app):
         database_url = str(app.config['OES_ANALYTICS_DATABASE_URL']).strip()
         if database_url:
             try:
-                sink = PersistentAnalyticsSink(PsycopgAnalyticsWriter(database_url))
+                target = AnalyticsTarget(
+                    app.config['OES_ANALYTICS_EXPECTED_DATABASE'],
+                    app.config['OES_ANALYTICS_SCHEMA'])
+                if not target.isolated:
+                    raise ValueError('Analytics database isolation is required')
+                digest_key = str(app.config['OES_ANALYTICS_SESSION_DIGEST_KEY']).strip()
+                candidate_sessions = PsycopgSessionStore(
+                    database_url, digest_key, target=target)
+                candidate_sink = PersistentAnalyticsSink(
+                    PsycopgAnalyticsWriter(database_url, target=target))
+                sessions, sink = candidate_sessions, candidate_sink
                 atexit.register(sink.close)
             except Exception:
                 LOG.warning('persistent analytics disabled category=initialization_failure')
-            digest_key = str(app.config['OES_ANALYTICS_SESSION_DIGEST_KEY']).strip()
-            try:
-                sessions = PsycopgSessionStore(database_url, digest_key)
-            except Exception:
-                LOG.warning('persistent analytics sessions disabled category=configuration_missing')
         else:
             LOG.warning('persistent analytics disabled category=configuration_missing')
     app.extensions['persistent_analytics'] = sink

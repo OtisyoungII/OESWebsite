@@ -1,9 +1,12 @@
 """Explicit UTC aggregation and retention; never runs in a public request."""
 from datetime import date, datetime, timedelta, timezone
+import atexit
 import logging
 import os
+import threading
 
 from .constants import MAINTENANCE_LOCK_ID
+from .database import AnalyticsTarget
 
 
 LOG = logging.getLogger('oes.analytics')
@@ -15,6 +18,8 @@ METRICS = (
     'eyeball_interactions', 'response_successes', 'safe_errors',
     'cancelled_requests', 'response_latency', 'analytics_drops', 'telemetry_gaps',
 )
+INPROCESS_INTERVAL_SECONDS = 60 * 60
+INPROCESS_STARTUP_DELAY_SECONDS = 60
 
 
 def enabled(value):
@@ -31,10 +36,15 @@ def _utc_day(value):
 
 class AnalyticsMaintenance:
     """One bounded transactional maintenance pass over persisted facts."""
-    def __init__(self, database_url, *, connect=None, now=None):
+    def __init__(self, database_url, *, connect=None, now=None, target=None,
+                 max_days=32):
         self.database_url = database_url
         self._connect = connect
         self.now = now or (lambda: datetime.now(timezone.utc))
+        self.target = target or AnalyticsTarget()
+        if type(max_days) is not int or not 1 <= max_days <= 64:
+            raise ValueError('Invalid analytics maintenance bound')
+        self.max_days = max_days
 
     def _connection(self):
         if self._connect is None:
@@ -42,7 +52,7 @@ class AnalyticsMaintenance:
             self._connect = psycopg.connect
         return self._connect(
             self.database_url, connect_timeout=2,
-            options='-c statement_timeout=30000 -c lock_timeout=5000')
+            options=self.target.options('statement_timeout=30000', 'lock_timeout=5000'))
 
     def run(self):
         current = self.now()
@@ -62,7 +72,7 @@ class AnalyticsMaintenance:
                     ") candidates WHERE day < %s AND NOT EXISTS ("
                     "SELECT 1 FROM analytics_aggregation_days finalized "
                     "WHERE finalized.day=candidates.day AND finalized.finalized_at IS NOT NULL) "
-                    "ORDER BY day", (today,))
+                    "ORDER BY day LIMIT %s", (today, self.max_days))
                 days = [row[0] for row in cursor.fetchall()]
                 for day in days:
                     self._aggregate_day(cursor, day, current, day < detail_cutoff)
@@ -80,6 +90,9 @@ class AnalyticsMaintenance:
                     (current - timedelta(days=EXPIRED_SESSION_DAYS),))
                 cursor.execute(
                     'DELETE FROM analytics_owner_sessions WHERE expires_at <= %s', (current,))
+                cursor.execute(
+                    'DELETE FROM analytics_owner_login_attempts WHERE expires_at <= %s',
+                    (current,))
                 cursor.execute(
                     "DELETE FROM analytics_daily_metrics WHERE day < "
                     "(%s::date - INTERVAL '13 months')::date", (today,))
@@ -154,6 +167,70 @@ class AnalyticsMaintenance:
                 "DELETE FROM analytics_metadata WHERE key='earliest_available_date'")
 
 
+class MaintenanceScheduler:
+    """Low-frequency best-effort runner; advisory locking supplies authority."""
+    def __init__(self, job, *, interval=INPROCESS_INTERVAL_SECONDS,
+                 startup_delay=INPROCESS_STARTUP_DELAY_SECONDS, start=True):
+        if type(interval) is not int or interval < 300:
+            raise ValueError('Invalid analytics maintenance interval')
+        if type(startup_delay) is not int or startup_delay < 0:
+            raise ValueError('Invalid analytics maintenance startup delay')
+        self.job, self.interval, self.startup_delay = job, interval, startup_delay
+        self.stop = threading.Event()
+        self.thread = None
+        if start:
+            self.thread = threading.Thread(
+                target=self._run, daemon=True, name='oes-analytics-maintenance')
+            self.thread.start()
+
+    def _run_once(self):
+        try:
+            result = self.job.run()
+            LOG.info('analytics maintenance status=%s days=%s',
+                     result['status'], result['days'])
+            return True
+        except Exception:
+            LOG.warning('analytics maintenance failed category=database_unavailable')
+            return False
+
+    def _run(self):
+        if self.stop.wait(self.startup_delay):
+            return
+        while not self.stop.is_set():
+            self._run_once()
+            if self.stop.wait(self.interval):
+                return
+
+    def close(self, timeout=2.0):
+        self.stop.set()
+        if self.thread is not None:
+            self.thread.join(timeout=max(0, timeout))
+            return not self.thread.is_alive()
+        return True
+
+
+def init_maintenance_scheduler(app):
+    app.config.setdefault(
+        'OES_ANALYTICS_INPROCESS_MAINTENANCE_ENABLED',
+        os.environ.get('OES_ANALYTICS_INPROCESS_MAINTENANCE_ENABLED', 'false'))
+    scheduler = None
+    sink = app.extensions.get('persistent_analytics')
+    if enabled(app.config['OES_ANALYTICS_INPROCESS_MAINTENANCE_ENABLED']):
+        try:
+            target = AnalyticsTarget(
+                app.config.get('OES_ANALYTICS_EXPECTED_DATABASE', ''),
+                app.config.get('OES_ANALYTICS_SCHEMA', ''))
+            if not target.isolated or not getattr(sink, 'enabled', False):
+                raise ValueError('Analytics maintenance isolation is required')
+            scheduler = MaintenanceScheduler(AnalyticsMaintenance(
+                str(app.config['OES_ANALYTICS_DATABASE_URL']).strip(), target=target))
+            atexit.register(scheduler.close)
+        except Exception:
+            LOG.warning('analytics maintenance disabled category=configuration_missing')
+    app.extensions['analytics_maintenance_scheduler'] = scheduler
+    return scheduler
+
+
 def main():
     if not enabled(os.environ.get('OES_ANALYTICS_MAINTENANCE_ENABLED', 'false')):
         print('Analytics maintenance disabled.')
@@ -163,7 +240,9 @@ def main():
         print('Analytics maintenance unavailable.')
         return 1
     try:
-        result = AnalyticsMaintenance(database_url).run()
+        target = AnalyticsTarget(os.environ.get('OES_ANALYTICS_EXPECTED_DATABASE', ''),
+                                 os.environ.get('OES_ANALYTICS_SCHEMA', ''))
+        result = AnalyticsMaintenance(database_url, target=target).run()
     except Exception:
         LOG.warning('analytics maintenance failed category=database_unavailable')
         print('Analytics maintenance unavailable.')

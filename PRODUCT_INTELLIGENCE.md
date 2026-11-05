@@ -91,6 +91,14 @@ server. Migrations are explicit and never run from a public request:
 python -m persistent_analytics.migrate
 ```
 
+Migration execution additionally requires `OES_ANALYTICS_EXPECTED_DATABASE` and/or
+`OES_ANALYTICS_SCHEMA`. The command verifies `current_database()` and `current_schema()`
+before analytics DDL. Schema names are restricted identifiers and cannot be `public`,
+`pg_catalog`, or `information_schema`. Runtime analytics connections use the same fixed
+search path. This permits a dedicated schema on an existing PostgreSQL instance without
+granting access to another application's tables. A separate logical database remains the
+preferred boundary when the managed role permits it.
+
 The existing authenticated relay and OES Core SQLite store remain operational regardless of
 PostgreSQL state. When enabled, a bounded daemon queue isolates database latency and outages
 from Flask and Eyeball streaming. Queue overflow and failed batches increment fixed drop
@@ -118,6 +126,16 @@ It remains disabled unless `OES_ANALYTICS_MAINTENANCE_ENABLED=true` and is invok
 ```
 python -m persistent_analytics.maintenance
 ```
+
+Phase 1B.6 also supports a disabled-by-default zero-additional-service mode with
+`OES_ANALYTICS_INPROCESS_MAINTENANCE_ENABLED=true`. It starts a low-frequency daemon on the
+existing always-on web service, waits 60 seconds after process startup, and attempts a pass
+hourly even when no visitor arrives. Each pass is limited to 32 historical days and uses the
+same PostgreSQL advisory transaction lock, so restarts, duplicate Gunicorn processes, and
+overlapping attempts remain idempotent. Missed work catches up after the next process start.
+Database failure never affects public routes or `/healthz`. This is appropriate for the
+current beta but is not an external scheduler SLA; a supervised cron remains the stronger
+paid option if strict daily completion guarantees become necessary.
 
 The job uses one PostgreSQL advisory transaction lock, aggregates only completed UTC days,
 and replaces each provisional day's seven fixed metrics from persisted source rows. This
@@ -148,8 +166,11 @@ requires a PBKDF2-SHA256 password hash and TOTP. TOTP counters are consumed atom
 prevent replay. Random owner-session and CSRF tokens are stored only as keyed digests in
 PostgreSQL; browser cookies are `HttpOnly`, `SameSite=Strict`, path-scoped, secure by default,
 idle-expiring after 30 minutes, and absolutely bounded to eight hours. Logout deletes the
-server-side session. Login attempts receive bounded in-process rate limiting; production
-should add edge rate limiting as defense in depth.
+server-side session. Login attempts receive both bounded in-process limiting and an atomic
+PostgreSQL-backed limiter keyed only by an HMAC digest. The database limiter works across
+Gunicorn workers and instances. `OES_OWNER_CANONICAL_HOST` is mandatory when owner routes
+are enabled, and alternate Render hostnames receive 404. Edge limiting remains useful
+defense in depth but is no longer the only distributed boundary.
 
 Authenticated views under `/owner/analytics/` query fixed aggregates and aggregate metadata
 only. They expose no prompts, responses, cookies, visitor identifiers, IP addresses, or raw

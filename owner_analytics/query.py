@@ -1,6 +1,8 @@
 """Fixed aggregate-only owner dashboard queries."""
 from datetime import datetime, timedelta, timezone
 
+from persistent_analytics.database import AnalyticsTarget
+
 
 RANGES = {'7d':7, '30d':30, '90d':90, '13m':396}
 METRICS = (
@@ -11,16 +13,19 @@ METRICS = (
 
 
 class AnalyticsQuery:
-    def __init__(self, database_url, *, connect=None, now=None):
+    def __init__(self, database_url, *, connect=None, now=None, target=None):
         self.database_url, self._connect = database_url, connect
         self.now = now or (lambda: datetime.now(timezone.utc))
+        self.target = target or AnalyticsTarget()
 
     def _connection(self):
         if self._connect is None:
             import psycopg
             self._connect = psycopg.connect
-        return self._connect(self.database_url, connect_timeout=2,
-                             options='-c statement_timeout=3000 -c default_transaction_read_only=on')
+        return self._connect(
+            self.database_url, connect_timeout=2,
+            options=self.target.options('statement_timeout=3000',
+                                        'default_transaction_read_only=on'))
 
     def snapshot(self, selected='30d'):
         days = RANGES.get(selected)

@@ -11,6 +11,8 @@ import struct
 import threading
 import time
 
+from persistent_analytics.database import AnalyticsTarget
+
 
 PASSWORD = re.compile(r'^pbkdf2_sha256\$(\d{6,9})\$([A-Za-z0-9_-]{16,64})\$([A-Za-z0-9_-]{32,64})$')
 SESSION_SECONDS = 30 * 60
@@ -95,19 +97,20 @@ class LoginLimiter:
 
 
 class OwnerAuthStore:
-    def __init__(self, database_url, secret, *, connect=None, now=None):
+    def __init__(self, database_url, secret, *, connect=None, now=None, target=None):
         if len(str(secret)) < 32:
             raise ValueError('Invalid owner session secret')
         self.database_url, self.secret = database_url, str(secret).encode('utf-8')
         self._connect = connect
         self.now = now or (lambda: datetime.now(timezone.utc))
+        self.target = target or AnalyticsTarget()
 
     def _connection(self):
         if self._connect is None:
             import psycopg
             self._connect = psycopg.connect
         return self._connect(self.database_url, connect_timeout=2,
-                             options='-c statement_timeout=2000')
+                             options=self.target.options('statement_timeout=2000'))
 
     def digest(self, value):
         return hmac.new(self.secret, value.encode('ascii'), hashlib.sha256).digest()
@@ -122,6 +125,38 @@ class OwnerAuthStore:
                 accepted = cursor.fetchone() is not None
             connection.commit()
         return accepted
+
+    def allow_login(self, fingerprint, maximum=5, window_seconds=15 * 60):
+        if (not isinstance(fingerprint, bytes) or len(fingerprint) != 32
+                or type(maximum) is not int or not 1 <= maximum <= 20
+                or type(window_seconds) is not int or not 60 <= window_seconds <= 3600):
+            raise ValueError('Invalid owner login limit')
+        now = self.now()
+        window = timedelta(seconds=window_seconds)
+        with self._connection() as connection:
+            row = connection.execute(
+                'INSERT INTO analytics_owner_login_attempts '
+                '(fingerprint_digest,window_started_at,attempts,expires_at) '
+                'VALUES(%s,%s,1,%s) ON CONFLICT(fingerprint_digest) DO UPDATE SET '
+                'window_started_at=CASE WHEN '
+                'analytics_owner_login_attempts.window_started_at<=%s THEN %s '
+                'ELSE analytics_owner_login_attempts.window_started_at END, '
+                'attempts=CASE WHEN analytics_owner_login_attempts.window_started_at<=%s '
+                'THEN 1 ELSE analytics_owner_login_attempts.attempts+1 END, '
+                'expires_at=%s RETURNING attempts',
+                (fingerprint, now, now + window * 2, now - window, now,
+                 now - window, now + window * 2)).fetchone()
+            connection.commit()
+        return row is not None and row[0] <= maximum
+
+    def clear_login(self, fingerprint):
+        if not isinstance(fingerprint, bytes) or len(fingerprint) != 32:
+            return
+        with self._connection() as connection:
+            connection.execute(
+                'DELETE FROM analytics_owner_login_attempts WHERE fingerprint_digest=%s',
+                (fingerprint,))
+            connection.commit()
 
     def create(self):
         now = self.now()
