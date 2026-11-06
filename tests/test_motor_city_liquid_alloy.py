@@ -13,6 +13,7 @@ class MotorCityLiquidAlloyTests(unittest.TestCase):
         cls.html = (CONCEPT / "index.html").read_text(encoding="utf-8")
         cls.css = (CONCEPT / "concept.css").read_text(encoding="utf-8")
         cls.js = (CONCEPT / "concept.js").read_text(encoding="utf-8")
+        cls.petal_js = (CONCEPT / "petal-core-stage.js").read_text(encoding="utf-8")
         cls.shared = (MOTOR_CITY / "shared" / "content.js").read_text(encoding="utf-8")
 
     def test_concept_d_is_navigable_from_showroom(self):
@@ -48,13 +49,28 @@ class MotorCityLiquidAlloyTests(unittest.TestCase):
         self.assertIn('not presented as an OES-owned product', self.js)
 
     def test_premium_eyeball_stage_does_not_fake_completed_art(self):
-        self.assertIn('Petal Core selected · detailed visual approval pending', self.html)
-        self.assertIn('intentionally withholds the unfinished model', self.html)
-        self.assertIn('data-character-status="review"', self.html)
-        self.assertIn('data-approved-glb=""', self.html)
+        self.assertIn('Stage D development preview · visual approval pending', self.html)
+        self.assertIn('data-character-status="development-preview"', self.html)
+        self.assertIn('data-approved-glb="assets/oes-petal-core-stage-d.glb"', self.html)
+        self.assertIn('loads the real Stage D Petal Core GLB', self.html)
         self.assertNotIn('<model-viewer', self.html)
-        self.assertNotIn('assets/oes-eyeball-candidate-front.png', self.html)
+        self.assertGreater((CONCEPT / 'assets' / 'oes-petal-core-stage-d.glb').stat().st_size,
+                           1024 * 1024)
         self.assertNotIn('eyeball-dock__visual" aria-hidden="true"><span class="eyeball-orbit"', self.html)
+
+    def test_petal_core_runtime_is_bounded_accessible_and_resource_aware(self):
+        source = self.petal_js
+        for required in ('GLTFLoader', 'AnimationMixer', 'idle_float',
+                         'gaze_listen_think', 'pointerdown', 'pointermove',
+                         'IntersectionObserver', 'visibilitychange',
+                         'prefers-reduced-motion', 'pagehide', 'dispose()'):
+            self.assertIn(required, source)
+        for state in ('neutral', 'listening', 'thinking', 'responding', 'blink'):
+            self.assertIn(f'data-expression="{state}"', self.html)
+        self.assertIn('tabindex="0"', self.html)
+        self.assertIn('data-petal-fallback', self.html)
+        self.assertNotIn('http://', source)
+        self.assertNotIn('https://', source)
 
     def test_product_spine_is_accessible_without_hover(self):
         self.assertIn('role="tablist"', self.html)
@@ -73,7 +89,7 @@ class MotorCityLiquidAlloyTests(unittest.TestCase):
         self.assertIn("@media(max-width:760px)", self.css)
 
     def test_prototype_performs_no_chat_analytics_or_native_calls(self):
-        source = self.html + self.js
+        source = self.html + self.js + self.petal_js
         for forbidden in ("/api/chat", "/api/product", "fetch(", "subprocess", "renderer.exe"):
             self.assertNotIn(forbidden, source)
 

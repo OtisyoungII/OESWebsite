@@ -64,7 +64,7 @@ No production navigation or runtime route points to Concept D.
 
 - `docs/design-previews/liquid-alloy/concept-d-v3-desktop.png` — 1440 × 1000 desktop hero and navigation.
 - `docs/design-previews/liquid-alloy/concept-d-v3-mobile-500.png` — 500 × 844 compact/mobile hero with the responsive menu and controls.
-- The Eyeball dock now exposes an empty, review-state `data-approved-glb` seam. It intentionally displays no unapproved character asset.
+- The isolated Eyeball dock loads the local Stage D Petal Core GLB through vendored Three.js r185 and its matching official GLTFLoader. It remains explicitly labeled as a development preview pending visual approval.
 
 These captures show the revised ownership navigation and visual direction. They do
 not represent owner acceptance of the final website or a completed 3D character.
@@ -72,7 +72,8 @@ not represent owner acceptance of the final website or a completed 3D character.
 ## Known limitations and owner questions
 
 - The prototype uses installed system typography (`Bahnschrift`, Segoe UI and Consolas) rather than adding a webfont dependency.
-- Eyeball placement is a truthful review gate; it does not open production chat. Petal Core is identified as the selected architecture, but the dock withholds unfinished artwork and leaves its approved-GLB seam empty until owner review and separate integration.
+- Eyeball placement is a truthful interactive review gate; it does not open production chat. Petal Core supports bounded drag/touch rotation, accessible expression controls, reduced motion, offscreen suspension and a WebGL fallback. This milestone does not claim production or native-runtime acceptance.
+- Three.js r185 and the matching official GLTFLoader utilities are vendored locally under the upstream MIT license in `static/js/three/LICENSE`; the preview uses no CDN.
 - Product history has no verified dated milestones in the source site. The dossier preserves documented current state and features rather than inventing a timeline.
 - Formal assistive-technology testing with a screen reader remains an owner-selection follow-up.
 - Owner selection is needed on the balance between the sculptural hero object and product-first content density before production-template work.

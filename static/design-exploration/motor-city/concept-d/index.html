@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="description" content="Motor City Liquid Alloy — an OES premium website design exploration.">
   <title>OES — Motor City Liquid Alloy</title>
+  <link rel="icon" href="/static/images/oes-logo.svg" type="image/svg+xml">
   <link rel="stylesheet" href="concept.css">
   <link rel="stylesheet" href="refinement.css">
 </head>
@@ -88,12 +89,23 @@
     </section>
 
     <section class="eyeball-dock" id="eyeball" aria-labelledby="eyeball-title">
-      <div class="eyeball-dock__visual" data-eyeball-stage data-character-status="review" data-approved-glb="" role="img" aria-label="Reserved stage for the owner-approved premium OES Eyeball model">
+      <div class="eyeball-dock__visual" data-eyeball-stage data-character-status="development-preview" data-approved-glb="assets/oes-petal-core-stage-d.glb" role="group" aria-label="Interactive development preview of the Petal Core OES Eyeball">
         <span class="eyeball-dock__datum">OPTICAL PLATFORM / ASSET GATE 01</span>
-        <span class="eyeball-dock__reticle" aria-hidden="true"></span>
-        <span class="eyeball-dock__asset-state">Petal Core selected · detailed visual approval pending</span>
+        <div class="petal-stage" data-petal-stage>
+          <canvas class="petal-stage__canvas" data-petal-canvas tabindex="0" aria-label="Petal Core 3D model. Drag to rotate; use the expression controls below."></canvas>
+          <div class="petal-stage__loading" data-petal-loading role="status" aria-live="polite"><span></span><strong>Loading Petal Core…</strong></div>
+          <p class="petal-stage__fallback" data-petal-fallback hidden>This browser cannot display the interactive WebGL character. Petal Core is a spherical OES robotic companion with one large optical eye and four expressive titanium shell petals.</p>
+        </div>
+        <div class="petal-controls" data-petal-controls aria-label="Petal Core expressions">
+          <button type="button" data-expression="neutral" aria-pressed="true">Neutral</button>
+          <button type="button" data-expression="listening" aria-pressed="false">Listening</button>
+          <button type="button" data-expression="thinking" aria-pressed="false">Thinking</button>
+          <button type="button" data-expression="responding" aria-pressed="false">Responding</button>
+          <button type="button" data-expression="blink" aria-pressed="false">Blink</button>
+        </div>
+        <span class="eyeball-dock__asset-state" data-petal-status>Stage D development preview · visual approval pending</span>
       </div>
-      <div><p class="eyebrow">Eyeball / OES Core · Intelligent Platform</p><h2 id="eyeball-title">A character inside the system—not pasted onto it.</h2><p>Eyeball is OES's public intelligence interface and the character identity for the OES Core desktop assistant. The premium character will use one approved mechanical design across web and native runtimes.</p><p>Petal Core is the selected character architecture and is now in detailed Blender development. This stage intentionally withholds the unfinished model. The empty <code>data-approved-glb</code> seam cannot load an asset until visual approval and a separate runtime integration pass.</p><p class="language-line"><strong>Existing interface languages</strong> English · Español · Français · العربية · 简体中文</p><button class="alloy-button" type="button" data-eyeball-preview aria-expanded="false" aria-controls="eyeball-note">View integration boundary</button><div id="eyeball-note" class="eyeball-note" hidden><p><strong>Design boundary:</strong> this showroom does not call the chat service, launch a native renderer, expose OES Core APIs or claim private access. The approved asset will add drag rotation, restrained idle motion, mobile input and reduced-motion behavior here.</p></div></div>
+      <div><p class="eyebrow">Eyeball / OES Core · Intelligent Platform</p><h2 id="eyeball-title">A character inside the system—not pasted onto it.</h2><p>Eyeball is OES's public intelligence interface and the character identity for the OES Core desktop assistant. The premium character will use one approved mechanical design across web and native runtimes.</p><p>This isolated preview loads the real Stage D Petal Core GLB. Drag it like a baseball or use the keyboard-accessible expression controls to inspect its authored listening, thinking, responding and blink poses. It remains development artwork pending owner approval and separate native-runtime acceptance.</p><p class="language-line"><strong>Existing interface languages</strong> English · Español · Français · العربية · 简体中文</p><button class="alloy-button" type="button" data-eyeball-preview aria-expanded="false" aria-controls="eyeball-note">View integration boundary</button><div id="eyeball-note" class="eyeball-note" hidden><p><strong>Design boundary:</strong> this showroom loads only a local review asset. It does not call chat, launch a native renderer, expose OES Core APIs or claim private access. Rendering pauses offscreen and while the page is hidden; reduced-motion preferences disable autonomous motion.</p></div></div>
     </section>
 
     <section class="contact-forge" id="contact" aria-labelledby="contact-title">
@@ -106,5 +118,6 @@
 
   <nav class="prototype-switcher" aria-label="Switch design concept"><a href="../concept-a/index.html">A</a><a href="../concept-b/index.html">B</a><a href="../concept-c/index.html">C</a><a href="index.html" aria-current="page">D</a><a href="../index.html">Overview</a></nav>
   <script type="module" src="concept.js"></script>
+  <script type="module" src="petal-core-stage.js"></script>
 </body>
 </html>
