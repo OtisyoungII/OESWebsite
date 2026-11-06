@@ -64,7 +64,7 @@ No production navigation or runtime route points to Concept D.
 
 - `docs/design-previews/liquid-alloy/concept-d-v3-desktop.png` — 1440 × 1000 desktop hero and navigation.
 - `docs/design-previews/liquid-alloy/concept-d-v3-mobile-500.png` — 500 × 844 compact/mobile hero with the responsive menu and controls.
-- `static/design-exploration/motor-city/concept-d/assets/oes-eyeball-candidate-front.png` — the actual Blender candidate used by the isolated Eyeball review dock.
+- The Eyeball dock now exposes an empty, review-state `data-approved-glb` seam. It intentionally displays no unapproved character asset.
 
 These captures show the revised ownership navigation and visual direction. They do
 not represent owner acceptance of the final website or a completed 3D character.
@@ -72,7 +72,7 @@ not represent owner acceptance of the final website or a completed 3D character.
 ## Known limitations and owner questions
 
 - The prototype uses installed system typography (`Bahnschrift`, Segoe UI and Consolas) rather than adding a webfont dependency.
-- Eyeball placement is a truthful review presentation; it does not open production chat. The dock displays a real Blender-authored candidate render while explicitly withholding final-art, interactive-web and native-runtime claims until owner review and separate integration.
+- Eyeball placement is a truthful review gate; it does not open production chat. Petal Core is identified as the selected architecture, but the dock withholds unfinished artwork and leaves its approved-GLB seam empty until owner review and separate integration.
 - Product history has no verified dated milestones in the source site. The dossier preserves documented current state and features rather than inventing a timeline.
 - Formal assistive-technology testing with a screen reader remains an owner-selection follow-up.
 - Owner selection is needed on the balance between the sculptural hero object and product-first content density before production-template work.

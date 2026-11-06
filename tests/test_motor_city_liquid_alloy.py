@@ -48,10 +48,12 @@ class MotorCityLiquidAlloyTests(unittest.TestCase):
         self.assertIn('not presented as an OES-owned product', self.js)
 
     def test_premium_eyeball_stage_does_not_fake_completed_art(self):
-        self.assertIn('Blender review candidate · visual approval pending', self.html)
-        self.assertIn('actual Blender-authored review candidate', self.html)
-        self.assertIn('not declared final', self.html)
-        self.assertIn('assets/oes-eyeball-candidate-front.png', self.html)
+        self.assertIn('Petal Core selected · detailed visual approval pending', self.html)
+        self.assertIn('intentionally withholds the unfinished model', self.html)
+        self.assertIn('data-character-status="review"', self.html)
+        self.assertIn('data-approved-glb=""', self.html)
+        self.assertNotIn('<model-viewer', self.html)
+        self.assertNotIn('assets/oes-eyeball-candidate-front.png', self.html)
         self.assertNotIn('eyeball-dock__visual" aria-hidden="true"><span class="eyeball-orbit"', self.html)
 
     def test_product_spine_is_accessible_without_hover(self):
