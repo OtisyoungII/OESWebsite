@@ -48,8 +48,10 @@ class MotorCityLiquidAlloyTests(unittest.TestCase):
         self.assertIn('not presented as an OES-owned product', self.js)
 
     def test_premium_eyeball_stage_does_not_fake_completed_art(self):
-        self.assertIn('Premium character asset pending visual approval', self.html)
-        self.assertIn('does not substitute the flat OES logo', self.html)
+        self.assertIn('Blender review candidate · visual approval pending', self.html)
+        self.assertIn('actual Blender-authored review candidate', self.html)
+        self.assertIn('not declared final', self.html)
+        self.assertIn('assets/oes-eyeball-candidate-front.png', self.html)
         self.assertNotIn('eyeball-dock__visual" aria-hidden="true"><span class="eyeball-orbit"', self.html)
 
     def test_product_spine_is_accessible_without_hover(self):

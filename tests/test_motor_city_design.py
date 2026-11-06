@@ -60,7 +60,8 @@ class MotorCityDesignExplorationTests(unittest.TestCase):
     def test_prototype_does_not_call_production_chat_or_analytics(self):
         source = "\n".join(
             path.read_text(encoding="utf-8")
-            for path in DESIGN.rglob("*") if path.is_file()
+            for path in DESIGN.rglob("*")
+            if path.is_file() and path.suffix.lower() in {".html", ".css", ".js", ".md"}
         )
         self.assertNotIn("/api/chat", source)
         self.assertNotIn("/api/product-intelligence", source)
