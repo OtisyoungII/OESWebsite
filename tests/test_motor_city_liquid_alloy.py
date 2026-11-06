@@ -39,6 +39,19 @@ class MotorCityLiquidAlloyTests(unittest.TestCase):
         ):
             self.assertIn(destination, self.js + self.html + self.shared)
 
+    def test_client_work_is_separate_from_oes_owned_products(self):
+        self.assertIn('id="client-work"', self.html)
+        self.assertIn('data-client-work', self.html)
+        self.assertIn('const products = baseProducts.filter', self.js)
+        self.assertIn('const clientProjects = [drinks]', self.js)
+        self.assertIn('Client application', self.js)
+        self.assertIn('not presented as an OES-owned product', self.js)
+
+    def test_premium_eyeball_stage_does_not_fake_completed_art(self):
+        self.assertIn('Premium character asset pending visual approval', self.html)
+        self.assertIn('does not substitute the flat OES logo', self.html)
+        self.assertNotIn('eyeball-dock__visual" aria-hidden="true"><span class="eyeball-orbit"', self.html)
+
     def test_product_spine_is_accessible_without_hover(self):
         self.assertIn('role="tablist"', self.html)
         self.assertIn('role="tab"', self.js)

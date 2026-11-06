@@ -24,21 +24,14 @@ lottovate.status = "Public TestFlight";
 const drinks = baseProducts.find((product) => product.id === "drinkswithfriendz");
 drinks.status = "Public TestFlight Beta";
 
-const products = [...baseProducts, {
-  id: "eyeball", name: "Eyeball / OES Core", category: "Public Intelligence Interface", status: "Public Website Interface",
-  description: "Eyeball is represented by the animated OES Core on the public website. It provides a public intelligence interface with an explicit safety notice and localized interface text.",
-  features: ["Existing OES website interaction", "Public AI-assistant safety notice", "Localized interface text in English, Spanish, French, Arabic and Simplified Chinese", "Optional product invitations and clarification controls", "Existing runtime remains outside this visual prototype"],
-  actions: [{ label: "View the existing OES website", href: "/", primary: true }, { label: "Read OES Privacy Policy", href: "/privacy" }],
-  note: "This showroom reserves a place for Eyeball but does not call the chat service, launch the native renderer or claim private access."
-}];
+const products = baseProducts.filter((product) => product.id !== "drinkswithfriendz");
+const clientProjects = [drinks];
 
 const disciplines = ["Artificial intelligence", "Native mobile", "Web platforms", "Data systems", "Trading technology", "Sports technology", "Location services", "Public interface"];
 const productDisciplines = {
   chaseingreen: ["Artificial intelligence", "Data systems", "Trading technology"],
   lottovate: ["Artificial intelligence", "Native mobile", "Data systems"],
   sportfolio: ["Native mobile", "Web platforms", "Data systems", "Sports technology"],
-  drinkswithfriendz: ["Native mobile", "Location services"],
-  eyeball: ["Artificial intelligence", "Web platforms", "Public interface"],
 };
 
 const escapeHtml = (value) => String(value).replace(/[&<>"]/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[character]);
@@ -113,6 +106,13 @@ spine.addEventListener("keydown", (event) => {
 });
 
 document.querySelector("[data-services]").innerHTML = oesContent.services.map(([title, text], index) => `<article class="service-ribbon"><span class="service-ribbon__number">${String(index + 1).padStart(2, "0")}</span><h3>${escapeHtml(title)}</h3><p>${escapeHtml(text)}</p></article>`).join("");
+document.querySelector("[data-client-work]").innerHTML = clientProjects.map((project, index) => `<article class="client-project">
+  <div class="client-project__rail"><span>${String(index + 1).padStart(2, "0")}</span><span>CLIENT DELIVERY</span></div>
+  <div class="client-project__body"><div class="product-focus__topline"><span class="product-focus__category">${escapeHtml(project.category)}</span><span class="status-pill"><span class="signal"></span>${escapeHtml(project.status)}</span></div>
+  <h3>${escapeHtml(project.name)}</h3><p>${escapeHtml(project.description)}</p><div class="product-focus__actions">${project.actions.map(actionMarkup).join("")}</div>
+  <details class="dossier"><summary><span><span class="dossier-label">Delivered capabilities</span><br>Open client project dossier</span></summary><div class="dossier__body"><ul>${project.features.map((feature) => `<li>${escapeHtml(feature)}</li>`).join("")}</ul></div></details></div>
+  <aside class="client-project__ownership"><span>OWNERSHIP</span><strong>Client application</strong><p>OES developed the documented iOS work. Drinks With Friendz remains a client brand and is not presented as an OES-owned product.</p></aside>
+</article>`).join("");
 document.querySelector("[data-government-intro]").innerHTML = oesContent.government.paragraphs.map((paragraph) => `<p>${escapeHtml(paragraph)}</p>`).join("");
 document.querySelector("[data-government-capabilities]").innerHTML = oesContent.government.capabilities.map(([title, text]) => `<article class="vault-panel"><p class="eyebrow">Verified capability</p><h3>${escapeHtml(title)}</h3><p>${escapeHtml(text)}</p></article>`).join("");
 document.querySelector("[data-community]").innerHTML = oesContent.community.map((item) => `<article class="detroit-node"><p class="detroit-node__type">${escapeHtml(item.type)}</p><h3>${escapeHtml(item.name)}</h3><p>${escapeHtml(item.text)}${item.detail ? ` ${escapeHtml(item.detail)}` : ""}</p>${item.links ? item.links.map(([label, href]) => `<a class="text-link" href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer">${escapeHtml(label)}</a>`).join("") : ""}</article>`).join("");

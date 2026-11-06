@@ -1,0 +1,26 @@
+/* Ownership clarity and precision-cut interface surfaces layered onto Concept D. */
+.client-bay{position:relative;padding:clamp(6rem,10vw,11rem) clamp(1rem,6vw,7rem);background:linear-gradient(108deg,rgba(214,224,224,.065),transparent 38%,rgba(113,239,241,.025));border-block:1px solid rgba(210,230,229,.08)}
+.client-bay::before{content:"CLIENT / 01";position:absolute;right:6vw;top:5rem;font:700 clamp(3rem,9vw,9rem)/1 Bahnschrift,sans-serif;color:rgba(225,235,234,.025);letter-spacing:-.06em}
+.client-console{position:relative}
+.client-project{display:grid;grid-template-columns:64px minmax(0,1fr) minmax(210px,.38fr);background:linear-gradient(122deg,#aeb8ba 0,#596467 1.2%,#242b2e 9%,#0b0f11 54%,#20292c 100%);border:1px solid rgba(224,239,238,.24);clip-path:polygon(0 0,94% 0,100% 13%,100% 100%,6% 100%,0 87%);box-shadow:0 50px 90px rgba(0,0,0,.55),inset 0 1px rgba(255,255,255,.2)}
+.client-project__rail{display:flex;flex-direction:column;justify-content:space-between;align-items:center;padding:1.5rem .6rem;border-right:1px solid var(--line);font:700 .62rem Consolas,monospace;color:var(--cyan);letter-spacing:.14em}
+.client-project__rail span:last-child{writing-mode:vertical-rl;transform:rotate(180deg);color:var(--muted)}
+.client-project__body{padding:clamp(2rem,5vw,5rem)}
+.client-project__body h3{margin:2rem 0 1rem;font:700 clamp(3rem,7vw,7rem)/.85 Bahnschrift,sans-serif;letter-spacing:-.055em;text-transform:uppercase}
+.client-project__body>p{max-width:68ch;color:#bac5c6;font-size:1.05rem}
+.client-project__ownership{padding:2rem 1.4rem;border-left:1px solid var(--line);background:linear-gradient(155deg,rgba(255,255,255,.055),rgba(0,0,0,.18));display:flex;flex-direction:column;justify-content:center}
+.client-project__ownership span{font:700 .62rem Consolas,monospace;letter-spacing:.16em;color:var(--copper)}
+.client-project__ownership strong{font:700 1.2rem Bahnschrift,sans-serif;text-transform:uppercase;margin:.65rem 0}
+.client-project__ownership p{font-size:.82rem;color:var(--muted)}
+.eyeball-dock__visual{position:relative;display:grid;place-items:center;align-content:center;gap:1.5rem;min-height:480px;overflow:hidden;background:linear-gradient(145deg,rgba(41,49,52,.82),rgba(7,10,12,.96));border:1px solid rgba(216,234,233,.18);clip-path:polygon(0 8%,8% 0,92% 0,100% 8%,100% 92%,92% 100%,8% 100%,0 92%);box-shadow:var(--shadow-high)}
+.eyeball-dock__visual::before,.eyeball-dock__visual::after{content:"";position:absolute;pointer-events:none}
+.eyeball-dock__visual::before{width:62%;aspect-ratio:1;border:1px solid rgba(113,239,241,.24);border-radius:50%;box-shadow:0 0 0 18px rgba(113,239,241,.018),0 0 0 72px rgba(224,238,237,.018),inset 0 0 80px rgba(0,0,0,.72)}
+.eyeball-dock__visual::after{inset:12%;background:linear-gradient(90deg,transparent 49.8%,rgba(113,239,241,.2) 50%,transparent 50.2%),linear-gradient(transparent 49.8%,rgba(113,239,241,.2) 50%,transparent 50.2%);mask-image:radial-gradient(circle,#000 0 45%,transparent 46%)}
+.eyeball-dock__reticle{position:relative;width:38%;aspect-ratio:1;border:1px dashed rgba(217,230,230,.4);border-radius:50%;box-shadow:inset 0 0 40px rgba(113,239,241,.08)}
+.eyeball-dock__reticle::before,.eyeball-dock__reticle::after{content:"";position:absolute}
+.eyeball-dock__reticle::before{width:8px;height:8px;border-radius:50%;left:calc(50% - 4px);top:calc(50% - 4px);background:var(--cyan);box-shadow:0 0 14px rgba(113,239,241,.55)}
+.eyeball-dock__reticle::after{inset:18%;border:1px solid rgba(113,239,241,.24);border-radius:50%}
+.eyeball-dock__datum{position:absolute;left:1.5rem;top:1.4rem;font:700 .59rem Consolas,monospace;letter-spacing:.15em;color:var(--muted)}
+.eyeball-dock__asset-state{position:relative;max-width:24ch;text-align:center;font:700 .72rem/1.5 Bahnschrift,sans-serif;letter-spacing:.12em;text-transform:uppercase;color:#cbd5d5}
+@media(max-width:760px){.client-bay{padding:6rem 1rem}.client-project{display:block;clip-path:polygon(0 0,92% 0,100% 6%,100% 100%,8% 100%,0 94%)}.client-project__rail{display:none}.client-project__ownership{border-left:0;border-top:1px solid var(--line)}.eyeball-dock__visual{min-height:340px;margin-bottom:3rem}.eyeball-dock__asset-state{font-size:.65rem}}
+@media(max-width:430px){.hero h1{font-size:9.6vw;letter-spacing:-.075em;overflow-wrap:normal}.hero h1 span{white-space:nowrap}.hero__copy{min-width:0;overflow:hidden}.hero__lede,.hero__belief{max-width:100%}.client-project__body h3{font-size:clamp(2.5rem,13vw,4rem);overflow-wrap:anywhere}}

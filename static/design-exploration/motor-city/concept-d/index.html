@@ -6,6 +6,7 @@
   <meta name="description" content="Motor City Liquid Alloy — an OES premium website design exploration.">
   <title>OES — Motor City Liquid Alloy</title>
   <link rel="stylesheet" href="concept.css">
+  <link rel="stylesheet" href="refinement.css">
 </head>
 <body>
   <a class="skip-link" href="#main">Skip to main content</a>
@@ -23,7 +24,7 @@
     </a>
     <button class="menu-button" type="button" aria-expanded="false" aria-controls="primary-nav" data-menu>Menu</button>
     <nav id="primary-nav" class="primary-nav" aria-label="Primary navigation" data-nav>
-      <a href="#products">Products</a><a href="#capabilities">Capabilities</a><a href="#public-sector">Public sector</a><a href="#detroit">Detroit</a><a href="#research">Research</a><a href="#contact">Contact</a>
+      <a href="#products">Products</a><a href="#client-work">Client work</a><a href="#eyeball">Eyeball</a><a href="#capabilities">Capabilities</a><a href="#public-sector">Public sector</a><a href="#detroit">Detroit</a><a href="#contact">Contact</a>
     </nav>
     <div class="masthead__datum" aria-hidden="true"><span>42.3314° N</span><span>83.0458° W</span></div>
   </header>
@@ -46,12 +47,17 @@
     </section>
 
     <section class="product-system" id="products" aria-labelledby="products-title">
-      <header class="section-heading section-heading--split"><div><p class="eyebrow">OES Liquid Alloy Navigation Spine</p><h2 id="products-title">One company.<br>Multiple systems.</h2></div><p>Select a product to bring its verified state, purpose and public actions into focus. Full details remain one step away—never buried in a slideshow.</p></header>
+      <header class="section-heading section-heading--split"><div><p class="eyebrow">OES Product Systems</p><h2 id="products-title">Three products.<br>One execution system.</h2></div><p>Explore OES-owned products through a precision navigation spine. Verified state, purpose, public destinations and full development details remain accessible without turning the site into a slideshow.</p></header>
       <div class="product-workbench">
         <div class="spine" role="tablist" aria-label="OES products" aria-orientation="vertical" data-product-spine></div>
         <div class="focus-stage" data-product-stage aria-live="polite"></div>
         <aside class="relationship-panel" aria-labelledby="relationship-title"><p class="eyebrow">Documented disciplines</p><h3 id="relationship-title">Connected by execution.</h3><p>The highlighted disciplines come directly from each product’s documented description. They show shared OES capabilities—not claimed integrations between products.</p><div class="discipline-map" data-discipline-map></div></aside>
       </div>
+    </section>
+
+    <section class="client-bay" id="client-work" aria-labelledby="client-work-title">
+      <header class="section-heading section-heading--split"><div><p class="eyebrow">Client Work · Separate Portfolio</p><h2 id="client-work-title">Built by OES.<br>Owned by the client.</h2></div><p>Client engagements are presented separately from OES-owned products. This makes the work visible without misrepresenting ownership, and leaves a clear system for future portfolio additions.</p></header>
+      <div class="client-console" data-client-work></div>
     </section>
 
     <section class="capability-river" id="capabilities" aria-labelledby="capabilities-title">
@@ -82,8 +88,12 @@
     </section>
 
     <section class="eyeball-dock" id="eyeball" aria-labelledby="eyeball-title">
-      <div class="eyeball-dock__visual" aria-hidden="true"><span class="eyeball-orbit"></span><img src="/static/images/oes-logo.svg" alt=""></div>
-      <div><p class="eyebrow">OES Eyeball · Reserved Interface</p><h2 id="eyeball-title">Intelligence belongs inside the system.</h2><p>Eyeball is represented by the animated OES Core on the public website. The existing public assistant, safety notice and localized interface remain separate from this visual prototype.</p><p class="language-line"><strong>Existing interface languages</strong> English · Español · Français · العربية · 简体中文</p><button class="alloy-button" type="button" data-eyeball-preview aria-expanded="false" aria-controls="eyeball-note">Preview placement</button><div id="eyeball-note" class="eyeball-note" hidden><p><strong>Design boundary:</strong> this showroom does not call the chat service, launch a native renderer or claim private access.</p></div></div>
+      <div class="eyeball-dock__visual" data-eyeball-stage role="img" aria-label="Reserved stage for the owner-approved premium OES Eyeball model">
+        <span class="eyeball-dock__datum">OPTICAL PLATFORM / ASSET GATE 01</span>
+        <span class="eyeball-dock__reticle" aria-hidden="true"></span>
+        <span class="eyeball-dock__asset-state">Premium character asset pending visual approval</span>
+      </div>
+      <div><p class="eyebrow">Eyeball / OES Core · Intelligent Platform</p><h2 id="eyeball-title">A character inside the system—not pasted onto it.</h2><p>Eyeball is OES's public intelligence interface and the character identity for the OES Core desktop assistant. The premium character will use one approved mechanical design across web and native runtimes.</p><p>The showroom deliberately does not substitute the flat OES logo or the existing procedural prototype for finished character artwork. A validated Blender-to-glTF asset must pass owner review before this stage becomes interactive 3D.</p><p class="language-line"><strong>Existing interface languages</strong> English · Español · Français · العربية · 简体中文</p><button class="alloy-button" type="button" data-eyeball-preview aria-expanded="false" aria-controls="eyeball-note">View integration boundary</button><div id="eyeball-note" class="eyeball-note" hidden><p><strong>Design boundary:</strong> this showroom does not call the chat service, launch a native renderer, expose OES Core APIs or claim private access. The approved asset will add drag rotation, restrained idle motion, mobile input and reduced-motion behavior here.</p></div></div>
     </section>
 
     <section class="contact-forge" id="contact" aria-labelledby="contact-title">
