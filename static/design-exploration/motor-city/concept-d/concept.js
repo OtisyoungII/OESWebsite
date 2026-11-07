@@ -1,0 +1,149 @@
+import { oesContent } from "../shared/content.js";
+
+const APP_STORE_URL = "https://apps.apple.com/us/app/chaseingreen/id6770096789";
+const configuredSportfolioUrl = document.body.dataset.sportfolioUrl || "";
+const SPORTFOLIO_URL = (() => {
+  try {
+    const url = new URL(configuredSportfolioUrl);
+    return url.protocol === "https:" ? url.href : "https://sportfolio-api-ktd5.onrender.com/";
+  } catch {
+    return "https://sportfolio-api-ktd5.onrender.com/";
+  }
+})();
+const baseProducts = oesContent.products.map((product) => ({ ...product, features: [...product.features], actions: product.actions.map((action) => ({ ...action })) }));
+const chase = baseProducts.find((product) => product.id === "chaseingreen");
+chase.status = "Live on the App Store";
+chase.description = "ChaseInGreen is an OES-built trading companion now live on the Apple App Store. It brings market context, planning, risk tools, journaling and trader workspace features together without acting as a brokerage, exchange, wallet or financial institution.";
+chase.actions = [
+  { label: "Get ChaseINGreen on the App Store", href: APP_STORE_URL, primary: true },
+  { label: "Join ChaseInGreen Discord", href: "https://discord.gg/YjKFkdnj3" },
+  { label: "ChaseInGreen Privacy Policy", href: "/privacy" },
+];
+chase.note = "The App Store listing is the current public release destination. OES does not claim download counts, ratings, rankings or guaranteed trading outcomes.";
+
+const sportfolio = baseProducts.find((product) => product.id === "sportfolio");
+sportfolio.actions = [
+  { label: "Try Sportfolio Web", href: SPORTFOLIO_URL, primary: true },
+  { label: "iOS TestFlight — Coming Soon", disabled: true },
+];
+
+const lottovate = baseProducts.find((product) => product.id === "lottovate");
+lottovate.status = "Public TestFlight";
+const drinks = baseProducts.find((product) => product.id === "drinkswithfriendz");
+drinks.status = "Public TestFlight Beta";
+
+const products = baseProducts.filter((product) => product.id !== "drinkswithfriendz");
+const clientProjects = [drinks];
+
+const disciplines = ["Artificial intelligence", "Native mobile", "Web platforms", "Data systems", "Trading technology", "Sports technology", "Location services", "Public interface"];
+const productDisciplines = {
+  chaseingreen: ["Artificial intelligence", "Data systems", "Trading technology"],
+  lottovate: ["Artificial intelligence", "Native mobile", "Data systems"],
+  sportfolio: ["Native mobile", "Web platforms", "Data systems", "Sports technology"],
+};
+
+const escapeHtml = (value) => String(value).replace(/[&<>"]/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[character]);
+const external = (href = "") => href.startsWith("http") ? ' target="_blank" rel="noopener noreferrer"' : "";
+const analyticsAttributes = (action, product) => {
+  if (!action.href || !product) return "";
+  const event = action.href.includes("testflight.apple.com") ? "testflight_link_activated"
+    : action.href === SPORTFOLIO_URL ? "web_app_link_activated"
+      : action.href.startsWith("mailto:") ? "contact_action_activated"
+        : action.href.startsWith("http") ? "external_product_link_activated" : "";
+  return event ? ` data-product-event="${event}" data-product-target="${escapeHtml(product.id)}"` : "";
+};
+const actionMarkup = (action, product) => action.disabled
+  ? `<span class="alloy-button" aria-disabled="true">${escapeHtml(action.label)}</span>`
+  : `<a class="alloy-button${action.primary ? " alloy-button--solid" : ""}" href="${escapeHtml(action.href)}"${external(action.href)}${analyticsAttributes(action, product)}>${escapeHtml(action.label)}</a>`;
+
+const spine = document.querySelector("[data-product-spine]");
+const stage = document.querySelector("[data-product-stage]");
+const disciplineMap = document.querySelector("[data-discipline-map]");
+let activeIndex = 0;
+
+function renderSpine() {
+  spine.innerHTML = products.map((product, index) => `
+    <button class="spine__button" type="button" role="tab" id="product-tab-${escapeHtml(product.id)}" aria-controls="product-panel-${escapeHtml(product.id)}" aria-selected="${index === activeIndex}" tabindex="${index === activeIndex ? 0 : -1}" data-product-index="${index}" data-product-event="product_card_activated" data-product-target="${escapeHtml(product.id)}">
+      <span class="spine__number">${String(index + 1).padStart(2, "0")}</span><span>${escapeHtml(product.name)}<small>${escapeHtml(product.status)}</small></span>
+    </button>`).join("");
+}
+
+function renderDisciplines(product) {
+  const active = new Set(productDisciplines[product.id] || []);
+  disciplineMap.innerHTML = disciplines.map((name) => `<span class="discipline${active.has(name) ? " is-active" : ""}">${escapeHtml(name)}</span>`).join("");
+}
+
+function renderProduct({ focus = false } = {}) {
+  const product = products[activeIndex];
+  const isChase = product.id === "chaseingreen";
+  stage.innerHTML = `<article class="product-focus" data-product="${escapeHtml(product.id)}" role="tabpanel" id="product-panel-${escapeHtml(product.id)}" aria-labelledby="product-tab-${escapeHtml(product.id)}" tabindex="0">
+    <div class="product-focus__topline"><span class="product-focus__category">${escapeHtml(product.category)}</span><span class="status-pill"><span class="signal"></span>${escapeHtml(product.status)}</span></div>
+    <h3>${escapeHtml(product.name)}</h3>${product.tagline ? `<p class="product-focus__tagline">${escapeHtml(product.tagline)}</p>` : ""}
+    <p class="product-focus__description">${escapeHtml(product.description)}</p>
+    <div class="product-focus__actions">${product.actions.map((action) => actionMarkup(action, product)).join("")}</div>
+    <details class="dossier" ${new URLSearchParams(location.search).get("details") === "1" ? "open" : ""}>
+      <summary><span><span class="dossier-label">Development and technical dossier</span><br>Show all documented details</span></summary>
+      <div class="dossier__body"><p><strong>Current verified state:</strong> ${escapeHtml(product.status)}.</p><ul>${product.features.map((feature) => `<li>${escapeHtml(feature)}</li>`).join("")}</ul></div>
+    </details>
+    ${product.note ? `<p class="product-focus__note">${escapeHtml(product.note)}</p>` : ""}
+    ${isChase ? `<p class="product-focus__note"><strong>Official release destination:</strong> Apple App Store product ID 6770096789.</p>` : ""}
+  </article>`;
+  renderDisciplines(product);
+  renderSpine();
+  const url = new URL(location.href);
+  url.searchParams.set("product", product.id);
+  history.replaceState({}, "", url);
+  if (focus) stage.querySelector(".product-focus")?.focus();
+}
+
+function selectProduct(index, { focus = false } = {}) {
+  activeIndex = Math.max(0, Math.min(products.length - 1, index));
+  renderProduct({ focus });
+}
+
+const requestedProduct = new URLSearchParams(location.search).get("product");
+const requestedIndex = products.findIndex((product) => product.id === requestedProduct);
+if (requestedIndex >= 0) activeIndex = requestedIndex;
+renderProduct();
+
+spine.addEventListener("click", (event) => {
+  const button = event.target.closest("[data-product-index]");
+  if (button) selectProduct(Number(button.dataset.productIndex), { focus: false });
+});
+spine.addEventListener("keydown", (event) => {
+  const button = event.target.closest("[data-product-index]");
+  if (!button) return;
+  const current = Number(button.dataset.productIndex);
+  const keys = { ArrowDown: current + 1, ArrowRight: current + 1, ArrowUp: current - 1, ArrowLeft: current - 1, Home: 0, End: products.length - 1 };
+  if (!(event.key in keys)) return;
+  event.preventDefault();
+  selectProduct((keys[event.key] + products.length) % products.length);
+  spine.querySelector(`[data-product-index="${activeIndex}"]`)?.focus();
+});
+
+document.querySelector("[data-services]").innerHTML = oesContent.services.map(([title, text], index) => `<article class="service-ribbon"><span class="service-ribbon__number">${String(index + 1).padStart(2, "0")}</span><h3>${escapeHtml(title)}</h3><p>${escapeHtml(text)}</p></article>`).join("");
+document.querySelector("[data-client-work]").innerHTML = clientProjects.map((project, index) => `<article class="client-project" data-product="${escapeHtml(project.id)}">
+  <div class="client-project__rail"><span>${String(index + 1).padStart(2, "0")}</span><span>CLIENT DELIVERY</span></div>
+  <div class="client-project__body"><div class="product-focus__topline"><span class="product-focus__category">${escapeHtml(project.category)}</span><span class="status-pill"><span class="signal"></span>${escapeHtml(project.status)}</span></div>
+  <h3>${escapeHtml(project.name)}</h3><p>${escapeHtml(project.description)}</p><div class="product-focus__actions">${project.actions.map((action) => actionMarkup(action, project)).join("")}</div>
+  <details class="dossier"><summary><span><span class="dossier-label">Delivered capabilities</span><br>Open client project dossier</span></summary><div class="dossier__body"><ul>${project.features.map((feature) => `<li>${escapeHtml(feature)}</li>`).join("")}</ul></div></details></div>
+  <aside class="client-project__ownership"><span>OWNERSHIP</span><strong>Client application</strong><p>OES developed the documented iOS work. Drinks With Friendz remains a client brand and is not presented as an OES-owned product.</p></aside>
+</article>`).join("");
+document.querySelector("[data-government-intro]").innerHTML = oesContent.government.paragraphs.map((paragraph) => `<p>${escapeHtml(paragraph)}</p>`).join("");
+document.querySelector("[data-government-capabilities]").innerHTML = oesContent.government.capabilities.map(([title, text]) => `<article class="vault-panel"><p class="eyebrow">Verified capability</p><h3>${escapeHtml(title)}</h3><p>${escapeHtml(text)}</p></article>`).join("");
+document.querySelector("[data-community]").innerHTML = oesContent.community.map((item) => `<article class="detroit-node"><p class="detroit-node__type">${escapeHtml(item.type)}</p><h3>${escapeHtml(item.name)}</h3><p>${escapeHtml(item.text)}${item.detail ? ` ${escapeHtml(item.detail)}` : ""}</p>${item.links ? item.links.map(([label, href]) => `<a class="text-link" href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer">${escapeHtml(label)}</a>`).join("") : ""}</article>`).join("");
+document.querySelector("[data-research-intro]").innerHTML = oesContent.research.paragraphs.map((paragraph) => `<p>${escapeHtml(paragraph)}</p>`).join("");
+document.querySelector("[data-research-lines]").innerHTML = oesContent.research.lines.map(([status, name]) => `<div class="research-line"><strong>${escapeHtml(status)}</strong><span>${escapeHtml(name)}</span></div>`).join("");
+document.querySelector("[data-about]").innerHTML = oesContent.about.paragraphs.map((paragraph) => `<p>${escapeHtml(paragraph)}</p>`).join("");
+document.querySelector("[data-contact-copy]").textContent = oesContent.contact.text;
+
+const menu = document.querySelector("[data-menu]");
+menu.addEventListener("click", () => {
+  const open = menu.getAttribute("aria-expanded") !== "true";
+  menu.setAttribute("aria-expanded", String(open));
+  document.querySelector("[data-nav]").classList.toggle("is-open", open);
+});
+document.querySelector("[data-nav]").addEventListener("click", () => {
+  menu.setAttribute("aria-expanded", "false");
+  document.querySelector("[data-nav]").classList.remove("is-open");
+});
