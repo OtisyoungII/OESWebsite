@@ -1,6 +1,5 @@
 const events = new Set([
-    'website_session_started', 'website_visit_started', 'website_page_viewed',
-    'product_card_activated', 'eyeball_opened',
+    'website_session_started', 'product_card_activated', 'eyeball_opened',
     'eyeball_closed', 'eyeball_message_submitted', 'eyeball_language_changed',
     'external_product_link_activated', 'testflight_link_activated',
     'web_app_link_activated', 'contact_action_activated',
@@ -9,17 +8,9 @@ const events = new Set([
 const products = new Set(['chaseingreen', 'lottovate', 'sportfolio', 'drinkswithfriendz']);
 const languages = new Set(['en', 'es', 'fr', 'ar', 'zh-CN']);
 const clarificationReasons = new Set(['ambiguous_typo', 'high_impact_ambiguity', 'low_confidence']);
-const pages = new Set(['home', 'privacy', 'drinks_with_friendz_privacy', 'other']);
 
 export function platformCategory(width) {
     return width <= 760 ? 'mobile' : width <= 1020 ? 'tablet' : 'desktop';
-}
-
-export function pageCategory(pathname) {
-    if (pathname === '/') return 'home';
-    if (pathname === '/privacy') return 'privacy';
-    if (pathname === '/drinks-with-friendz/privacy') return 'drinks_with_friendz_privacy';
-    return 'other';
 }
 
 export function validProductEvent(detail) {
@@ -30,9 +21,8 @@ export function validProductEvent(detail) {
             && !['desktop', 'tablet', 'mobile', 'unknown'].includes(detail.platform)) return false;
     if (detail.clarificationReason !== undefined
             && !clarificationReasons.has(detail.clarificationReason)) return false;
-    if (detail.page !== undefined && !pages.has(detail.page)) return false;
     return Object.keys(detail).every(key =>
-        ['event', 'productTarget', 'language', 'platform', 'clarificationReason', 'page'].includes(key));
+        ['event', 'productTarget', 'language', 'platform', 'clarificationReason'].includes(key));
 }
 
 export function activationFrom(element) {
@@ -50,7 +40,6 @@ export function productEventPayload(detail) {
     if (detail.language) dimensions.language = detail.language;
     if (detail.platform) dimensions.platform = detail.platform;
     if (detail.clarificationReason) dimensions.clarification_reason = detail.clarificationReason;
-    if (detail.page) dimensions.page = detail.page;
     return { event: detail.event, dimensions };
 }
 
@@ -85,15 +74,8 @@ export async function initializeProductIntelligence() {
             result.sessions.toLocaleString();
         counter.hidden = false;
         ready = true;
-        const platform = platformCategory(window.innerWidth);
-        const language = languages.has(document.documentElement.lang) ? document.documentElement.lang : 'en';
-        if (result.created === true) {
-            send({ event: 'website_session_started', platform, language });
-        }
-        if (result.visit_started === true) {
-            send({ event: 'website_visit_started', platform, language });
-        }
-        send({ event: 'website_page_viewed', page: pageCategory(window.location.pathname) });
+        send({ event: 'website_session_started', platform: platformCategory(window.innerWidth),
+            language: languages.has(document.documentElement.lang) ? document.documentElement.lang : 'en' });
         queue.splice(0).forEach(send);
     } catch { /* Product intelligence never blocks the website. */ }
 }

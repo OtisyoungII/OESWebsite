@@ -630,7 +630,9 @@ function setCurrentSection(sectionElement) {
     }
 
     const sectionId =
-        sectionElement.id || "home";
+        sectionElement.dataset.awarenessSection ||
+        sectionElement.id ||
+        "home";
 
     if (
         sectionId === currentSectionId &&

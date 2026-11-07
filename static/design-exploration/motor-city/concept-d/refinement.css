@@ -23,16 +23,10 @@
 .eyeball-dock__datum{position:absolute;left:1.5rem;top:1.4rem;font:700 .59rem Consolas,monospace;letter-spacing:.15em;color:var(--muted)}
 .eyeball-dock__asset-state{position:relative;max-width:24ch;text-align:center;font:700 .72rem/1.5 Bahnschrift,sans-serif;letter-spacing:.12em;text-transform:uppercase;color:#cbd5d5}
 .eyeball-dock__candidate{position:relative;z-index:1;width:min(78%,420px);aspect-ratio:1;object-fit:cover;border-radius:50%;filter:drop-shadow(0 42px 42px rgba(0,0,0,.72));mask-image:radial-gradient(circle,#000 0 68%,rgba(0,0,0,.92) 76%,transparent 77%)}
-.petal-stage{position:relative;z-index:2;width:min(100%,580px);aspect-ratio:1;touch-action:none;cursor:grab;outline:none}
-.petal-stage:active{cursor:grabbing}.petal-stage:focus-within{outline:2px solid var(--cyan);outline-offset:4px}
-.petal-stage__canvas{display:block;width:100%;height:100%;touch-action:none}
-.petal-stage__loading,.petal-stage__fallback{position:absolute;inset:0;display:grid;place-content:center;justify-items:center;gap:1rem;padding:3rem;text-align:center;background:radial-gradient(circle,rgba(19,33,38,.88),rgba(5,8,10,.96));color:#dce6e6}
-.petal-stage__loading span{width:42px;aspect-ratio:1;border:2px solid rgba(113,239,241,.2);border-top-color:var(--cyan);border-radius:50%;animation:petal-load 1s linear infinite}
-.petal-stage__loading[hidden],.petal-stage__fallback[hidden]{display:none}.petal-stage__fallback{font-size:.9rem;line-height:1.6}
-.petal-controls{position:relative;z-index:3;display:flex;flex-wrap:wrap;justify-content:center;gap:.45rem;padding:0 1rem}
-.petal-controls button{border:1px solid rgba(211,232,232,.22);background:rgba(5,10,12,.78);color:#bdcaca;padding:.55rem .72rem;font:700 .62rem Bahnschrift,sans-serif;letter-spacing:.1em;text-transform:uppercase;cursor:pointer}
-.petal-controls button:hover,.petal-controls button:focus-visible{border-color:var(--cyan);color:#fff}.petal-controls button[aria-pressed="true"]{background:rgba(113,239,241,.13);border-color:rgba(113,239,241,.68);color:#fff}
-@keyframes petal-load{to{transform:rotate(1turn)}}
-@media(max-width:760px){.client-bay{padding:6rem 1rem}.client-project{display:block;clip-path:polygon(0 0,92% 0,100% 6%,100% 100%,8% 100%,0 94%)}.client-project__rail{display:none}.client-project__ownership{border-left:0;border-top:1px solid var(--line)}.eyeball-dock__visual{min-height:340px;margin-bottom:3rem}.eyeball-dock__asset-state{font-size:.65rem}}
+.product-counter{margin:0;padding:1rem clamp(1rem,6vw,7rem);border-top:1px solid var(--line);color:var(--muted);font:.7rem/1.4 Consolas,monospace;text-align:right}
+.eyeball-dock__visual--original{min-height:570px}
+.eyeball-dock__visual--original .oes-core-stage{--core-object-size:min(320px,64vw);--core-orbit-outer-size:min(455px,88vw);--core-orbit-middle-size:min(400px,78vw);--core-orbit-inner-size:min(350px,70vw);--core-data-outer-size:min(390px,76vw);--core-data-inner-size:min(340px,68vw);width:100%;min-height:540px;margin:0}
+.eyeball-dock__visual--original .core-shadow{bottom:10%}
+.eyeball-dock__visual--original .core-message{bottom:3%}
+@media(max-width:760px){.client-bay{padding:6rem 1rem}.client-project{display:block;clip-path:polygon(0 0,92% 0,100% 6%,100% 100%,8% 100%,0 94%)}.client-project__rail{display:none}.client-project__ownership{border-left:0;border-top:1px solid var(--line)}.eyeball-dock__visual{min-height:340px;margin-bottom:3rem}.eyeball-dock__visual--original{min-height:455px}.eyeball-dock__visual--original .oes-core-stage{--core-object-size:min(260px,68vw);--core-orbit-outer-size:min(365px,96vw);--core-orbit-middle-size:min(320px,84vw);--core-orbit-inner-size:min(285px,76vw);--core-data-outer-size:min(315px,82vw);--core-data-inner-size:min(275px,72vw);width:100%;min-height:430px;margin:0}.eyeball-dock__asset-state{font-size:.65rem}}
 @media(max-width:430px){.hero h1{font-size:9.6vw;letter-spacing:-.075em;overflow-wrap:normal}.hero h1 span{white-space:nowrap}.hero__copy{min-width:0;overflow:hidden}.hero__lede,.hero__belief{max-width:100%}.client-project__body h3{font-size:clamp(2.5rem,13vw,4rem);overflow-wrap:anywhere}}
-@media(prefers-reduced-motion:reduce){.petal-stage__loading span{animation:none}.petal-stage{cursor:default}}

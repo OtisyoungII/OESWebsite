@@ -1,7 +1,15 @@
 import { oesContent } from "../shared/content.js";
 
 const APP_STORE_URL = "https://apps.apple.com/us/app/chaseingreen/id6770096789";
-const SPORTFOLIO_URL = "https://sportfolio-api-ktd5.onrender.com/";
+const configuredSportfolioUrl = document.body.dataset.sportfolioUrl || "";
+const SPORTFOLIO_URL = (() => {
+  try {
+    const url = new URL(configuredSportfolioUrl);
+    return url.protocol === "https:" ? url.href : "https://sportfolio-api-ktd5.onrender.com/";
+  } catch {
+    return "https://sportfolio-api-ktd5.onrender.com/";
+  }
+})();
 const baseProducts = oesContent.products.map((product) => ({ ...product, features: [...product.features], actions: product.actions.map((action) => ({ ...action })) }));
 const chase = baseProducts.find((product) => product.id === "chaseingreen");
 chase.status = "Live on the App Store";
@@ -36,9 +44,17 @@ const productDisciplines = {
 
 const escapeHtml = (value) => String(value).replace(/[&<>"]/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[character]);
 const external = (href = "") => href.startsWith("http") ? ' target="_blank" rel="noopener noreferrer"' : "";
-const actionMarkup = (action) => action.disabled
+const analyticsAttributes = (action, product) => {
+  if (!action.href || !product) return "";
+  const event = action.href.includes("testflight.apple.com") ? "testflight_link_activated"
+    : action.href === SPORTFOLIO_URL ? "web_app_link_activated"
+      : action.href.startsWith("mailto:") ? "contact_action_activated"
+        : action.href.startsWith("http") ? "external_product_link_activated" : "";
+  return event ? ` data-product-event="${event}" data-product-target="${escapeHtml(product.id)}"` : "";
+};
+const actionMarkup = (action, product) => action.disabled
   ? `<span class="alloy-button" aria-disabled="true">${escapeHtml(action.label)}</span>`
-  : `<a class="alloy-button${action.primary ? " alloy-button--solid" : ""}" href="${escapeHtml(action.href)}"${external(action.href)}>${escapeHtml(action.label)}</a>`;
+  : `<a class="alloy-button${action.primary ? " alloy-button--solid" : ""}" href="${escapeHtml(action.href)}"${external(action.href)}${analyticsAttributes(action, product)}>${escapeHtml(action.label)}</a>`;
 
 const spine = document.querySelector("[data-product-spine]");
 const stage = document.querySelector("[data-product-stage]");
@@ -47,7 +63,7 @@ let activeIndex = 0;
 
 function renderSpine() {
   spine.innerHTML = products.map((product, index) => `
-    <button class="spine__button" type="button" role="tab" id="product-tab-${escapeHtml(product.id)}" aria-controls="product-panel-${escapeHtml(product.id)}" aria-selected="${index === activeIndex}" tabindex="${index === activeIndex ? 0 : -1}" data-product-index="${index}">
+    <button class="spine__button" type="button" role="tab" id="product-tab-${escapeHtml(product.id)}" aria-controls="product-panel-${escapeHtml(product.id)}" aria-selected="${index === activeIndex}" tabindex="${index === activeIndex ? 0 : -1}" data-product-index="${index}" data-product-event="product_card_activated" data-product-target="${escapeHtml(product.id)}">
       <span class="spine__number">${String(index + 1).padStart(2, "0")}</span><span>${escapeHtml(product.name)}<small>${escapeHtml(product.status)}</small></span>
     </button>`).join("");
 }
@@ -60,11 +76,11 @@ function renderDisciplines(product) {
 function renderProduct({ focus = false } = {}) {
   const product = products[activeIndex];
   const isChase = product.id === "chaseingreen";
-  stage.innerHTML = `<article class="product-focus" role="tabpanel" id="product-panel-${escapeHtml(product.id)}" aria-labelledby="product-tab-${escapeHtml(product.id)}" tabindex="0">
+  stage.innerHTML = `<article class="product-focus" data-product="${escapeHtml(product.id)}" role="tabpanel" id="product-panel-${escapeHtml(product.id)}" aria-labelledby="product-tab-${escapeHtml(product.id)}" tabindex="0">
     <div class="product-focus__topline"><span class="product-focus__category">${escapeHtml(product.category)}</span><span class="status-pill"><span class="signal"></span>${escapeHtml(product.status)}</span></div>
     <h3>${escapeHtml(product.name)}</h3>${product.tagline ? `<p class="product-focus__tagline">${escapeHtml(product.tagline)}</p>` : ""}
     <p class="product-focus__description">${escapeHtml(product.description)}</p>
-    <div class="product-focus__actions">${product.actions.map(actionMarkup).join("")}</div>
+    <div class="product-focus__actions">${product.actions.map((action) => actionMarkup(action, product)).join("")}</div>
     <details class="dossier" ${new URLSearchParams(location.search).get("details") === "1" ? "open" : ""}>
       <summary><span><span class="dossier-label">Development and technical dossier</span><br>Show all documented details</span></summary>
       <div class="dossier__body"><p><strong>Current verified state:</strong> ${escapeHtml(product.status)}.</p><ul>${product.features.map((feature) => `<li>${escapeHtml(feature)}</li>`).join("")}</ul></div>
@@ -106,10 +122,10 @@ spine.addEventListener("keydown", (event) => {
 });
 
 document.querySelector("[data-services]").innerHTML = oesContent.services.map(([title, text], index) => `<article class="service-ribbon"><span class="service-ribbon__number">${String(index + 1).padStart(2, "0")}</span><h3>${escapeHtml(title)}</h3><p>${escapeHtml(text)}</p></article>`).join("");
-document.querySelector("[data-client-work]").innerHTML = clientProjects.map((project, index) => `<article class="client-project">
+document.querySelector("[data-client-work]").innerHTML = clientProjects.map((project, index) => `<article class="client-project" data-product="${escapeHtml(project.id)}">
   <div class="client-project__rail"><span>${String(index + 1).padStart(2, "0")}</span><span>CLIENT DELIVERY</span></div>
   <div class="client-project__body"><div class="product-focus__topline"><span class="product-focus__category">${escapeHtml(project.category)}</span><span class="status-pill"><span class="signal"></span>${escapeHtml(project.status)}</span></div>
-  <h3>${escapeHtml(project.name)}</h3><p>${escapeHtml(project.description)}</p><div class="product-focus__actions">${project.actions.map(actionMarkup).join("")}</div>
+  <h3>${escapeHtml(project.name)}</h3><p>${escapeHtml(project.description)}</p><div class="product-focus__actions">${project.actions.map((action) => actionMarkup(action, project)).join("")}</div>
   <details class="dossier"><summary><span><span class="dossier-label">Delivered capabilities</span><br>Open client project dossier</span></summary><div class="dossier__body"><ul>${project.features.map((feature) => `<li>${escapeHtml(feature)}</li>`).join("")}</ul></div></details></div>
   <aside class="client-project__ownership"><span>OWNERSHIP</span><strong>Client application</strong><p>OES developed the documented iOS work. Drinks With Friendz remains a client brand and is not presented as an OES-owned product.</p></aside>
 </article>`).join("");
@@ -130,12 +146,4 @@ menu.addEventListener("click", () => {
 document.querySelector("[data-nav]").addEventListener("click", () => {
   menu.setAttribute("aria-expanded", "false");
   document.querySelector("[data-nav]").classList.remove("is-open");
-});
-
-const eyeballButton = document.querySelector("[data-eyeball-preview]");
-const eyeballNote = document.querySelector("#eyeball-note");
-eyeballButton.addEventListener("click", () => {
-  const open = eyeballButton.getAttribute("aria-expanded") !== "true";
-  eyeballButton.setAttribute("aria-expanded", String(open));
-  eyeballNote.hidden = !open;
 });

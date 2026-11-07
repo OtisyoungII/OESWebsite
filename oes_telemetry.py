@@ -21,8 +21,7 @@ EVENT_TYPES = frozenset({
     'inference_ready', 'inference_completed', 'inference_failed', 'validation_rejected',
     'correction_attempted', 'response_completed', 'safe_error',
     'request_cancelled', 'telemetry_gap',
-    'website_session_started', 'website_visit_started', 'website_page_viewed',
-    'product_card_activated',
+    'website_session_started', 'product_card_activated',
     'eyeball_opened', 'eyeball_closed', 'eyeball_message_submitted',
     'eyeball_language_changed', 'external_product_link_activated',
     'testflight_link_activated', 'web_app_link_activated',
@@ -86,7 +85,6 @@ DIMENSIONS = {
         'chaseingreen', 'lottovate', 'sportfolio', 'drinkswithfriendz',
     }),
     'destination': frozenset({'testflight', 'web_app', 'external_site', 'contact'}),
-    'page': frozenset({'home', 'privacy', 'drinks_with_friendz_privacy', 'other'}),
     'clarification_reason': frozenset({
         'ambiguous_typo', 'high_impact_ambiguity', 'low_confidence'}),
 }
@@ -108,8 +106,6 @@ EVENT_DIMENSIONS = {
     'inference_completed': frozenset({'inference_state'}),
     'inference_failed': frozenset({'inference_state'}),
     'website_session_started': frozenset({'product', 'surface', 'platform', 'language'}),
-    'website_visit_started': frozenset({'product', 'surface', 'platform', 'language'}),
-    'website_page_viewed': frozenset({'product', 'surface', 'page'}),
     'product_card_activated': frozenset({'product', 'surface', 'product_target'}),
     'eyeball_opened': frozenset({'product', 'surface', 'platform', 'language'}),
     'eyeball_closed': frozenset({'product', 'surface'}),

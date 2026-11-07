@@ -4,8 +4,6 @@ import { EYEBALL_LOCALES, initialEyeballLocale, localeDefinition,
     persistEyeballLocale, shouldRefocusEyeballComposer } from './eyeball-localization.js';
 import { completionDirective } from './eyeball-continuity.js';
 import { renderClarification } from './eyeball-clarification.js';
-import { createEyeballPresentation,
-    createEyeballPresentationLifecycle } from './eyeball-presentation.js';
 
 // Same-origin transport only; provider selection and policy stay on the server.
 export function initializeEyeballChat() {
@@ -22,20 +20,12 @@ export function initializeEyeballChat() {
     const stop = dialog.querySelector('[data-chat-stop]');
     const localeControl = dialog.querySelector('[data-chat-locale]');
     const invitation = document.querySelector('[data-eyeball-invitation]');
-    const stage = document.querySelector('[data-oes-core-stage]');
-    const motionPreference = window.matchMedia?.('(prefers-reduced-motion: reduce)');
-    const presentation = createEyeballPresentation({
-        targets: [core, stage, invitation],
-        reducedMotion: Boolean(motionPreference?.matches)
-    });
-    const presentationLifecycle = createEyeballPresentationLifecycle(presentation);
     let pointer = null;
     let activeRequest = null;
     let history = [];
     let lookupContinuation = null;
     let pendingClarification = null;
     let interactionMode = 'pointer';
-    let activationCount = 0;
     let preferenceStorage;
     try { preferenceStorage = window.localStorage; } catch { preferenceStorage = null; }
     let locale = initialEyeballLocale(preferenceStorage, navigator.languages || [navigator.language]);
@@ -131,24 +121,8 @@ export function initializeEyeballChat() {
     core.addEventListener('click', (event) => {
         if (event.detail === 0) requestChat();
     });
-    core.addEventListener('pointerenter', (event) => {
-        if (event.pointerType !== 'touch' && !dialog.open && !activeRequest) {
-            presentationLifecycle.aware();
-        }
-    });
-    core.addEventListener('pointerleave', () => {
-        if (!dialog.open && !activeRequest) presentationLifecycle.idle();
-    });
-    core.addEventListener('focus', () => {
-        if (!dialog.open && !activeRequest) presentationLifecycle.aware();
-    });
-    core.addEventListener('blur', () => {
-        if (!dialog.open && !activeRequest) presentationLifecycle.idle();
-    });
     core.addEventListener('oes:chatrequest', () => {
         if (dialog.open) return;
-        activationCount += 1;
-        presentationLifecycle.open(activationCount % 4 === 0);
         observations.opened();
         document.dispatchEvent(new CustomEvent('oes:product-event', {
             detail: { event: 'eyeball_opened', language: locale,
@@ -156,7 +130,7 @@ export function initializeEyeballChat() {
         }));
         dialog.showModal();
         core.setAttribute('aria-expanded', 'true');
-        if (shouldRefocusComposer()) input.focus();
+        input.focus();
     });
 
     function setBusy(busy) {
@@ -170,7 +144,6 @@ export function initializeEyeballChat() {
         activeRequest = null;
         setBusy(false);
         setStatus('stopped');
-        presentationLifecycle.cancelled(dialog.open);
     }
     dialog.querySelector('[data-chat-close]').addEventListener('click', () => dialog.close());
     dialog.addEventListener('cancel', (event) => {
@@ -183,24 +156,12 @@ export function initializeEyeballChat() {
             detail: { event: 'eyeball_closed' }
         }));
         cancelResponse();
-        presentationLifecycle.closed();
         core.setAttribute('aria-expanded', 'false');
         core.focus({ preventScroll: true });
     });
     stop.addEventListener('click', () => {
         cancelResponse();
         if (shouldRefocusComposer()) input.focus();
-    });
-    input.addEventListener('focus', () => {
-        if (dialog.open && !activeRequest && presentation.snapshot().state !== 'open') {
-            presentationLifecycle.attentive();
-        }
-    });
-    input.addEventListener('input', () => {
-        if (dialog.open && !activeRequest) presentationLifecycle.attentive();
-    });
-    motionPreference?.addEventListener?.('change', event => {
-        presentation.setReducedMotion(event.matches);
     });
     function appendMessage(speaker, text, user = false) {
         const message = document.createElement('div');
@@ -232,7 +193,6 @@ export function initializeEyeballChat() {
         appendMessage(localeDefinition(locale).strings.you, text, true);
         input.value = '';
         setBusy(true);
-        presentationLifecycle.submitted();
         if (shouldRefocusComposer()) input.focus();
         let reader;
         let body;
@@ -241,8 +201,6 @@ export function initializeEyeballChat() {
         let clarificationShown = false;
         let historyDisposition = 'include';
         let timedOut = false;
-        let hadSafeError = false;
-        let startedSpeaking = false;
         // Two bounded provider/validation attempts plus transport allowance.
         const requestTimer = setTimeout(() => { timedOut = true; controller.abort(); }, 330000);
         try {
@@ -279,24 +237,17 @@ export function initializeEyeballChat() {
                     if (kind === 'delta') {
                         if (typeof data.text !== 'string' || answer.length + data.text.length > 16000) throw new Error('invalid response');
                         body ||= appendMessage(localeDefinition(locale).strings.eyeball, '');
-                        if (!startedSpeaking) {
-                            startedSpeaking = true;
-                            presentationLifecycle.responseStarted();
-                        }
                         answer += data.text;
                         body.textContent = answer;
                         transcript.scrollTop = transcript.scrollHeight;
                     } else if (kind === 'clarification') {
-                        presentationLifecycle.clarifying();
                         const card = renderClarification(document, data, localeDefinition(locale).strings, {
                             select(choice) {
-                                presentationLifecycle.clarified();
                                 pendingClarification = choice.token;
                                 input.value = choice.label;
                                 setTimeout(() => form.requestSubmit(), 0);
                             },
                             rephrase() {
-                                presentationLifecycle.clarified();
                                 document.dispatchEvent(new CustomEvent('oes:product-event', { detail: {
                                     event: 'eyeball_clarification_rephrase', clarificationReason: data.reason
                                 }}));
@@ -323,9 +274,7 @@ export function initializeEyeballChat() {
             }
         } catch (error) {
             if (activeRequest === controller && (!controller.signal.aborted || timedOut)) {
-                hadSafeError = true;
                 appendMessage(localeDefinition(locale).strings.eyeball, translated('safeError'));
-                presentationLifecycle.failed();
             }
         } finally {
             clearTimeout(requestTimer);
@@ -333,11 +282,6 @@ export function initializeEyeballChat() {
                 activeRequest = null;
                 setBusy(false);
                 if (!complete) setStatus('interrupted');
-                if (complete && !hadSafeError && !clarificationShown) {
-                    presentationLifecycle.completed();
-                } else if (!hadSafeError) {
-                    if (!clarificationShown) presentationLifecycle.cancelled(dialog.open);
-                }
             }
             try { await reader?.cancel(); } catch { /* Request may already be aborted. */ }
         }

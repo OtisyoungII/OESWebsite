@@ -25,6 +25,3 @@ __pycache__/
 temp/
 # Native Windows renderer build output
 /build/oes-core-renderer/
-
-# Machine-local GPU diagnostics
-/oes-core-gpu-inventory.json

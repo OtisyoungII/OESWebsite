@@ -75,63 +75,7 @@
     .eyeball-chat__composer > p { margin: 3px 0; line-height: 1.2; }
     .eyeball-chat__actions button { padding: 6px 12px; }
 }
-/* Eyeball presentation state is local-only; chat meaning remains available in text. */
-[data-oes-core][data-eyeball-state="aware"] .oes-core-3d-canvas,
-[data-oes-core][data-eyeball-state="attentive"] .oes-core-3d-canvas {
-    filter: brightness(1.035) saturate(1.025);
-}
-[data-oes-core][data-eyeball-state="thinking"] .oes-core-3d-canvas {
-    filter: brightness(1.045) saturate(1.04);
-}
-[data-oes-core][data-eyeball-state="speaking"] .oes-core-3d-canvas {
-    filter: brightness(1.065) saturate(1.045);
-}
-[data-oes-core][data-eyeball-state="error"] .oes-core-3d-canvas {
-    filter: brightness(.91) saturate(.88);
-}
-[data-eyeball-invitation][data-eyeball-state="aware"] {
-    border-color: #6597b2;
-    box-shadow: 0 9px 26px #0007, 0 0 18px #38bdf814;
-}
-[data-oes-core][data-eyeball-moment="activation"] .oes-core-3d-canvas,
-[data-oes-core][data-eyeball-moment="curious"] .oes-core-3d-canvas {
-    animation: eyeball-acknowledge 360ms ease-out both;
-}
-[data-oes-core][data-eyeball-moment="completion"] .oes-core-3d-canvas {
-    animation: eyeball-complete 300ms ease-out both;
-}
-[data-oes-core][data-eyeball-moment="error"] .oes-core-3d-canvas {
-    animation: eyeball-error-ack 320ms ease-out both;
-}
-@keyframes eyeball-acknowledge {
-    45% { filter: brightness(1.13) saturate(1.06); }
-}
-@keyframes eyeball-complete {
-    50% { filter: brightness(1.11) saturate(1.08); }
-}
-@keyframes eyeball-error-ack {
-    45% { filter: brightness(.86) saturate(.82); }
-}
-@media (pointer: coarse) {
-    [data-oes-core][data-eyeball-state="aware"] .oes-core-3d-canvas {
-        filter: none;
-    }
-}
-@media (prefers-reduced-motion: reduce) {
-    [data-oes-core][data-eyeball-state] .oes-core-3d-canvas {
-        animation: none !important;
-        transform: none !important;
-        transition: none !important;
-    }
-    [data-oes-core][data-eyeball-state="thinking"] .oes-core-3d-canvas,
-    [data-oes-core][data-eyeball-state="speaking"] .oes-core-3d-canvas {
-        filter: brightness(1.035);
-    }
-    [data-oes-core][data-eyeball-state="error"] .oes-core-3d-canvas {
-        filter: brightness(.94);
-    }
-}
-
+/* No motion is required, including when prefers-reduced-motion is enabled. */
 .eyeball-invitation {
     position: fixed;
     right: 16px;

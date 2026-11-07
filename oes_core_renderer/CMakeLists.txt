@@ -31,7 +31,6 @@ endif()
 
 add_executable(oes-eyeball-renderer WIN32
     src/main.cpp
-    src/scene_geometry.h
 )
 
 target_compile_definitions(oes-eyeball-renderer PRIVATE

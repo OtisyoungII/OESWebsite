@@ -3,101 +3,89 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
-MOTOR_CITY = ROOT / "static" / "design-exploration" / "motor-city"
-CONCEPT = MOTOR_CITY / "concept-d"
+CONCEPT = ROOT / "static" / "design-exploration" / "motor-city" / "concept-d"
 
 
-class MotorCityLiquidAlloyTests(unittest.TestCase):
+class MotorCityLiquidAlloyReleaseTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.html = (CONCEPT / "index.html").read_text(encoding="utf-8")
+        cls.template = (ROOT / "templates" / "index.html").read_text(encoding="utf-8")
         cls.css = (CONCEPT / "concept.css").read_text(encoding="utf-8")
-        cls.js = (CONCEPT / "concept.js").read_text(encoding="utf-8")
-        cls.petal_js = (CONCEPT / "petal-core-stage.js").read_text(encoding="utf-8")
-        cls.shared = (MOTOR_CITY / "shared" / "content.js").read_text(encoding="utf-8")
+        cls.refinement = (CONCEPT / "refinement.css").read_text(encoding="utf-8")
+        cls.concept = (CONCEPT / "concept.js").read_text(encoding="utf-8")
+        cls.content = (CONCEPT.parent / "shared" / "content.js").read_text(encoding="utf-8")
+        cls.runtime = (ROOT / "static" / "js" / "liquid-alloy-app.js").read_text(
+            encoding="utf-8")
 
-    def test_concept_d_is_navigable_from_showroom(self):
-        showroom = (MOTOR_CITY / "index.html").read_text(encoding="utf-8")
-        self.assertIn('href="concept-d/index.html"', showroom)
-        self.assertIn("Motor City Liquid Alloy", showroom)
+    def test_homepage_uses_liquid_alloy_with_original_eyeball(self):
+        for required in (
+            "product-system", 'id="client-work"', "public-sector",
+            'include "partials/eyeball_chat.html"', "data-product-counter",
+            "liquid-alloy-app.js", "data-oes-core", "data-oes-core-stage",
+            "oes-core__surface", "Open OES Eyeball Chat", "hero-scene.css",
+        ):
+            self.assertIn(required, self.template)
+        for initializer in (
+            "initializeEyeballChat", "initializeProductIntelligence",
+            "initializeSectionAwareness", "initializeOESCore", "initializeOESCore3D",
+        ):
+            self.assertIn(initializer, self.runtime)
+        self.assertNotIn("initializeOESCoreCompanion", self.runtime)
 
-    def test_chaseingreen_uses_verified_app_store_release(self):
-        self.assertIn("Live on the App Store", self.js)
-        self.assertIn("https://apps.apple.com/us/app/chaseingreen/id6770096789", self.js)
-        self.assertIn("does not claim download counts, ratings, rankings", self.js.lower())
-        self.assertNotIn("5-star", self.js.lower())
+    def test_rejected_petal_core_is_not_in_release_surface(self):
+        release = self.template + self.runtime + self.concept + self.refinement
+        for rejected in (
+            "oes-petal-core-stage-d.glb", "petal-core-stage.js", "GLTFLoader",
+            "data-approved-glb", "data-petal-stage", "data-petal-move",
+            "Stage D development preview", "visual approval pending",
+            ".petal-stage", ".petal-controls", "@keyframes petal-load",
+        ):
+            self.assertNotIn(rejected, release)
 
-    def test_all_products_and_existing_destinations_are_present(self):
-        for product in ("chaseingreen", "lottovate", "sportfolio", "drinkswithfriendz", "eyeball"):
-            self.assertIn(product, self.js.lower())
+    def test_products_client_work_and_destinations_are_preserved(self):
+        source = self.template + self.concept + self.content
+        for product in ("chaseingreen", "lottovate", "sportfolio", "drinkswithfriendz"):
+            self.assertIn(product, source.lower())
         for destination in (
+            "https://apps.apple.com/us/app/chaseingreen/id6770096789",
             "https://testflight.apple.com/join/CD35ByXj",
             "https://sportfolio-api-ktd5.onrender.com/",
             "https://drinkswithfriendz.com/",
             "https://testflight.apple.com/join/mzknJ42e",
-            "/privacy",
-            "/drinks-with-friendz/privacy",
+            "/privacy", "/drinks-with-friendz/privacy",
         ):
-            self.assertIn(destination, self.js + self.html + self.shared)
+            self.assertIn(destination, source)
+        self.assertIn("const products = baseProducts.filter", self.concept)
+        self.assertIn("const clientProjects = [drinks]", self.concept)
+        self.assertIn("not presented as an OES-owned product", self.concept)
 
-    def test_client_work_is_separate_from_oes_owned_products(self):
-        self.assertIn('id="client-work"', self.html)
-        self.assertIn('data-client-work', self.html)
-        self.assertIn('const products = baseProducts.filter', self.js)
-        self.assertIn('const clientProjects = [drinks]', self.js)
-        self.assertIn('Client application', self.js)
-        self.assertIn('not presented as an OES-owned product', self.js)
+    def test_product_and_eyeball_analytics_are_preserved(self):
+        source = self.template + self.concept + self.runtime
+        for event in (
+            "product_card_activated", "external_product_link_activated",
+            "testflight_link_activated", "web_app_link_activated",
+            "contact_action_activated",
+        ):
+            self.assertIn(event, source)
+        self.assertIn("initializeProductIntelligence", self.runtime)
+        self.assertIn("data-sportfolio-url", self.template)
 
-    def test_premium_eyeball_stage_does_not_fake_completed_art(self):
-        self.assertIn('Stage D development preview · visual approval pending', self.html)
-        self.assertIn('data-character-status="development-preview"', self.html)
-        self.assertIn('data-approved-glb="assets/oes-petal-core-stage-d.glb"', self.html)
-        self.assertIn('loads the real Stage D Petal Core GLB', self.html)
-        self.assertNotIn('<model-viewer', self.html)
-        self.assertGreater((CONCEPT / 'assets' / 'oes-petal-core-stage-d.glb').stat().st_size,
-                           1024 * 1024)
-        self.assertNotIn('eyeball-dock__visual" aria-hidden="true"><span class="eyeball-orbit"', self.html)
-
-    def test_petal_core_runtime_is_bounded_accessible_and_resource_aware(self):
-        source = self.petal_js
-        for required in ('GLTFLoader', 'AnimationMixer', 'idle_float',
-                         'gaze_listen_think', 'pointerdown', 'pointermove',
-                         'IntersectionObserver', 'visibilitychange',
-                         'prefers-reduced-motion', 'pagehide', 'dispose()'):
+    def test_keyboard_mobile_and_reduced_motion_contracts(self):
+        source = self.template + self.css + self.refinement + self.concept
+        for required in (
+            "skip-link", "aria-expanded", 'role="tablist"', 'role="tab"',
+            'role="tabpanel"', "ArrowRight", "ArrowLeft", "<details",
+            ":focus-visible", "prefers-reduced-motion:reduce", "@media(max-width:760px)",
+        ):
             self.assertIn(required, source)
-        for state in ('neutral', 'listening', 'thinking', 'responding', 'blink'):
-            self.assertIn(f'data-expression="{state}"', self.html)
-        self.assertIn('tabindex="0"', self.html)
-        self.assertIn('data-petal-fallback', self.html)
-        self.assertNotIn('http://', source)
-        self.assertNotIn('https://', source)
 
-    def test_product_spine_is_accessible_without_hover(self):
-        self.assertIn('role="tablist"', self.html)
-        self.assertIn('role="tab"', self.js)
-        self.assertIn('role="tabpanel"', self.js)
-        self.assertIn("ArrowRight", self.js)
-        self.assertIn("ArrowLeft", self.js)
-        self.assertIn("<details", self.js)
-        self.assertIn("<summary>", self.js)
-
-    def test_accessibility_and_reduced_motion_contract(self):
-        self.assertIn("skip-link", self.html)
-        self.assertIn("aria-expanded", self.html)
-        self.assertIn(":focus-visible", self.css)
-        self.assertIn("prefers-reduced-motion:reduce", self.css)
-        self.assertIn("@media(max-width:760px)", self.css)
-
-    def test_prototype_performs_no_chat_analytics_or_native_calls(self):
-        source = self.html + self.js + self.petal_js
-        for forbidden in ("/api/chat", "/api/product", "fetch(", "subprocess", "renderer.exe"):
+    def test_release_has_no_preview_or_native_runtime_controls(self):
+        source = self.template + self.concept + self.runtime
+        for forbidden in (
+            "prototype-switcher", "renderer.exe", "subprocess", "desktop companion",
+            "development-preview", "data-eyeball-preview",
+        ):
             self.assertNotIn(forbidden, source)
-
-    def test_concepts_a_b_c_files_are_not_part_of_this_change(self):
-        # Git-level verification additionally confirms these paths are unchanged.
-        for name in ("concept-a", "concept-b", "concept-c"):
-            self.assertTrue((MOTOR_CITY / name / "index.html").is_file())
-            self.assertTrue((MOTOR_CITY / name / "concept.css").is_file())
 
 
 if __name__ == "__main__":

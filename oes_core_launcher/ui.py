@@ -3,14 +3,13 @@ import tkinter as tk
 from tkinter import messagebox, ttk
 from pathlib import Path
 
-from PIL import Image, ImageTk
+from PIL import Image
 import pystray
 
 from .config import local_data_dir
 from .controller import CoreController
 from .credentials import WindowsCredentialStore
 from .instance import SingleInstance
-from .launch import launch_is_ready, reduced_motion_enabled
 from .telemetry import (TAB_METRICS, TelemetryStore, console_view, copy_text,
                         format_diagnostics, format_tab)
 
@@ -80,65 +79,7 @@ class LauncherUI:
             pystray.MenuItem('Stop OES Core', self.stop),
             pystray.MenuItem('Exit', self.exit)))
         self.instance = SingleInstance(local_data_dir() / 'launcher.lock')
-        self._build_launch_treatment(icon_path.parent)
         self.root.after(1000, self._refresh_loop)
-
-    def _build_launch_treatment(self, asset_dir):
-        background = '#061426'
-        self._launch_reduced_motion = reduced_motion_enabled()
-        self._launch_interacted = False
-        self._launch_jobs = []
-        self._launch_images = {}
-        for name, filename in (
-                ('base', 'eyeball-base-launch.png'),
-                ('baseball', 'eyeball-baseball-launch.png')):
-            image = Image.open(asset_dir / filename).convert('RGBA')
-            image.thumbnail((220, 220), Image.Resampling.LANCZOS)
-            self._launch_images[name] = ImageTk.PhotoImage(image)
-        self.launch_frame = tk.Frame(self.root, bg=background)
-        self.launch_frame.place(x=0, y=0, relwidth=1, relheight=1)
-        content = tk.Frame(self.launch_frame, bg=background)
-        content.place(relx=.5, rely=.47, anchor='center')
-        self.launch_mark = tk.Label(
-            content, image=self._launch_images['base'], bg=background, borderwidth=0
-        )
-        self.launch_mark.pack()
-        tk.Label(
-            content, text='EYEBALL', bg=background, fg='#e7f7ff',
-            font=('Segoe UI', 20, 'bold')
-        ).pack(pady=(2, 0))
-        self.launch_status = tk.Label(
-            content, text='Starting OES Core…', bg=background, fg='#7dd3fc',
-            font=('Segoe UI', 10)
-        )
-        self.launch_status.pack(pady=(4, 0))
-        if not self._launch_reduced_motion:
-            self._launch_jobs.append(self.root.after(120, self._show_launch_interaction))
-            self._launch_jobs.append(self.root.after(360, self._settle_launch_mark))
-
-    def _show_launch_interaction(self):
-        if self.launch_frame.winfo_exists():
-            self._launch_interacted = True
-            self.launch_mark.config(image=self._launch_images['baseball'])
-
-    def _settle_launch_mark(self):
-        if self.launch_frame.winfo_exists():
-            self.launch_mark.config(image=self._launch_images['base'])
-
-    def _finish_launch_treatment(self):
-        if not self.launch_frame.winfo_exists():
-            return
-        for job in self._launch_jobs:
-            try:
-                self.root.after_cancel(job)
-            except Exception:
-                pass
-        self._launch_jobs.clear()
-        if self._launch_reduced_motion or not self._launch_interacted:
-            self.launch_frame.destroy()
-            return
-        self._settle_launch_mark()
-        self.root.after(100, self.launch_frame.destroy)
 
     def _build_metrics_tab(self, name, rows):
         frame = self.tabs[name]
@@ -206,8 +147,6 @@ class LauncherUI:
             self.labels[key].config(text=getattr(status, key))
         self.detail.config(text=status.detail)
         self.tray.title = f'OES Core — {status.core}'
-        if launch_is_ready(status):
-            self._finish_launch_treatment()
 
     def show(self, *_):
         self.root.after(0, self.root.deiconify)
