@@ -3,6 +3,8 @@ import { initializeProductIntelligence } from "./product-intelligence.js";
 import { initializeSectionAwareness } from "./section-awareness.js";
 import { initializeOESCore } from "./oes-core.js";
 import { initializeOESCore3D } from "./oes-core-3d.js";
+import { initializeOESCoreCompanion } from "./oes-core-companion.js";
+import { initializeProductExperiences } from "./product-experiences.js";
 
 function initializeLiquidAlloyHomepage() {
     const sectionMap = {
@@ -25,8 +27,10 @@ function initializeLiquidAlloyHomepage() {
     initializeSectionAwareness();
     initializeOESCore();
     initializeOESCore3D();
+    initializeOESCoreCompanion();
     initializeEyeballChat();
     initializeProductIntelligence();
+    initializeProductExperiences();
 }
 
 if (document.readyState === "loading") {

@@ -28,9 +28,66 @@ class MotorCityLiquidAlloyReleaseTests(unittest.TestCase):
         for initializer in (
             "initializeEyeballChat", "initializeProductIntelligence",
             "initializeSectionAwareness", "initializeOESCore", "initializeOESCore3D",
+            "initializeOESCoreCompanion", "initializeProductExperiences",
         ):
             self.assertIn(initializer, self.runtime)
-        self.assertNotIn("initializeOESCoreCompanion", self.runtime)
+
+    def test_interactive_product_stories_are_local_and_truthful(self):
+        experience = (ROOT / "static" / "js" / "product-experiences.js").read_text(encoding="utf-8")
+        source = self.template + self.concept + experience
+        for required in (
+            'data-product-demo="chaseingreen"', 'data-product-demo="lottovate"',
+            'data-product-demo="sportfolio"', 'data-product-demo="drinkswithfriendz"',
+            "Illustrative data", "not financial advice", "do not guarantee",
+            "source attached", "authorized location",
+        ):
+            self.assertIn(required, source)
+        for forbidden in ("fetch(", "WebSocket", "EventSource", "Scout", "broker order"):
+            self.assertNotIn(forbidden, experience)
+
+    def test_lottovate_membership_demo_matches_product_contract(self):
+        experience = (ROOT / "static" / "js" / "product-experiences.js").read_text(
+            encoding="utf-8")
+        source = self.concept + experience
+        for required in (
+            "Freemium", "Premium", "Four daily prediction lanes",
+            "Midday and evening · 3D and 4D", "Regular predictions",
+            "Favorites, with sign-in for syncing", "Up to 6 tickets per platform input",
+            "up to 12 Easy Picks", "Accuracy trends", "Shared-favorites feed",
+            "wins, tokens and weekly leaderboards", "do not guarantee future results",
+        ):
+            self.assertIn(required, source)
+        for unsupported in ("unlimited predictions", "$9.99", "guaranteed accuracy"):
+            self.assertNotIn(unsupported, source.lower())
+
+    def test_chaseingreen_uses_approved_sculpted_brand_artwork(self):
+        source_asset = ROOT / "static" / "images" / "chaseingreen" / "02-sculpted.png"
+        web_asset = (
+            ROOT / "static" / "images" / "chaseingreen"
+            / "chaseingreen-bull-bear-sculpted.webp"
+        )
+        self.assertTrue(source_asset.is_file())
+        self.assertTrue(web_asset.is_file())
+        self.assertIn(
+            "/static/images/chaseingreen/chaseingreen-bull-bear-sculpted.webp",
+            self.concept,
+        )
+        self.assertIn("Sculpted gold bull and bear emblem for ChaseInGreen", self.concept)
+        self.assertNotIn("chaseingreen-bull-bear-sculpted", self.template.lower())
+
+    def test_original_eyeball_opens_in_hero_and_companion_is_not_encounter_gated(self):
+        companion = (ROOT / "static" / "js" / "oes-core-companion.js").read_text(
+            encoding="utf-8")
+        self.assertEqual(self.template.count("data-oes-core-stage"), 1)
+        self.assertIn('id="eyeball"', self.template)
+        self.assertIn("Meet Eyeball — your guide to OES.", self.template)
+        self.assertLess(
+            self.template.index("data-oes-core-stage"),
+            self.template.index('id="products"'),
+        )
+        self.assertNotIn("eyeball-dock", self.template)
+        self.assertNotIn("homeEncountered", companion)
+        self.assertIn('"[data-eyeball-hero]"', companion)
 
     def test_rejected_petal_core_is_not_in_release_surface(self):
         release = self.template + self.runtime + self.concept + self.refinement
@@ -57,7 +114,7 @@ class MotorCityLiquidAlloyReleaseTests(unittest.TestCase):
             self.assertIn(destination, source)
         self.assertIn("const products = baseProducts.filter", self.concept)
         self.assertIn("const clientProjects = [drinks]", self.concept)
-        self.assertIn("not presented as an OES-owned product", self.concept)
+        self.assertIn("client-owned brand", self.concept)
 
     def test_product_and_eyeball_analytics_are_preserved(self):
         source = self.template + self.concept + self.runtime
@@ -86,6 +143,21 @@ class MotorCityLiquidAlloyReleaseTests(unittest.TestCase):
             "development-preview", "data-eyeball-preview",
         ):
             self.assertNotIn(forbidden, source)
+
+    def test_homepage_copy_is_written_for_visitors(self):
+        source = self.template + self.concept + self.content
+        for removed in (
+            "precision navigation spine", "verified state", "public destinations",
+            "development and technical dossier", "current verified state",
+            "public intelligence interface", "technical architecture",
+            "implementation terminology", "client delivery",
+        ):
+            self.assertNotIn(removed, source.lower())
+        for visitor_copy in (
+            "Explore what", "See how it works", "What can we", "Ready to",
+            "Tell us what you want to build", "Ask about our technology",
+        ):
+            self.assertIn(visitor_copy, source)
 
 
 if __name__ == "__main__":
