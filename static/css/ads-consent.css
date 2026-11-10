@@ -1,0 +1,15 @@
+.ads-consent[hidden] { display: none; }
+.ads-consent {
+    position: fixed;
+    z-index: 10000;
+    inset: auto 1rem 1rem;
+    max-width: 38rem;
+    padding: 1rem;
+    color: #fff;
+    background: #101827;
+    border: 1px solid #8796ad;
+    border-radius: .75rem;
+    box-shadow: 0 1rem 2rem #0008;
+}
+.ads-consent p { margin: 0 0 .75rem; }
+.ads-consent button { margin: .25rem .5rem .25rem 0; padding: .5rem .75rem; cursor: pointer; }

@@ -2,6 +2,11 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
+  {% if openai_ads_pixel_id %}
+  <meta name="openai-ads-pixel-id" content="{{ openai_ads_pixel_id }}">
+  <script defer src="{{ url_for('static', filename='js/openai-ads-pixel.js') }}"></script>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/ads-consent.css') }}">
+  {% endif %}
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="description" content="Otis Execution Systems builds intelligent software, products, data systems and client technology in Detroit.">
   <title>Otis Execution Systems — Detroit-Built Technology</title>
@@ -14,6 +19,13 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='css/eyeball-chat.css') }}">
 </head>
 <body data-sportfolio-url="{{ sportfolio_web_url }}">
+  {% if openai_ads_pixel_id %}
+  <aside class="ads-consent" data-ads-consent hidden aria-label="Advertising measurement preference">
+    <p>May we measure visits and App Store or TestFlight clicks with the OpenAI Ads Pixel? You can change this choice anytime.</p>
+    <button type="button" data-ads-consent-accept>Allow measurement</button>
+    <button type="button" data-ads-consent-decline>Decline</button>
+  </aside>
+  {% endif %}
   <a class="skip-link" href="#main-content">Skip to main content</a>
   <div class="atmosphere" aria-hidden="true"><span class="atmosphere__mesh"></span><span class="alloy-arc alloy-arc--one"></span><span class="alloy-arc alloy-arc--two"></span><span class="alloy-arc alloy-arc--three"></span></div>
   <header class="masthead" data-masthead>
@@ -63,7 +75,7 @@
     <section class="identity-bay" id="about" aria-labelledby="about-title"><div class="identity-bay__mark"><img src="{{ url_for('static', filename='images/oes-logo.svg') }}" alt="Otis Execution Systems logo"><span>FOUNDED IN PURPOSE<br>ENGINEERED IN DETROIT</span></div><div class="identity-bay__copy"><p class="eyebrow">About OES</p><h2 id="about-title">Building from Detroit with purpose, imagination and execution.</h2><div data-about></div></div></section>
     <section class="contact-forge" id="contact" aria-labelledby="contact-title"><div><p class="eyebrow">Start a Conversation</p><h2 id="contact-title">Ready to<br>build?</h2><p data-contact-copy></p></div><div class="contact-forge__actions"><a class="alloy-button alloy-button--solid" href="mailto:info@otisexecutionsystems.com" data-product-event="contact_action_activated">Tell us about your idea</a><a class="alloy-button" href="https://apps.apple.com/us/app/chaseingreen/id6770096789" target="_blank" rel="noopener noreferrer" data-product-event="external_product_link_activated" data-product-target="chaseingreen">Get ChaseINGreen on the App Store</a></div></section>
   </main>
-  <footer class="site-footer"><a class="brand" href="#top"><span class="brand__seal"><img src="{{ url_for('static', filename='images/oes-logo.svg') }}" alt=""></span><span class="brand__wordmark"><strong>OTIS EXECUTION SYSTEMS LLC</strong><small>IDEAS INTO EXECUTION.</small></span></a><nav aria-label="Legal"><a href="{{ url_for('privacy') }}">Privacy Policy</a><a href="{{ url_for('drinks_with_friendz_privacy') }}">Drinks With Friendz Privacy</a></nav><p>© 2026 Otis Execution Systems LLC. All rights reserved.</p><p>Detroit built. Future focused.</p></footer>
+  <footer class="site-footer"><a class="brand" href="#top"><span class="brand__seal"><img src="{{ url_for('static', filename='images/oes-logo.svg') }}" alt=""></span><span class="brand__wordmark"><strong>OTIS EXECUTION SYSTEMS LLC</strong><small>IDEAS INTO EXECUTION.</small></span></a><nav aria-label="Legal"><a href="{{ url_for('privacy') }}">Privacy Policy</a><a href="{{ url_for('drinks_with_friendz_privacy') }}">Drinks With Friendz Privacy</a>{% if openai_ads_pixel_id %}<button type="button" data-ads-consent-settings>Ad measurement settings</button>{% endif %}</nav><p>© 2026 Otis Execution Systems LLC. All rights reserved.</p><p>Detroit built. Future focused.</p></footer>
   <p class="product-counter" data-product-counter data-session-url="{{ url_for('product_intelligence.session') }}" data-event-url="{{ url_for('product_intelligence.event') }}" hidden aria-live="polite"><span data-product-counter-value>0</span> SESSIONS THIS SERVICE RUN</p>
   <span hidden data-product-event="product_card_activated" data-product-target="chaseingreen"></span>
   {% include "partials/eyeball_chat.html" %}
