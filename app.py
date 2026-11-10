@@ -12,6 +12,7 @@ init_product_intelligence(app)
 # duplicate release-sensitive values.
 app.config.update(
     SITE_STATUS_UPDATED="September 2026",
+    OPENAI_ADS_PIXEL_ID=os.environ.get("OPENAI_ADS_PIXEL_ID", "").strip(),
     SPORTFOLIO_WEB_URL=os.environ.get(
         "SPORTFOLIO_WEB_URL",
         "https://sportfolio-api-ktd5.onrender.com/",
@@ -23,6 +24,7 @@ app.config.update(
 def inject_public_site_status():
     return {
         "site_status_updated": app.config["SITE_STATUS_UPDATED"],
+        "openai_ads_pixel_id": app.config["OPENAI_ADS_PIXEL_ID"],
     }
 
 

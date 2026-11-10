@@ -46,6 +46,10 @@ IMPORTANT RULES:
 
 <head>
     <meta charset="UTF-8">
+    {% if openai_ads_pixel_id %}
+    <meta name="openai-ads-pixel-id" content="{{ openai_ads_pixel_id }}">
+    <script defer src="{{ url_for('static', filename='js/openai-ads-pixel.js') }}"></script>
+    {% endif %}
 
     <meta
         name="viewport"
@@ -125,9 +129,17 @@ IMPORTANT RULES:
     >
 
     {% block page_styles %}{% endblock %}
+    {% if openai_ads_pixel_id %}<link rel="stylesheet" href="{{ url_for('static', filename='css/ads-consent.css') }}">{% endif %}
 </head>
 
 <body class="{% block body_class %}{% endblock %}">
+{% if openai_ads_pixel_id %}
+<aside class="ads-consent" data-ads-consent hidden aria-label="Advertising measurement preference">
+    <p>May we measure visits and App Store or TestFlight clicks with the OpenAI Ads Pixel? You can change this choice anytime.</p>
+    <button type="button" data-ads-consent-accept>Allow measurement</button>
+    <button type="button" data-ads-consent-decline>Decline</button>
+</aside>
+{% endif %}
 
 <a
     class="skip-link"
@@ -301,6 +313,7 @@ IMPORTANT RULES:
             <a href="{{ url_for('privacy') }}">
                 Privacy Policy
             </a>
+            {% if openai_ads_pixel_id %}<button type="button" data-ads-consent-settings>Ad measurement settings</button>{% endif %}
         </div>
 
         <div class="site-footer__contact">
