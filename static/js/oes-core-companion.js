@@ -1870,17 +1870,7 @@ function handleCore3DReady(event) {
         "oes-core-companion--webgl-ready"
     );
 
-    if (
-        latestHeroRatio <=
-            COMPANION_CONFIG
-                .heroExitRatio &&
-        window.scrollY > 120
-    ) {
-        enterCompanionMode({
-            reason:
-                "webgl-ready-offscreen"
-        });
-    }
+    handleLegacyScroll();
 }
 
 function handleCore3DFallback() {
@@ -2511,14 +2501,20 @@ export function initializeOESCoreCompanion() {
         return;
     }
 
-    heroSection =
-        document.querySelector(
-            ".hero-scene"
-        );
-
     originalStage =
         document.querySelector(
             "[data-oes-core-stage]"
+        );
+
+    heroSection =
+        document.querySelector(
+            "[data-eyeball-hero]"
+        ) ||
+        document.querySelector(
+            ".hero-scene"
+        ) ||
+        originalStage?.closest(
+            "section"
         );
 
     coreButton =
@@ -2568,26 +2564,8 @@ export function initializeOESCoreCompanion() {
             .oesCoreRenderer ===
         "webgl";
 
-    if (
-        webGLReady &&
-        window.scrollY > 120
-    ) {
-        const heroRect =
-            heroSection
-                .getBoundingClientRect();
-
-        if (
-            heroRect.bottom <
-            window.innerHeight *
-                0.72
-        ) {
-            latestHeroRatio = 0;
-
-            enterCompanionMode({
-                reason:
-                    "initialized-below-hero"
-            });
-        }
+    if (webGLReady) {
+        handleLegacyScroll();
     }
 
     document.documentElement

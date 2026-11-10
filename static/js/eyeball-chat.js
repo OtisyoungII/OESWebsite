@@ -26,6 +26,9 @@ export function initializeEyeballChat() {
     let lookupContinuation = null;
     let pendingClarification = null;
     let interactionMode = 'pointer';
+    let activityMessage = null;
+    let activityTimer = null;
+    let retryWithoutEcho = false;
     let preferenceStorage;
     try { preferenceStorage = window.localStorage; } catch { preferenceStorage = null; }
     let locale = initialEyeballLocale(preferenceStorage, navigator.languages || [navigator.language]);
@@ -50,6 +53,7 @@ export function initializeEyeballChat() {
             });
         }
         localeControl.value = locale;
+        if (activityMessage?.dataset.state) showActivity(activityMessage.dataset.state);
     }
 
     function translated(key) { return localeDefinition(locale).strings[key]; }
@@ -136,12 +140,81 @@ export function initializeEyeballChat() {
     function setBusy(busy) {
         send.disabled = busy;
         stop.disabled = !busy;
-        setStatus(busy ? 'responding' : 'ready');
+        input.setAttribute('aria-busy', String(busy));
+    }
+    function removeActivity() {
+        clearTimeout(activityTimer);
+        activityTimer = null;
+        activityMessage?.remove();
+        activityMessage = null;
+    }
+    function showActivity(key) {
+        if (!activityMessage) {
+            const message = document.createElement('div');
+            message.className = 'eyeball-chat__message eyeball-chat__message--activity';
+            message.setAttribute('role', 'status');
+            message.setAttribute('aria-live', 'polite');
+            message.setAttribute('aria-atomic', 'true');
+            const label = document.createElement('p');
+            label.className = 'eyeball-chat__speaker';
+            label.textContent = localeDefinition(locale).strings.eyeball;
+            const body = document.createElement('p');
+            body.className = 'eyeball-chat__activity';
+            message.append(label, body);
+            transcript.append(message);
+            activityMessage = message;
+        }
+        const body = activityMessage.querySelector('.eyeball-chat__activity');
+        body.dataset.i18n = key;
+        body.textContent = translated(key);
+        const dots = document.createElement('span');
+        dots.className = 'eyeball-chat__activity-dots';
+        dots.setAttribute('aria-hidden', 'true');
+        dots.textContent = '…';
+        body.append(' ', dots);
+        activityMessage.dataset.state = key;
+        setStatus(key);
+        transcript.scrollTop = transcript.scrollHeight;
+    }
+    function appendFailure(key, text) {
+        const message = document.createElement('div');
+        message.className = 'eyeball-chat__message eyeball-chat__message--error';
+        const label = document.createElement('p');
+        label.className = 'eyeball-chat__speaker';
+        label.textContent = localeDefinition(locale).strings.eyeball;
+        const body = document.createElement('p');
+        body.dir = 'auto';
+        body.textContent = translated(key);
+        const retry = document.createElement('button');
+        retry.type = 'button';
+        retry.className = 'eyeball-chat__retry';
+        retry.dataset.i18n = 'retry';
+        retry.textContent = translated('retry');
+        retry.addEventListener('click', () => {
+            if (activeRequest) return;
+            retry.disabled = true;
+            retryWithoutEcho = true;
+            input.value = text;
+            message.remove();
+            form.requestSubmit();
+        }, { once: true });
+        message.append(label, body, retry);
+        transcript.append(message);
+        transcript.scrollTop = transcript.scrollHeight;
+    }
+    function failureKey(error, timedOut) {
+        if (timedOut) return 'timeoutError';
+        const responseFailures = new Set([
+            'request failed', 'generation failed', 'invalid response',
+            'oversized event', 'invalid event', 'interrupted stream', 'empty response'
+        ]);
+        return responseFailures.has(error?.message) ? 'responseError' : 'connectionError';
     }
     function cancelResponse() {
         if (!activeRequest) return;
         activeRequest.abort();
         activeRequest = null;
+        removeActivity();
         setBusy(false);
         setStatus('stopped');
     }
@@ -184,15 +257,21 @@ export function initializeEyeballChat() {
         event.preventDefault();
         const text = input.value.trim();
         if (!text || text.length > 4000 || activeRequest) return;
+        const appendUserMessage = !retryWithoutEcho;
+        retryWithoutEcho = false;
         observations.sent();
         document.dispatchEvent(new CustomEvent('oes:product-event', {
             detail: { event: 'eyeball_message_submitted', language: locale }
         }));
         const controller = new AbortController();
         activeRequest = controller;
-        appendMessage(localeDefinition(locale).strings.you, text, true);
+        if (appendUserMessage) appendMessage(localeDefinition(locale).strings.you, text, true);
         input.value = '';
         setBusy(true);
+        showActivity('thinking');
+        activityTimer = setTimeout(() => {
+            if (activeRequest === controller && !answer) showActivity('stillWorking');
+        }, 12000);
         if (shouldRefocusComposer()) input.focus();
         let reader;
         let body;
@@ -236,11 +315,13 @@ export function initializeEyeballChat() {
                     if (kind === 'error') throw new Error('generation failed');
                     if (kind === 'delta') {
                         if (typeof data.text !== 'string' || answer.length + data.text.length > 16000) throw new Error('invalid response');
+                        if (!answer && data.text) showActivity('answering');
                         body ||= appendMessage(localeDefinition(locale).strings.eyeball, '');
                         answer += data.text;
                         body.textContent = answer;
                         transcript.scrollTop = transcript.scrollHeight;
                     } else if (kind === 'clarification') {
+                        showActivity('answering');
                         const card = renderClarification(document, data, localeDefinition(locale).strings, {
                             select(choice) {
                                 pendingClarification = choice.token;
@@ -274,14 +355,16 @@ export function initializeEyeballChat() {
             }
         } catch (error) {
             if (activeRequest === controller && (!controller.signal.aborted || timedOut)) {
-                appendMessage(localeDefinition(locale).strings.eyeball, translated('safeError'));
+                removeActivity();
+                appendFailure(failureKey(error, timedOut), text);
             }
         } finally {
             clearTimeout(requestTimer);
             if (activeRequest === controller) {
                 activeRequest = null;
+                removeActivity();
                 setBusy(false);
-                if (!complete) setStatus('interrupted');
+                setStatus(complete ? 'ready' : 'interrupted');
             }
             try { await reader?.cancel(); } catch { /* Request may already be aborted. */ }
         }
