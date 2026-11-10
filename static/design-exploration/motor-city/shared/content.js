@@ -22,7 +22,7 @@ export const oesContent = Object.freeze({
     },
     {
       id: "lottovate", name: "Lottovate", category: "Lottery Analytics", status: "Active TestFlight Testing",
-      description: "Lottovate is a working iOS lottery assistant undergoing active TestFlight testing and continued development. It helps people analyze and organize Michigan Daily 3 and Daily 4 activity through results, historical context, prediction-assistance tools and personal tracking. No number or outcome is guaranteed.",
+      description: "Explore Michigan Daily 3 and Daily 4 results, compare historical patterns and keep personal picks organized in one iPhone app. No number or outcome is guaranteed.",
       features: ["Michigan Daily 3 and Daily 4 prediction lanes", "Result ingestion and historical-result handling", "Personal number tracking and Easy Picks", "Wager and winnings organization", "Expansion work for additional games, including Daily 5"],
       actions: [
         { label: "Test on TestFlight", href: "https://testflight.apple.com/join/CD35ByXj" },
@@ -32,14 +32,14 @@ export const oesContent = Object.freeze({
     {
       id: "sportfolio", name: "Sportfolio", category: "Multi-Sport Athlete Platform", status: "Active Field Testing",
       tagline: "Live sports. Verified stats. One athlete identity.",
-      description: "Sportfolio is an OES sports platform built to connect athletes, teams, leagues, officials, game data, media and recruiting history in one system. Baseball is the first live implementation, with support for additional sports planned over time.",
+      description: "Follow the story behind an athlete’s performance—from live game observations to source-aware stats and a lasting player record. Baseball is the first active field test.",
       features: ["Persistent athlete, team, league and season identity", "Mobile-first live scoring, lineups and pitch counts", "Independent team scoring and discrepancy review", "Verified officials, stat verification and audit history", "Media and future recruiting workflows"],
       actions: [{ label: "Try Sportfolio Web — URL Pending", disabled: true }, { label: "iOS TestFlight — Coming Soon", disabled: true }],
       note: "On Android? You can join Sportfolio testing through the web app while native mobile support continues to expand."
     },
     {
       id: "drinkswithfriendz", name: "Drinks With Friendz", category: "Client project developed by OES", status: "TestFlight Beta",
-      description: "Otis Execution Systems developed the iOS version of Drinks With Friendz, bringing the client's experience to iPhone with location-based discovery, interactive maps, venue details and more. Development is complete for the current phase, and the app is in public TestFlight testing ahead of App Store submission and release.",
+      description: "Find nearby places, explore them on a map and open the details needed to plan the next stop. OES developed this iPhone experience for the Drinks With Friendz client brand.",
       features: ["Native SwiftUI development", "Interactive maps and radius-based discovery", "Venue categories, photos, reviews and hours", "Calling, websites, sharing and directions", "TestFlight Beta"],
       actions: [
         { label: "Visit Website", href: "https://drinkswithfriendz.com/" },
@@ -53,9 +53,9 @@ export const oesContent = Object.freeze({
     ["Native Mobile Applications", "Plan and build iPhone applications with SwiftUI, user flows, location services, cloud connections, testing and App Store preparation."],
     ["Web Platforms", "Build company websites, customer portals, dashboards, administrative tools and connected web applications that support real business operations."],
     ["Data and Analytics", "Organize raw information into reports, visual dashboards, behavior patterns, performance measurements and clearer decisions."],
-    ["SaaS Product Development", "Create subscription-ready platforms with accounts, product tiers, cloud services, protected features, billing-ready architecture and room for future growth."],
+    ["SaaS Product Development", "Build subscription products with accounts, service tiers, protected features and room to grow."],
     ["Workflow Automation", "Connect repetitive business processes, reduce manual steps, route information and create consistent digital workflows."],
-    ["Product and Technology Consulting", "Turn an idea into a practical scope, technical architecture, feature roadmap, prototype plan and realistic development strategy."],
+    ["Product and Technology Consulting", "Turn an idea into a clear scope, realistic roadmap and practical plan for a working product."],
     ["AI, Digital Skills and IT Training", "Provide accessible technology instruction for employees, entrepreneurs, young people, community organizations and first-time AI users."]
   ],
   government: {
@@ -67,7 +67,7 @@ export const oesContent = Object.freeze({
       "OES focuses on clearly defined outcomes: helping people complete a process, giving staff better information, modernizing a manual workflow, testing a new idea or increasing access to useful technology."
     ],
     capabilities: [
-      ["Custom Software Development", "Mobile apps, web systems, internal dashboards, public information tools and cloud-connected workflows built around a defined agency or program need."],
+      ["Custom Software Development", "Mobile apps, web systems, staff dashboards, public information tools and connected workflows built around a defined need."],
       ["AI and Data Systems", "Systems that organize information, identify patterns, support staff decisions and make complex data easier to understand."],
       ["Digital Platforms and Portals", "Secure service portals, account-based platforms, program dashboards and public-facing digital tools."],
       ["Technology and AI Training", "Practical instruction in artificial intelligence, prompting, software fundamentals, digital tools and responsible technology use."],
@@ -85,14 +85,14 @@ export const oesContent = Object.freeze({
   ],
   research: {
     title: "We explore before the path is obvious.",
-    paragraphs: ["OES research focuses on systems that react to people, learn from behavior, organize difficult information and turn it into clearer action.", "The research is already visible inside ChaseInGreen, Lottovate, Sportfolio and this website through predictive logic, verified data workflows, personalized learning, specialized AI tasks and interfaces that respond to user movement and attention."],
+    paragraphs: ["OES explores how software can respond more naturally, make difficult information clearer and help people decide what to do next."],
     lines: [
-      ["ACTIVE", "AI guidance that adjusts using real user behavior"],
-      ["ACTIVE", "Trading systems combining market conditions, risk and past decisions"],
-      ["ACTIVE", "Predictive tools for financial and number-based applications"],
-      ["TESTING", "Interfaces that move, focus and react like living digital environments"],
-      ["EXPLORING", "Specialized AI agents assigned to focused jobs inside applications"],
-      ["FUTURE", "Spatial, voice and adaptive interfaces for emerging devices"]
+      ["ACTIVE", "Guidance that adapts to how people use a product"],
+      ["ACTIVE", "Trading tools that bring market conditions, risk and past decisions together"],
+      ["ACTIVE", "Pattern tools for financial and number-based applications"],
+      ["TESTING", "Interfaces that move, focus and respond to attention"],
+      ["EXPLORING", "Focused AI helpers for specific tasks inside an application"],
+      ["FUTURE", "Voice, spatial and adaptive experiences for emerging devices"]
     ]
   },
   about: {
@@ -101,7 +101,7 @@ export const oesContent = Object.freeze({
   },
   contact: {
     title: "Bring OES the idea.",
-    text: "Contact OES about custom software, mobile and web applications, backend APIs, artificial intelligence, trading and sports technology, data systems, public-sector projects, technology training, partnerships, demonstrations and investment conversations.",
+    text: "Tell us what you want to build, improve or finally get moving.",
     email: "info@otisexecutionsystems.com"
   }
 });

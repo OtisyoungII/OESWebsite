@@ -13,13 +13,13 @@ const SPORTFOLIO_URL = (() => {
 const baseProducts = oesContent.products.map((product) => ({ ...product, features: [...product.features], actions: product.actions.map((action) => ({ ...action })) }));
 const chase = baseProducts.find((product) => product.id === "chaseingreen");
 chase.status = "Live on the App Store";
-chase.description = "ChaseInGreen is an OES-built trading companion now live on the Apple App Store. It brings market context, planning, risk tools, journaling and trader workspace features together without acting as a brokerage, exchange, wallet or financial institution.";
+chase.description = "See market context, plan risk and keep a clearer record of your decisions—all in one trading companion. ChaseInGreen is not a brokerage, exchange, wallet or financial institution.";
 chase.actions = [
   { label: "Get ChaseINGreen on the App Store", href: APP_STORE_URL, primary: true },
   { label: "Join ChaseInGreen Discord", href: "https://discord.gg/YjKFkdnj3" },
   { label: "ChaseInGreen Privacy Policy", href: "/privacy" },
 ];
-chase.note = "The App Store listing is the current public release destination. OES does not claim download counts, ratings, rankings or guaranteed trading outcomes.";
+chase.note = "Trading involves risk. ChaseInGreen supports research and planning; it does not guarantee outcomes.";
 
 const sportfolio = baseProducts.find((product) => product.id === "sportfolio");
 sportfolio.actions = [
@@ -56,6 +56,15 @@ const actionMarkup = (action, product) => action.disabled
   ? `<span class="alloy-button" aria-disabled="true">${escapeHtml(action.label)}</span>`
   : `<a class="alloy-button${action.primary ? " alloy-button--solid" : ""}" href="${escapeHtml(action.href)}"${external(action.href)}${analyticsAttributes(action, product)}>${escapeHtml(action.label)}</a>`;
 
+const experienceMarkup = (product) => {
+  const demos = {
+    chaseingreen: `<section class="product-demo product-demo--chase" data-product-demo="chaseingreen" aria-labelledby="demo-chase-title"><div class="chase-brand"><img src="/static/images/chaseingreen/chaseingreen-bull-bear-sculpted.webp" alt="Sculpted gold bull and bear emblem for ChaseInGreen" width="768" height="768" loading="lazy" decoding="async"><div class="product-demo__heading"><span>Illustrative market workspace</span><strong id="demo-chase-title">Read context, not promises.</strong><small>Free tools for the essentials. Gold adds deeper market context.</small></div></div><div class="market-demo"><div class="market-demo__quote"><span>DEMO</span><strong>$184.42</strong><small>Illustrative data · not financial advice</small></div><div class="market-demo__chart" aria-hidden="true"><i style="--h:34%"></i><i style="--h:52%"></i><i style="--h:46%"></i><i style="--h:68%"></i><i style="--h:61%"></i><i style="--h:82%"></i><i style="--h:74%"></i></div></div><div class="demo-tabs" role="group" aria-label="Market timeframe"><button type="button" data-demo-choice="1D" aria-pressed="true">1D</button><button type="button" data-demo-choice="1W" aria-pressed="false">1W</button><button type="button" data-demo-choice="1M" aria-pressed="false">1M</button></div><div class="demo-readout" aria-live="polite"><span>Momentum</span><strong data-demo-output>1D · Constructive, mixed confirmation</strong></div><div class="tier-boundary"><span><b>Free</b> Live quotes + basic candles</span><span><b>Gold</b> AI levels, zones + trade context</span></div></section>`,
+    lottovate: `<section class="product-demo membership-demo" data-product-demo="lottovate" aria-labelledby="demo-lotto-title"><div class="product-demo__heading"><span>Membership experience</span><strong id="demo-lotto-title">See what each level opens.</strong></div><div class="demo-tabs" role="group" aria-label="Lottovate membership level"><button type="button" data-demo-choice="freemium" aria-pressed="true">Freemium</button><button type="button" data-demo-choice="premium" aria-pressed="false">Premium</button></div><div class="membership-demo__panel" data-membership-panel><div class="membership-demo__summary"><b>Four daily prediction lanes</b><span>Midday and evening · 3D and 4D</span></div><ul><li>Regular predictions</li><li>Favorites, with sign-in for syncing</li><li>Historical results and number analysis</li></ul></div><p class="demo-readout" data-demo-output aria-live="polite">Start with daily regular predictions and keep favorite numbers together.</p><small>Predictions and historical patterns do not guarantee future results.</small></section>`,
+    sportfolio: `<section class="product-demo" data-product-demo="sportfolio" aria-labelledby="demo-sport-title"><div class="product-demo__heading"><span>Source-attributed scoring</span><strong id="demo-sport-title">From play to player record.</strong></div><ol class="play-pipeline"><li class="is-current"><b>01</b><span>Play recorded<small>Single to center</small></span></li><li><b>02</b><span>Sources compared<small>Team scorer · official</small></span></li><li><b>03</b><span>Record updated<small>History retained</small></span></li></ol><button class="demo-advance" type="button" data-demo-advance>Advance illustrative play</button><p class="demo-readout" data-demo-output aria-live="polite">The observation enters the event record with its source attached.</p></section>`,
+  };
+  return demos[product.id] || "";
+};
+
 const spine = document.querySelector("[data-product-spine]");
 const stage = document.querySelector("[data-product-stage]");
 const disciplineMap = document.querySelector("[data-discipline-map]");
@@ -80,13 +89,14 @@ function renderProduct({ focus = false } = {}) {
     <div class="product-focus__topline"><span class="product-focus__category">${escapeHtml(product.category)}</span><span class="status-pill"><span class="signal"></span>${escapeHtml(product.status)}</span></div>
     <h3>${escapeHtml(product.name)}</h3>${product.tagline ? `<p class="product-focus__tagline">${escapeHtml(product.tagline)}</p>` : ""}
     <p class="product-focus__description">${escapeHtml(product.description)}</p>
+    ${experienceMarkup(product)}
     <div class="product-focus__actions">${product.actions.map((action) => actionMarkup(action, product)).join("")}</div>
     <details class="dossier" ${new URLSearchParams(location.search).get("details") === "1" ? "open" : ""}>
-      <summary><span><span class="dossier-label">Development and technical dossier</span><br>Show all documented details</span></summary>
-      <div class="dossier__body"><p><strong>Current verified state:</strong> ${escapeHtml(product.status)}.</p><ul>${product.features.map((feature) => `<li>${escapeHtml(feature)}</li>`).join("")}</ul></div>
+      <summary><span><span class="dossier-label">See how it works</span><br>Features and availability</span></summary>
+      <div class="dossier__body"><p><strong>Available now:</strong> ${escapeHtml(product.status)}.</p><ul>${product.features.map((feature) => `<li>${escapeHtml(feature)}</li>`).join("")}</ul></div>
     </details>
     ${product.note ? `<p class="product-focus__note">${escapeHtml(product.note)}</p>` : ""}
-    ${isChase ? `<p class="product-focus__note"><strong>Official release destination:</strong> Apple App Store product ID 6770096789.</p>` : ""}
+    ${isChase ? `<p class="product-focus__note"><strong>Available on the Apple App Store.</strong></p>` : ""}
   </article>`;
   renderDisciplines(product);
   renderSpine();
@@ -123,14 +133,14 @@ spine.addEventListener("keydown", (event) => {
 
 document.querySelector("[data-services]").innerHTML = oesContent.services.map(([title, text], index) => `<article class="service-ribbon"><span class="service-ribbon__number">${String(index + 1).padStart(2, "0")}</span><h3>${escapeHtml(title)}</h3><p>${escapeHtml(text)}</p></article>`).join("");
 document.querySelector("[data-client-work]").innerHTML = clientProjects.map((project, index) => `<article class="client-project" data-product="${escapeHtml(project.id)}">
-  <div class="client-project__rail"><span>${String(index + 1).padStart(2, "0")}</span><span>CLIENT DELIVERY</span></div>
+  <div class="client-project__rail"><span>${String(index + 1).padStart(2, "0")}</span><span>IPHONE APP</span></div>
   <div class="client-project__body"><div class="product-focus__topline"><span class="product-focus__category">${escapeHtml(project.category)}</span><span class="status-pill"><span class="signal"></span>${escapeHtml(project.status)}</span></div>
-  <h3>${escapeHtml(project.name)}</h3><p>${escapeHtml(project.description)}</p><div class="product-focus__actions">${project.actions.map((action) => actionMarkup(action, project)).join("")}</div>
-  <details class="dossier"><summary><span><span class="dossier-label">Delivered capabilities</span><br>Open client project dossier</span></summary><div class="dossier__body"><ul>${project.features.map((feature) => `<li>${escapeHtml(feature)}</li>`).join("")}</ul></div></details></div>
-  <aside class="client-project__ownership"><span>OWNERSHIP</span><strong>Client application</strong><p>OES developed the documented iOS work. Drinks With Friendz remains a client brand and is not presented as an OES-owned product.</p></aside>
+  <h3>${escapeHtml(project.name)}</h3><p>${escapeHtml(project.description)}</p><section class="product-demo product-demo--journey" data-product-demo="drinkswithfriendz" aria-label="Illustrative venue discovery journey"><ol class="venue-journey"><li class="is-current"><b>01</b><span>Choose an area</span></li><li><b>02</b><span>Explore nearby venues</span></li><li><b>03</b><span>Open details</span></li><li><b>04</b><span>Get directions</span></li></ol><button class="demo-advance" type="button" data-demo-advance>Walk through the experience</button><p class="demo-readout" data-demo-output aria-live="polite">Start with an authorized location or a place the user chooses.</p></section><div class="product-focus__actions">${project.actions.map((action) => actionMarkup(action, project)).join("")}</div>
+  <details class="dossier"><summary><span><span class="dossier-label">What OES delivered</span><br>See the app features</span></summary><div class="dossier__body"><ul>${project.features.map((feature) => `<li>${escapeHtml(feature)}</li>`).join("")}</ul></div></details></div>
+  <aside class="client-project__ownership"><span>CLIENT WORK</span><strong>Built for Drinks With Friendz</strong><p>OES designed and developed this iPhone experience for a client-owned brand.</p></aside>
 </article>`).join("");
 document.querySelector("[data-government-intro]").innerHTML = oesContent.government.paragraphs.map((paragraph) => `<p>${escapeHtml(paragraph)}</p>`).join("");
-document.querySelector("[data-government-capabilities]").innerHTML = oesContent.government.capabilities.map(([title, text]) => `<article class="vault-panel"><p class="eyebrow">Verified capability</p><h3>${escapeHtml(title)}</h3><p>${escapeHtml(text)}</p></article>`).join("");
+document.querySelector("[data-government-capabilities]").innerHTML = oesContent.government.capabilities.map(([title, text]) => `<article class="vault-panel"><p class="eyebrow">What OES builds</p><h3>${escapeHtml(title)}</h3><p>${escapeHtml(text)}</p></article>`).join("");
 document.querySelector("[data-community]").innerHTML = oesContent.community.map((item) => `<article class="detroit-node"><p class="detroit-node__type">${escapeHtml(item.type)}</p><h3>${escapeHtml(item.name)}</h3><p>${escapeHtml(item.text)}${item.detail ? ` ${escapeHtml(item.detail)}` : ""}</p>${item.links ? item.links.map(([label, href]) => `<a class="text-link" href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer">${escapeHtml(label)}</a>`).join("") : ""}</article>`).join("");
 document.querySelector("[data-research-intro]").innerHTML = oesContent.research.paragraphs.map((paragraph) => `<p>${escapeHtml(paragraph)}</p>`).join("");
 document.querySelector("[data-research-lines]").innerHTML = oesContent.research.lines.map(([status, name]) => `<div class="research-line"><strong>${escapeHtml(status)}</strong><span>${escapeHtml(name)}</span></div>`).join("");
