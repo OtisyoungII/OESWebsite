@@ -15,7 +15,9 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='css/hero-scene.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='design-exploration/motor-city/concept-d/refinement.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='design-exploration/motor-city/concept-d/experiences.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/product-restoration.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='design-exploration/motor-city/concept-d/chaseingreen-brand.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/dwf-logo.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/eyeball-chat.css') }}">
 </head>
 <body data-sportfolio-url="{{ sportfolio_web_url }}">
@@ -78,6 +80,9 @@
   <footer class="site-footer"><a class="brand" href="#top"><span class="brand__seal"><img src="{{ url_for('static', filename='images/oes-logo.svg') }}" alt=""></span><span class="brand__wordmark"><strong>OTIS EXECUTION SYSTEMS LLC</strong><small>IDEAS INTO EXECUTION.</small></span></a><nav aria-label="Legal"><a href="{{ url_for('privacy') }}">Privacy Policy</a><a href="{{ url_for('drinks_with_friendz_privacy') }}">Drinks With Friendz Privacy</a>{% if openai_ads_pixel_id %}<button type="button" data-ads-consent-settings>Ad measurement settings</button>{% endif %}</nav><p>© 2026 Otis Execution Systems LLC. All rights reserved.</p><p>Detroit built. Future focused.</p></footer>
   <p class="product-counter" data-product-counter data-session-url="{{ url_for('product_intelligence.session') }}" data-event-url="{{ url_for('product_intelligence.event') }}" hidden aria-live="polite"><span data-product-counter-value>0</span> SESSIONS THIS SERVICE RUN</p>
   <span hidden data-product-event="product_card_activated" data-product-target="chaseingreen"></span>
+  <template id="dwf-logo-template">
+    {% include "partials/dwf_logo_showcase.html" %}
+  </template>
   {% include "partials/eyeball_chat.html" %}
   <script type="module" src="{{ url_for('static', filename='design-exploration/motor-city/concept-d/concept.js') }}"></script>
   <script type="module" src="{{ url_for('static', filename='js/liquid-alloy-app.js') }}"></script>

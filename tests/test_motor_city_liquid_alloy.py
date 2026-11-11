@@ -50,11 +50,11 @@ class MotorCityLiquidAlloyReleaseTests(unittest.TestCase):
             encoding="utf-8")
         source = self.concept + experience
         for required in (
-            "Freemium", "Premium", "Four daily prediction lanes",
-            "Midday and evening · 3D and 4D", "Regular predictions",
-            "Favorites, with sign-in for syncing", "Up to 6 tickets per platform input",
-            "up to 12 Easy Picks", "Accuracy trends", "Shared-favorites feed",
-            "wins, tokens and weekly leaderboards", "do not guarantee future results",
+            "Freemium", "Premium", "Six daily prediction lanes",
+            "Midday and evening · 3D, 4D and 5D", "Regular daily predictions",
+            "Favorites, with sign-in for syncing", "Platform Picks", "Easy Picks",
+            "Additional analytics and performance cards", "XP, tokens",
+            "Community activity and leaderboards", "do not guarantee future results",
         ):
             self.assertIn(required, source)
         for unsupported in ("unlimited predictions", "$9.99", "guaranteed accuracy"):
@@ -74,6 +74,26 @@ class MotorCityLiquidAlloyReleaseTests(unittest.TestCase):
         )
         self.assertIn("Sculpted gold bull and bear emblem for ChaseInGreen", self.concept)
         self.assertNotIn("chaseingreen-bull-bear-sculpted", self.template.lower())
+
+    def test_additive_product_branding_assets_and_visuals_are_present(self):
+        restoration = (
+            ROOT / "static" / "css" / "product-restoration.css"
+        ).read_text(encoding="utf-8")
+        for asset in (
+            ROOT / "static" / "images" / "lottovate" / "lottovate-icon.png",
+            ROOT / "static" / "images" / "sportfolio"
+            / "sportfolio-approved-master.webp",
+        ):
+            self.assertTrue(asset.is_file())
+            self.assertGreater(asset.stat().st_size, 0)
+        for required in (
+            "market-display__metrics", "lottery-display__scan",
+            "sportfolio-display__diamond", "sportfolio-display__metrics",
+            "sportfolio-approved-master.webp", "lottovate-icon.png",
+        ):
+            self.assertIn(required, self.concept + restoration)
+        self.assertIn("partials/dwf_logo_showcase.html", self.template)
+        self.assertIn("css/dwf-logo.css", self.template)
 
     def test_original_eyeball_opens_in_hero_and_companion_is_not_encounter_gated(self):
         companion = (ROOT / "static" / "js" / "oes-core-companion.js").read_text(

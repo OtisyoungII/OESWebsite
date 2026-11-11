@@ -159,7 +159,7 @@ function createLogoController(showcase) {
 
     function animate() {
         if (!isVisible) {
-            animationFrameId = requestAnimationFrame(animate);
+            animationFrameId = null;
             return;
         }
 
@@ -201,7 +201,7 @@ function createLogoController(showcase) {
 
 
     function handlePointerMove(event) {
-        if (event.pointerType === "touch") {
+        if (event.pointerType === "touch" && !isInteracting) {
             return;
         }
 
@@ -246,6 +246,8 @@ function createLogoController(showcase) {
 
         if (!isVisible) {
             returnToCenter();
+        } else if (animationFrameId === null) {
+            animationFrameId = requestAnimationFrame(animate);
         }
     }
 
