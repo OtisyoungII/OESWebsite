@@ -5,6 +5,7 @@ import { initializeOESCore } from "./oes-core.js";
 import { initializeOESCore3D } from "./oes-core-3d.js";
 import { initializeOESCoreCompanion } from "./oes-core-companion.js";
 import { initializeProductExperiences } from "./product-experiences.js";
+import { initializeDWFLogoShowcase } from "./dwf-logo.js";
 
 function initializeLiquidAlloyHomepage() {
     const sectionMap = {
@@ -31,6 +32,7 @@ function initializeLiquidAlloyHomepage() {
     initializeEyeballChat();
     initializeProductIntelligence();
     initializeProductExperiences();
+    initializeDWFLogoShowcase();
 }
 
 if (document.readyState === "loading") {

@@ -11,8 +11,14 @@ const copy = Object.freeze({
 });
 
 const lottovatePanels = Object.freeze({
-    freemium: '<div class="membership-demo__summary"><b>Four daily prediction lanes</b><span>Midday and evening · 3D and 4D</span></div><ul><li>Regular predictions</li><li>Favorites, with sign-in for syncing</li><li>Historical results and number analysis</li></ul>',
-    premium: '<div class="membership-demo__summary"><b>Expanded prediction workspace</b><span>Up to 6 tickets per platform input · up to 12 Easy Picks</span></div><ul><li>Accuracy trends displayed as percentages from recorded results</li><li>XP and tokens returned by eligible play activity</li><li>Shared-favorites feed and wins, tokens and weekly leaderboards</li></ul>',
+    freemium: '<div class="membership-demo__summary"><b>Six daily prediction lanes</b><span>Midday and evening · 3D, 4D and 5D</span></div><ul><li>Regular daily predictions</li><li>Favorites, with sign-in for syncing</li><li>Recorded results and number exploration</li></ul>',
+    premium: '<div class="membership-demo__summary"><b>Expanded prediction workspace</b><span>Platform Picks, Easy Picks and performance tools</span></div><ul><li>Additional analytics and performance cards</li><li>XP, tokens and eligible rewards activity</li><li>Community activity and leaderboards</li></ul>',
+});
+
+const chaseMarketStates = Object.freeze({
+    "1D": Object.freeze({ state: "Constructive", pressure: "Balanced", risk: "Defined" }),
+    "1W": Object.freeze({ state: "Range holding", pressure: "Cooling", risk: "Watch support" }),
+    "1M": Object.freeze({ state: "Trend positive", pressure: "Mixed", risk: "Plan exposure" }),
 });
 
 const journeys = Object.freeze({
@@ -45,6 +51,21 @@ function handleChoice(button) {
     if (demo.dataset.productDemo === "lottovate") {
         const panel = demo.querySelector("[data-membership-panel]");
         if (panel) panel.innerHTML = lottovatePanels[button.dataset.demoChoice];
+        demo.classList.remove("is-number-reacting");
+        void demo.offsetWidth;
+        demo.classList.add("is-number-reacting");
+        window.setTimeout(() => demo.classList.remove("is-number-reacting"), 720);
+    }
+    if (demo.dataset.productDemo === "chaseingreen") {
+        const state = chaseMarketStates[button.dataset.demoChoice];
+        if (!state) return;
+        demo.querySelector("[data-market-state]").textContent = state.state;
+        demo.querySelector("[data-market-pressure]").textContent = state.pressure;
+        demo.querySelector("[data-market-risk]").textContent = state.risk;
+        const display = demo.querySelector("[data-market-display]");
+        display?.classList.remove("is-refreshing");
+        void display?.offsetWidth;
+        display?.classList.add("is-refreshing");
     }
 }
 
