@@ -10,11 +10,11 @@ export const oesContent = Object.freeze({
   },
   products: [
     {
-      id: "chaseingreen", name: "ChaseInGreen", category: "Trading Companion Platform", status: "Active TestFlight Testing",
+      id: "chaseingreen", name: "ChaseInGreen", category: "Trading Companion Platform", status: "Available on the App Store",
       description: "ChaseInGreen is an OES-built trading companion undergoing production hardening and TestFlight testing. It brings market context, planning, risk tools, journaling and trader workspace features together without acting as a brokerage, exchange, wallet or financial institution.",
       features: ["Technical-analysis-driven dashboards and market state", "Position sizing, stop-loss and take-profit workflows", "Profit-protection and give-back planning tools", "Trade journaling, grouped P&L and account management", "Broker integrations, alerts and ongoing behavior analysis"],
       actions: [
-        { label: "Test on TestFlight", href: "https://testflight.apple.com/join/nPjjyDSf" },
+        { label: "Download on the App Store", href: "https://apps.apple.com/us/app/chaseingreen/id6770096789" },
         { label: "Join ChaseInGreen Discord", href: "https://discord.gg/YjKFkdnj3" },
         { label: "ChaseInGreen Privacy Policy", href: "/privacy" }
       ],
@@ -38,13 +38,13 @@ export const oesContent = Object.freeze({
       note: "On Android? You can join Sportfolio testing through the web app while native mobile support continues to expand."
     },
     {
-      id: "drinkswithfriendz", name: "Drinks With Friendz", category: "Client project developed by OES", status: "TestFlight Beta",
+      id: "drinkswithfriendz", name: "Drinks With Friendz", category: "Client application developed by OES", status: "Available on the App Store",
       description: "Find nearby places, explore them on a map and open the details needed to plan the next stop. OES developed this iPhone experience for the Drinks With Friendz client brand.",
-      features: ["Native SwiftUI development", "Interactive maps and radius-based discovery", "Venue categories, photos, reviews and hours", "Calling, websites, sharing and directions", "TestFlight Beta"],
+      features: ["Native SwiftUI development", "Interactive maps and radius-based discovery", "Venue categories, photos, ratings and hours", "Calling, websites, sharing and directions", "Available on iPhone"],
       actions: [
-        { label: "Visit Website", href: "https://drinkswithfriendz.com/" },
-        { label: "Test on TestFlight", href: "https://testflight.apple.com/join/mzknJ42e" },
-        { label: "Drinks With Friendz Privacy", href: "/drinks-with-friendz/privacy" }
+        { label: "Download on the App Store", href: "https://apps.apple.com/us/app/drinks-with-friendz/id6803617345", primary: true },
+        { label: "Visit Drinks With Friendz", href: "https://drinkswithfriendz.com/" },
+        { label: "Drinks With Friendz Privacy Policy", href: "/drinks-with-friendz/privacy" }
       ]
     }
   ],
