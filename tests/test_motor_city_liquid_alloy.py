@@ -16,6 +16,8 @@ class MotorCityLiquidAlloyReleaseTests(unittest.TestCase):
         cls.content = (CONCEPT.parent / "shared" / "content.js").read_text(encoding="utf-8")
         cls.runtime = (ROOT / "static" / "js" / "liquid-alloy-app.js").read_text(
             encoding="utf-8")
+        cls.fireworks = (ROOT / "static" / "js" / "dwf-fireworks.js").read_text(
+            encoding="utf-8")
 
     def test_homepage_uses_liquid_alloy_with_original_eyeball(self):
         for required in (
@@ -128,13 +130,44 @@ class MotorCityLiquidAlloyReleaseTests(unittest.TestCase):
             "https://testflight.apple.com/join/CD35ByXj",
             "https://sportfolio-api-ktd5.onrender.com/",
             "https://drinkswithfriendz.com/",
-            "https://testflight.apple.com/join/mzknJ42e",
+            "https://apps.apple.com/us/app/drinks-with-friendz/id6803617345",
             "/privacy", "/drinks-with-friendz/privacy",
         ):
             self.assertIn(destination, source)
         self.assertIn("const products = baseProducts.filter", self.concept)
         self.assertIn("const clientProjects = [drinks]", self.concept)
         self.assertIn("client-owned brand", self.concept)
+        self.assertNotIn("https://testflight.apple.com/join/mzknJ42e", source)
+        self.assertIn("Available on the App Store", source)
+        self.assertIn("Download on the App Store", source)
+
+    def test_drinks_with_friendz_release_fireworks_are_bounded_and_accessible(self):
+        logo = (ROOT / "templates" / "partials" / "dwf_logo_showcase.html").read_text(
+            encoding="utf-8")
+        styles = (ROOT / "static" / "css" / "dwf-logo.css").read_text(
+            encoding="utf-8")
+        source = logo + styles + self.fireworks + self.runtime
+        for required in (
+            "data-dwf-fireworks", "initializeDWFFireworks", "IntersectionObserver",
+            "visibilitychange", "requestAnimationFrame", "particleLimit",
+            "pagehide", "prefers-reduced-motion: reduce", "pointer-events: none",
+            "data-celebration-enabled", "data-celebration-title",
+            "data-celebration-product", "data-celebration-intensity",
+            "data-celebration-palette", "data-celebration-finale-frequency",
+            '"corkscrew"', '"zigzag"', '"loop"', "scheduleFinale",
+            "multiStage", "createBurst", "rocket.trail",
+        ):
+            self.assertIn(required, source)
+        self.assertIn('aria-hidden="true"', logo)
+        self.assertNotIn("setInterval", self.fireworks)
+        self.assertNotIn("fetch(", self.fireworks)
+
+    def test_privacy_links_are_available_in_top_navigation(self):
+        header = self.template.split("</header>", 1)[0]
+        self.assertIn("OES Privacy", header)
+        self.assertIn("Drinks With Friendz Privacy Policy", header)
+        self.assertIn("url_for('privacy')", header)
+        self.assertIn("url_for('drinks_with_friendz_privacy')", header)
 
     def test_product_and_eyeball_analytics_are_preserved(self):
         source = self.template + self.concept + self.runtime

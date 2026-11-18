@@ -12,6 +12,8 @@
 .client-project__ownership span{font:700 .62rem Consolas,monospace;letter-spacing:.16em;color:var(--copper)}
 .client-project__ownership strong{font:700 1.2rem Bahnschrift,sans-serif;text-transform:uppercase;margin:.65rem 0}
 .client-project__ownership p{font-size:.82rem;color:var(--muted)}
+.status-pill--celebration{border-color:rgba(247,200,75,.62);color:#fff2c9;box-shadow:0 0 18px rgba(247,200,75,.14)}
+.client-brand-story__visual{position:relative;overflow:hidden;contain:layout paint}
 .eyeball-dock__visual{position:relative;display:grid;place-items:center;align-content:center;gap:1.5rem;min-height:480px;overflow:hidden;background:linear-gradient(145deg,rgba(41,49,52,.82),rgba(7,10,12,.96));border:1px solid rgba(216,234,233,.18);clip-path:polygon(0 8%,8% 0,92% 0,100% 8%,100% 92%,92% 100%,8% 100%,0 92%);box-shadow:var(--shadow-high)}
 .eyeball-dock__visual::before,.eyeball-dock__visual::after{content:"";position:absolute;pointer-events:none}
 .eyeball-dock__visual::before{width:62%;aspect-ratio:1;border:1px solid rgba(113,239,241,.24);border-radius:50%;box-shadow:0 0 0 18px rgba(113,239,241,.018),0 0 0 72px rgba(224,238,237,.018),inset 0 0 80px rgba(0,0,0,.72)}

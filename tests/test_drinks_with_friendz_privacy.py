@@ -14,6 +14,20 @@ class DrinksWithFriendzPrivacyTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertIn('text/html', response.content_type)
 
+    def test_homepage_links_to_both_privacy_policies_near_the_top(self):
+        html = self.client.get('/').get_data(as_text=True)
+        header = html.split('</header>', 1)[0]
+
+        self.assertIn('href="/privacy"', header)
+        self.assertIn('href="/drinks-with-friendz/privacy"', header)
+        self.assertIn('Drinks With Friendz Privacy Policy', header)
+
+    def test_homepage_uses_verified_app_store_destination(self):
+        html = self.client.get('/').get_data(as_text=True)
+
+        self.assertIn('https://apps.apple.com/us/app/drinks-with-friendz/id6803617345', html)
+        self.assertNotIn('https://testflight.apple.com/join/mzknJ42e', html)
+
     def test_privacy_policy_contains_required_product_disclosures(self):
         html = self.client.get('/drinks-with-friendz/privacy').get_data(as_text=True)
 

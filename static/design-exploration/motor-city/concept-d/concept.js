@@ -1,6 +1,7 @@
 import { oesContent } from "../shared/content.js";
 
-const APP_STORE_URL = "https://apps.apple.com/us/app/chaseingreen/id6770096789";
+const CHASE_APP_STORE_URL = "https://apps.apple.com/us/app/chaseingreen/id6770096789";
+const DWF_APP_STORE_URL = "https://apps.apple.com/us/app/drinks-with-friendz/id6803617345";
 const configuredSportfolioUrl = document.body.dataset.sportfolioUrl || "";
 const SPORTFOLIO_URL = (() => {
   try {
@@ -15,7 +16,7 @@ const chase = baseProducts.find((product) => product.id === "chaseingreen");
 chase.status = "Live on the App Store";
 chase.description = "See market context, plan risk and keep a clearer record of your decisions—all in one trading companion. ChaseInGreen is not a brokerage, exchange, wallet or financial institution.";
 chase.actions = [
-  { label: "Get ChaseINGreen on the App Store", href: APP_STORE_URL, primary: true },
+  { label: "Get ChaseINGreen on the App Store", href: CHASE_APP_STORE_URL, primary: true },
   { label: "Join ChaseInGreen Discord", href: "https://discord.gg/YjKFkdnj3" },
   { label: "ChaseInGreen Privacy Policy", href: "/privacy" },
 ];
@@ -30,7 +31,12 @@ sportfolio.actions = [
 const lottovate = baseProducts.find((product) => product.id === "lottovate");
 lottovate.status = "Public TestFlight";
 const drinks = baseProducts.find((product) => product.id === "drinkswithfriendz");
-drinks.status = "Public TestFlight Beta";
+drinks.status = "Available on the App Store";
+drinks.actions = [
+  { label: "Download on the App Store", href: DWF_APP_STORE_URL, primary: true },
+  { label: "Visit Drinks With Friendz", href: "https://drinkswithfriendz.com/" },
+  { label: "Drinks With Friendz Privacy Policy", href: "/drinks-with-friendz/privacy" },
+];
 
 const products = baseProducts.filter((product) => product.id !== "drinkswithfriendz");
 const clientProjects = [drinks];
@@ -155,7 +161,7 @@ document.querySelector("[data-services]").innerHTML = oesContent.services.map(([
 const dwfLogoMarkup = document.querySelector("#dwf-logo-template")?.innerHTML || "";
 document.querySelector("[data-client-work]").innerHTML = clientProjects.map((project, index) => `<article class="client-project" data-product="${escapeHtml(project.id)}">
   <div class="client-project__rail"><span>${String(index + 1).padStart(2, "0")}</span><span>IPHONE APP</span></div>
-  <div class="client-project__body"><div class="product-focus__topline"><span class="product-focus__category">${escapeHtml(project.category)}</span><span class="status-pill"><span class="signal"></span>${escapeHtml(project.status)}</span></div>
+  <div class="client-project__body"><div class="product-focus__topline"><span class="product-focus__category">${escapeHtml(project.category)}</span><span class="status-pill status-pill--celebration"><span class="signal"></span>NOW ON THE APP STORE</span></div>
   <div class="client-brand-story"><div class="client-brand-story__visual" id="dwf-logo-showcase">${dwfLogoMarkup}</div><div class="client-brand-story__copy"><h3>${escapeHtml(project.name)}</h3><p>${escapeHtml(project.description)}</p><p class="client-brand-story__note">Discover nearby places, compare useful venue details and continue from the map to directions or contact options.</p></div></div><section class="product-demo product-demo--journey" data-product-demo="drinkswithfriendz" aria-label="Illustrative venue discovery journey"><div class="product-demo__heading"><span>Venue journey demonstration</span><strong>From an area to the next stop.</strong></div><ol class="venue-journey"><li class="is-current"><b>01</b><span>Choose an area</span></li><li><b>02</b><span>Explore nearby venues</span></li><li><b>03</b><span>Open details</span></li><li><b>04</b><span>Get directions</span></li></ol><button class="demo-advance" type="button" data-demo-advance>Walk through the experience</button><p class="demo-readout" data-demo-output aria-live="polite">Start with an authorized location or a place the user chooses.</p></section><div class="product-focus__actions">${project.actions.map((action) => actionMarkup(action, project)).join("")}</div>
   <details class="dossier"><summary><span><span class="dossier-label">What OES delivered</span><br>See the app features</span></summary><div class="dossier__body"><ul>${project.features.map((feature) => `<li>${escapeHtml(feature)}</li>`).join("")}</ul></div></details></div>
   <aside class="client-project__ownership"><span>CLIENT WORK</span><strong>Built for Drinks With Friendz</strong><p>OES designed and developed this iPhone experience for a client-owned brand.</p></aside>
