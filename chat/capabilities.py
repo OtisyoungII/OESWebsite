@@ -15,6 +15,7 @@ TAVILY_API_BASE = 'https://api.tavily.com'
 MAX_SEARCH_QUERY = 300
 MAX_RESULTS = 3
 MAX_EVIDENCE_TEXT = 1200
+EXTERNAL_IDENTITY_EVIDENCE_CHARS = 1500
 CONTINUITY_TTL_SECONDS = 600
 MAX_CONTINUITY_RECORDS = 2048
 
@@ -203,12 +204,14 @@ def eyeball_capabilities(config=None):
     )
 
 
-def evidence_instruction(result):
+def evidence_instruction(result, content_limit=3500, balanced=False):
     """Serialize bounded external data as evidence, never as policy or authority."""
     records = []
-    remaining = 3500
-    for item in result.evidence:
-        content = item.content[:remaining]
+    remaining = content_limit
+    total_items = len(result.evidence)
+    for index, item in enumerate(result.evidence):
+        allowance = (remaining // (total_items - index)) if balanced else remaining
+        content = item.content[:allowance]
         if not content:
             break
         records.append({'source': item.source, 'url': item.url,
