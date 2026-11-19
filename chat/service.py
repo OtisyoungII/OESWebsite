@@ -117,7 +117,6 @@ class ChatService:
                     'choices': choices, 'reason': decision.reason})
                 yield ChatEvent('done', {'history': 'exclude_exchange'})
                 return
-        instruction = SYSTEM_IDENTITY + "\n\n" + PUBLIC_CONTEXT
         history = bounded_history(history)
         state, continuity = SituationAnalyzer().analyze(message, history, context)
         prior_lookup = (continuity_store.consume(continuation, locale)
@@ -128,6 +127,10 @@ class ChatService:
                             tone='informative', grounding_mode='public_evidence',
                             response_action='answer_with_public_evidence', certainty='high')
         serious = state.serious
+        external_identity = state.interaction_kind == 'external_entity_identity'
+        instruction = SYSTEM_IDENTITY
+        if not external_identity:
+            instruction += "\n\n" + PUBLIC_CONTEXT
         observed = ObservationState.from_context(context)
         interpretation = infer(observed)
 
@@ -136,7 +139,8 @@ class ChatService:
                              InitiationDecision('stay_silent', 'user_request_precedence'))
             self.debug_logger.info('Eyeball situation %s', json.dumps(state.debug_fields()))
 
-        instruction += observation_contract(observed, interpretation)
+        if not external_identity:
+            instruction += observation_contract(observed, interpretation)
         instruction += '\n' + response_contract(state, continuity)
         if not serious and not state.requires_oes_facts:
             instruction += '\n' + FACTUAL_DISCIPLINE
@@ -153,7 +157,7 @@ class ChatService:
         # Grounded selection receives no untrusted conversation prose. Ordinary and
         # hypothetical turns retain only conversational exchanges, excluding earlier
         # grounded requests and their deterministic assistant fallbacks.
-        model_history = ([] if state.requires_oes_facts
+        model_history = ([] if state.requires_oes_facts or external_identity
                          else conversational_history(history))
 
         self.telemetry('request_accepted', request_id=request_id, outcome='accepted')
@@ -210,6 +214,10 @@ class ChatService:
             lookup_succeeded = result is not None and result.success
             if lookup_succeeded:
                 instruction += '\n\n' + evidence_instruction(result)
+            elif external_identity:
+                yield from emit(deterministic_response('lookup_limitation', locale),
+                                done_data={'history': 'exclude_exchange'})
+                return
             else:
                 instruction += (
                     '\n\nThe assigned public lookup did not return verified evidence. Answer any '

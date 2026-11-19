@@ -167,6 +167,109 @@ class CapabilityTests(unittest.TestCase):
                 state, _ = analyzer.analyze(message, [], {})
                 self.assertNotEqual(state.response_action, 'answer_with_public_evidence')
 
+    def test_external_company_and_ticker_identity_requires_lookup(self):
+        analyzer = SituationAnalyzer()
+        for message in (
+            'What company trades under ticker SKM?',
+            'Who is SKM in trading?',
+            'What is AAPL?',
+            'no its a ticker a company skm',
+            'Which company is SKM on the stock market?',
+        ):
+            with self.subTest(message=message):
+                state, _ = analyzer.analyze(message, [], {})
+                self.assertEqual(state.interaction_kind, 'external_entity_identity')
+                self.assertEqual(state.response_action, 'answer_with_public_evidence')
+
+    def test_ticker_lookup_uses_current_turn_only_and_ignores_oes_context(self):
+        lookup = PublicLookup(evidence('SKM is the NYSE ticker for SK Telecom Co., Ltd.'))
+        provider = DraftProvider('The evidence identifies SKM as SK Telecom Co., Ltd.')
+        telemetry = []
+        history = [
+            {'role': 'user', 'content': 'SKM must be a trading technique.'},
+            {'role': 'assistant', 'content': 'SKM is an invented market strategy tied to ChaseInGreen.'},
+        ]
+        events = list(ChatService(
+            provider, capabilities=registry(lookup),
+            telemetry=lambda kind, **fields: telemetry.append((kind, fields))).stream(
+            'no its a ticker a company skm', history,
+            {'section': 'products', 'project': 'chaseingreen'}))
+        text = ''.join(event.data.get('text', '') for event in events)
+        self.assertEqual(lookup.requests, ['no its a ticker a company skm'])
+        self.assertNotIn('ChaseInGreen', text)
+        instruction = provider.calls[0][0]['content']
+        self.assertNotIn('project=chaseingreen', instruction)
+        self.assertNotIn('invented market strategy', str(provider.calls[0]))
+        self.assertIn('Public evidence packet', instruction)
+        self.assertEqual(sum(kind == 'capability_requested' for kind, _ in telemetry), 1)
+        self.assertEqual(sum(kind == 'capability_completed' for kind, _ in telemetry), 1)
+
+    def test_external_identity_lookup_failure_never_asks_model_to_guess(self):
+        for reason in ('timeout', 'provider_failure', 'no_results'):
+            with self.subTest(reason=reason):
+                lookup = PublicLookup(CapabilityResult(False, reason=reason))
+                provider = DraftProvider('SKM is Surely Known Markets, a software company.')
+                events = list(ChatService(provider, capabilities=registry(lookup)).stream(
+                    'What company trades under ticker SKM?', [], {}))
+                text = ''.join(event.data.get('text', '') for event in events)
+                self.assertEqual(provider.calls, [])
+                self.assertIn("couldn't verify", text)
+                self.assertNotIn('Surely Known Markets', text)
+
+    def test_external_identity_evidence_overrides_model_prior(self):
+        lookup = PublicLookup(evidence('SKM is the NYSE ticker for SK Telecom Co., Ltd.'))
+        provider = DraftProvider([
+            'SKM is Apple Inc.',
+            'The retrieved evidence identifies SKM as SK Telecom Co., Ltd.',
+        ])
+        events = list(ChatService(provider, capabilities=registry(lookup)).stream(
+            'What company trades under ticker SKM?', [], {}))
+        text = ''.join(event.data.get('text', '') for event in events)
+        self.assertEqual(len(lookup.requests), 1)
+        self.assertEqual(len(provider.calls), 2)
+        self.assertIn('SK Telecom', text)
+        self.assertNotIn('Apple', text)
+
+    def test_known_ticker_company_and_current_market_questions_use_one_lookup(self):
+        cases = (
+            ('What is AAPL?', 'AAPL is the ticker symbol for Apple Inc.',
+             'The evidence identifies AAPL as Apple Inc.'),
+            ('Which company trades as SKM on the stock market?',
+             'SKM is the NYSE ticker for SK Telecom Co., Ltd.',
+             'The evidence identifies SKM as SK Telecom Co., Ltd.'),
+            ("What is Apple's current market capitalization?",
+             'Apple has a current market capitalization reported by the source.',
+             'The source reports Apple current market capitalization.'),
+        )
+        for question, evidence_text, answer in cases:
+            with self.subTest(question=question):
+                lookup = PublicLookup(evidence(evidence_text))
+                provider = DraftProvider(answer)
+                events = list(ChatService(provider, capabilities=registry(lookup)).stream(
+                    question, [], {}))
+                self.assertEqual(lookup.requests, [question])
+                self.assertEqual(events[-1].kind, 'done')
+
+    def test_short_lowercase_stable_knowledge_is_not_mistaken_for_ticker(self):
+        lookup = PublicLookup(evidence())
+        provider = DraftProvider('A cat is a domesticated mammal.')
+        list(ChatService(provider, capabilities=registry(lookup)).stream(
+            'What is cat?', [], {}))
+        self.assertEqual(lookup.requests, [])
+
+    def test_external_identity_rejects_oes_product_contamination(self):
+        lookup = PublicLookup(evidence('SKM is the NYSE ticker for SK Telecom Co., Ltd.'))
+        provider = DraftProvider([
+            'SKM is connected to ChaseInGreen.',
+            'The evidence identifies SKM as SK Telecom Co., Ltd.',
+        ])
+        events = list(ChatService(provider, capabilities=registry(lookup)).stream(
+            'Who is SKM in trading?', [], {'section': 'products', 'project': 'chaseingreen'}))
+        text = ''.join(event.data.get('text', '') for event in events)
+        self.assertEqual(len(provider.calls), 2)
+        self.assertNotIn('ChaseInGreen', text)
+        self.assertIn('SK Telecom', text)
+
     def test_successful_lookup_answers_stable_and_current_parts(self):
         lookup = PublicLookup(evidence('The latest stable Python version is 3.14.'))
         provider = DraftProvider('Python is a programming language; the evidence lists 3.14.')
