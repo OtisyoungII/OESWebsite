@@ -339,7 +339,9 @@ class ChatService:
                             'provided evidence for the current part, retain ordinary reasoning for '
                             'stable parts, and do not redirect the user or deny lookup capability. '
                             'For a ticker identity, assert a company only when the evidence explicitly '
-                            'binds that exact ticker to it; otherwise say you could not verify it.'
+                            'binds that exact ticker to it. If the same ticker is explicitly bound to '
+                            'different companies on different exchanges, state that ambiguity and '
+                            'qualify each identity by exchange; otherwise say you could not verify it.'
                         )
                         messages = fit_messages(instruction + correction, model_history, message)
                     elif (external_identity and set(hard_failures).issubset(

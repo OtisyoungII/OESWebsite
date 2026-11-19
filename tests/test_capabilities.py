@@ -262,6 +262,11 @@ class CapabilityTests(unittest.TestCase):
             ('What company trades under ticker ZXQVT?',
              evidence('Theriva Biologics is a publicly traded company.')),
             ('What company trades under ticker ZXQVT?',
+             CapabilityResult(True, (Evidence(
+                 'Theriva Biologics internal reference (ZXQVT)',
+                 'https://example.com/reference', '2026-11-19T13:00:00Z',
+                 'Theriva Biologics uses ZXQVT as an internal document reference.'),), 'ok')),
+            ('What company trades under ticker ZXQVT?',
              CapabilityResult(True, (
                  Evidence('Ticker glossary', 'https://example.com/ticker',
                           '2026-11-19T13:00:00Z', 'ZXQVT is a ticker-like identifier.'),
@@ -302,10 +307,88 @@ class CapabilityTests(unittest.TestCase):
                      'ZZZZ is the Nasdaq ticker for Alpha Holdings Inc.'),
             Evidence('Second market profile', 'https://example.com/two',
                      '2026-11-19T13:00:00Z',
-                     'ZZZZ is the NYSE ticker for Beta Systems Corp.'),
+                     'ZZZZ is the Nasdaq ticker for Beta Systems Corp.'),
         ), 'ok')
         self.assertIsNone(ticker_identity_evidence(
             'What company trades under ticker ZZZZ?', conflicting))
+
+        generic_name_overlap = CapabilityResult(True, (
+            Evidence('Alpha Systems | NASDAQ: ZZZZ', 'https://example.com/alpha',
+                     '2026-11-19T13:00:00Z',
+                     'The stock ticker symbol for Alpha Systems Inc. is ZZZZ.'),
+            Evidence('Beta Systems | NASDAQ: ZZZZ', 'https://example.com/beta',
+                     '2026-11-19T13:00:00Z',
+                     'The stock ticker symbol for Beta Systems Inc. is ZZZZ.'),
+        ), 'ok')
+        self.assertIsNone(ticker_identity_evidence(
+            'What company trades under ticker ZZZZ?', generic_name_overlap))
+
+    def test_real_tavily_skm_relationship_shapes_are_retained(self):
+        result = CapabilityResult(True, (
+            Evidence(
+                'Skylark Minerals Ltd Stock Price Today | ASX: SKM Live - Investing.com',
+                'https://www.investing.com/equities/ironbark-zinc-ltd',
+                '2026-11-19T16:55:00Z',
+                'The stock ticker symbol for Skylark Minerals Ltd is SKM. '
+                'Skylark Minerals Ltd is listed and trades on the Sydney stock exchange.'),
+            Evidence(
+                'SK Telecom Stock Price Today | NYSE: SKM Live - Investing.com',
+                'https://www.investing.com/equities/sk-telecom',
+                '2026-11-19T16:55:00Z',
+                'The stock ticker symbol for SK Telecom Co Ltd ADR is SKM. '
+                'SK Telecom Co Ltd ADR is listed and trades on the NYSE stock exchange.'),
+            Evidence(
+                'SK Telecom Co., Ltd. (SKM) Stock Price, News, Quote & History - Yahoo Finance',
+                'https://finance.yahoo.com/quote/SKM',
+                '2026-11-19T16:55:00Z',
+                'SK Telecom Co., Ltd. provides wireless telecommunication services.'),
+        ), 'ok')
+        verified = ticker_identity_evidence(
+            'What company trades under ticker SKM?', result)
+        self.assertIsNotNone(verified)
+        self.assertEqual(len(verified.evidence), 3)
+
+    def test_exchange_ambiguous_ticker_requires_qualified_multi_identity_answer(self):
+        result = CapabilityResult(True, (
+            Evidence('Skylark Minerals Stock | ASX: SKM', 'https://example.com/asx-skm',
+                     '2026-11-19T16:55:00Z',
+                     'The stock ticker symbol for Skylark Minerals Ltd is SKM.'),
+            Evidence('SK Telecom ADR | NYSE: SKM', 'https://example.com/nyse-skm',
+                     '2026-11-19T16:55:00Z',
+                     'The stock ticker symbol for SK Telecom Co Ltd ADR is SKM.'),
+        ), 'ok')
+        lookup = PublicLookup(result)
+        provider = DraftProvider([
+            'SKM is SK Telecom Co. Ltd.',
+            'SKM can refer to multiple listings: NYSE: SKM is SK Telecom ADR, while '
+            'ASX: SKM is Skylark Minerals Ltd.',
+        ])
+        events = list(ChatService(provider, capabilities=registry(lookup)).stream(
+            'What company trades under ticker SKM?', [], {}))
+        text = ''.join(event.data.get('text', '') for event in events)
+        self.assertEqual(len(provider.calls), 2)
+        self.assertIn('SK Telecom', text)
+        self.assertIn('Skylark Minerals', text)
+        self.assertIn('NYSE', text)
+        self.assertIn('ASX', text)
+
+    def test_common_public_ticker_title_formats_are_relationship_evidence(self):
+        formats = (
+            'Example Holdings (NYSE: EXM) Stock Price',
+            'Example Holdings (EXM) Stock Analysis',
+            'Example Holdings - EXM Stock Quote',
+            'EXM | Example Holdings Stock Price',
+            'EXM Stock Price | Example Holdings',
+            'Stock analysis for Example Holdings (EXM)',
+            'Example Holdings ADR (NYSE:EXM)',
+        )
+        for title in formats:
+            with self.subTest(title=title):
+                result = CapabilityResult(True, (Evidence(
+                    title, 'https://example.com/quote/exm', '2026-11-19T16:55:00Z',
+                    'Public market quote and company profile.'),), 'ok')
+                self.assertIsNotNone(ticker_identity_evidence(
+                    'What company trades under ticker EXM?', result))
 
     def test_unsupported_generated_ticker_mapping_gets_one_correction_then_limitation(self):
         lookup = PublicLookup(evidence(
