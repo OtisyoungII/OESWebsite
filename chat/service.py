@@ -18,7 +18,7 @@ from .observations import (ObservationState, infer, observation_contract,
 from .worker_protocol import CONTEXT_BUDGET, context_cost
 from .capabilities import (CapabilityDenied, CapabilityRegistry, PUBLIC_LOOKUP,
                            evidence_instruction, validate_evidence_answer,
-                           public_search_query)
+                           public_search_query, EXTERNAL_IDENTITY_EVIDENCE_CHARS)
 from .localization import DEFAULT_LOCALE, deterministic_response, response_language_instruction
 from .clarification import ClarificationAnalyzer
 
@@ -213,7 +213,10 @@ class ChatService:
                      duration_ms, reason)
             lookup_succeeded = result is not None and result.success
             if lookup_succeeded:
-                instruction += '\n\n' + evidence_instruction(result)
+                evidence_packet = (evidence_instruction(
+                    result, EXTERNAL_IDENTITY_EVIDENCE_CHARS, balanced=True)
+                    if external_identity else evidence_instruction(result))
+                instruction += '\n\n' + evidence_packet
             elif external_identity:
                 yield from emit(deterministic_response('lookup_limitation', locale),
                                 done_data={'history': 'exclude_exchange'})

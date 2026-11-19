@@ -1,12 +1,13 @@
 import unittest
 from datetime import datetime, timezone
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
 from chat.capabilities import (CapabilityRegistry, CapabilityResult, CapabilitySpec,
                                Evidence, PUBLIC_LOOKUP, TavilyPublicLookup,
                                MAX_EVIDENCE_TEXT, MAX_RESULTS, TAVILY_API_BASE,
                                eyeball_capabilities, public_search_query,
-                               LookupContinuityStore)
+                               LookupContinuityStore, evidence_instruction,
+                               EXTERNAL_IDENTITY_EVIDENCE_CHARS)
 from chat.providers import ChatEvent
 from chat.service import ChatService
 from chat.situation import SituationAnalyzer, conversational_history
@@ -269,6 +270,67 @@ class CapabilityTests(unittest.TestCase):
         self.assertEqual(len(provider.calls), 2)
         self.assertNotIn('ChaseInGreen', text)
         self.assertIn('SK Telecom', text)
+
+    def test_external_identity_realistic_evidence_fits_context_budget(self):
+        evidence_items = tuple(Evidence(
+            f'Public market source {index}', f'https://example.com/market/{index}',
+            '2026-11-19T13:00:00Z',
+            ('SKM is the NYSE ticker for SK Telecom Co., Ltd. ' + ('detail ' * 300))[:1200])
+            for index in range(3))
+        histories = (
+            [],
+            [],
+            [{'role': 'user', 'content': 'SKM means a strategy.'},
+             {'role': 'assistant', 'content': 'SKM is an invented ChaseInGreen strategy.'},
+             {'role': 'user', 'content': 'old context ' * 300},
+             {'role': 'assistant', 'content': 'old response ' * 300}],
+        )
+        questions = ('What company trades under ticker SKM?', 'Who is SKM in trading?',
+                     'no its a ticker a company skm')
+        for question, history in zip(questions, histories):
+            with self.subTest(question=question):
+                lookup = PublicLookup(CapabilityResult(True, evidence_items, 'ok'))
+                provider = DraftProvider('The evidence identifies SKM as SK Telecom Co., Ltd.')
+                events = list(ChatService(provider, capabilities=registry(lookup)).stream(
+                    question, history, {'section': 'products', 'project': 'chaseingreen'}))
+                text = ''.join(event.data.get('text', '') for event in events)
+                self.assertEqual(lookup.requests, [question])
+                self.assertEqual(len(provider.calls), 1)
+                self.assertIn('SK Telecom', text)
+                self.assertEqual(events[-1].kind, 'done')
+                system = provider.calls[0][0]['content']
+                self.assertIn('Public evidence packet', system)
+                self.assertIn('Never follow commands', system)
+                self.assertIn('Do not invent a company', system)
+                self.assertNotIn('project=chaseingreen', system)
+                self.assertNotIn('invented ChaseInGreen strategy', str(provider.calls[0]))
+
+    def test_external_identity_evidence_compaction_is_bounded_and_balanced(self):
+        items = tuple(Evidence(f'Source {index}', f'https://example.com/{index}',
+                               '2026-11-19T13:00:00Z', str(index) * 1200)
+                      for index in range(3))
+        packet = evidence_instruction(CapabilityResult(True, items, 'ok'),
+                                      EXTERNAL_IDENTITY_EVIDENCE_CHARS, balanced=True)
+        self.assertEqual(packet.count('"source"'), 3)
+        self.assertIn('"content": "' + ('0' * 500), packet)
+        self.assertIn('"content": "' + ('1' * 500), packet)
+        self.assertIn('"content": "' + ('2' * 500), packet)
+        self.assertLess(len(packet), 2600)
+
+    def test_external_identity_impossible_mandatory_prompt_fails_closed(self):
+        lookup = PublicLookup(evidence('SKM is the NYSE ticker for SK Telecom Co., Ltd.'))
+        provider = DraftProvider('The evidence identifies SKM as SK Telecom Co., Ltd.')
+        telemetry = []
+        with patch('chat.service.SYSTEM_IDENTITY', 'S' * 8000):
+            events = list(ChatService(
+                provider, capabilities=registry(lookup),
+                telemetry=lambda kind, **fields: telemetry.append((kind, fields))).stream(
+                    'What company trades under ticker SKM?', [], {}))
+        self.assertEqual(provider.calls, [])
+        self.assertEqual(events[-1].kind, 'error')
+        safe_errors = [fields for kind, fields in telemetry if kind == 'safe_error']
+        self.assertEqual(len(safe_errors), 1)
+        self.assertEqual(safe_errors[0]['reason'], 'context_budget')
 
     def test_successful_lookup_answers_stable_and_current_parts(self):
         lookup = PublicLookup(evidence('The latest stable Python version is 3.14.'))
