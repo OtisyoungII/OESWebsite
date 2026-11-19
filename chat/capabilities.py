@@ -230,6 +230,123 @@ def evidence_instruction(result, content_limit=3500, balanced=False):
     )
 
 
+_TICKER_QUERY_FILLER = frozenset({
+    'a', 'an', 'the', 'company', 'corporation', 'business', 'symbol', 'is', 'for',
+    'of', 'called', 'named', 'trades', 'trading', 'under', 'stock',
+})
+_ENTITY_FILLER = frozenset({
+    'and', 'company', 'corporation', 'corp', 'inc', 'incorporated', 'limited', 'ltd',
+    'plc', 'the', 'ticker', 'symbol', 'stock', 'shares', 'common', 'currently',
+    'formerly', 'now', 'trades', 'traded', 'listed', 'under', 'on', 'as',
+})
+
+
+def ticker_identity_symbol(request):
+    """Extract the user-supplied ticker from an explicit identity question."""
+    if not isinstance(request, str):
+        return None
+    ticker = re.search(r'\b(?:ticker|stock symbol|trading symbol)\b(?P<tail>[^?!.]{0,80})',
+                       request, re.I)
+    if ticker:
+        candidates = re.findall(r'\$?([A-Za-z][A-Za-z0-9.-]{0,9})\b',
+                                ticker.group('tail'))
+        candidates = [value for value in candidates
+                      if value.lower() not in _TICKER_QUERY_FILLER]
+        if candidates:
+            return candidates[-1].upper()
+    direct = re.fullmatch(r'\s*what\s+is\s+\$?([A-Z]{1,5})\s*[?.!]*\s*', request)
+    if direct:
+        return direct.group(1)
+    trading = re.search(r'\b([A-Z]{1,10})\b.{0,30}\b(?:in trading|on the stock market)\b',
+                        request)
+    return trading.group(1) if trading else None
+
+
+def _entity_terms(value, symbol):
+    return frozenset(term for term in re.findall(r'[a-z0-9]+', value.lower())
+                     if len(term) >= 3 and term != symbol.lower()
+                     and term not in _ENTITY_FILLER)
+
+
+def _ticker_relation_entities(text, symbol):
+    """Return entity anchors only from explicit, local ticker relationships."""
+    escaped = re.escape(symbol)
+    exchange = r'(?:NYSE(?:\s+American)?|NASDAQ|AMEX|OTC(?:QX|QB)?|LSE|TSX|ASX)'
+    entity = r'(?P<entity>[A-Z][^!?\n]{1,120}?)'
+    patterns = (
+        rf'\b{escaped}\b\s+(?:is|was|remains|became)\s+(?:the\s+)?'
+        rf'(?:(?:{exchange})[ -])?(?:ticker(?:\s+symbol)?|stock symbol|trading symbol)'
+        rf'\s+(?:for|of)\s+{entity}(?=$|[.;!?])',
+        rf'{entity}\s+(?:currently\s+)?(?:trades|traded|is listed|was listed|listed)'
+        rf'(?:\s+on\s+(?:the\s+)?{exchange})?\s+(?:under|as)\s+(?:the\s+)?'
+        rf'(?:ticker(?:\s+symbol)?\s*)?\b{escaped}\b',
+        rf'{entity}\s+(?:formerly\s+)?traded\s+under\s+(?:the\s+)?'
+        rf'(?:ticker(?:\s+symbol)?\s*)?\b{escaped}\b',
+        rf'{entity}\s+changed\s+(?:its\s+)?ticker\s+from\s+\b{escaped}\b'
+        rf'\s+to\s+\b[A-Z0-9.-]{{1,10}}\b',
+        rf'{entity}\s*[\[(]\s*{exchange}\s*:\s*{escaped}\s*[\])]',
+    )
+    entities = []
+    for pattern in patterns:
+        for match in re.finditer(pattern, text, re.I):
+            terms = _entity_terms(match.group('entity').strip(' ,:-'), symbol)
+            if terms:
+                entities.append(terms)
+    return tuple(entities)
+
+
+def ticker_identity_evidence(request, result):
+    """Keep only evidence that explicitly binds the requested ticker to an entity.
+
+    A ticker in a URL, query-like title, unrelated source, or neighboring company
+    description is not an identity relationship. Conflicting independent mappings
+    fail closed rather than asking the model to resolve them.
+    """
+    symbol = ticker_identity_symbol(request)
+    if symbol is None or not isinstance(result, CapabilityResult) or not result.success:
+        return None
+    accepted = []
+    anchors = []
+    for item in result.evidence:
+        relations = _ticker_relation_entities(item.content, symbol)
+        if not relations:
+            relations = _ticker_relation_entities(item.source, symbol)
+        if relations:
+            accepted.append(item)
+            anchors.extend(relations)
+    if not accepted:
+        return None
+    common = set(anchors[0])
+    for terms in anchors[1:]:
+        common.intersection_update(terms)
+    if len(anchors) > 1 and not common:
+        return None
+    return CapabilityResult(True, tuple(accepted), 'ok')
+
+
+def validate_ticker_identity_answer(text, request, result):
+    """Validate a generated positive ticker mapping against verified anchors."""
+    symbol = ticker_identity_symbol(request)
+    if symbol is None:
+        return ()
+    if re.search(r"\b(?:could(?:n't| not)|unable to|cannot)\s+verify\b|\bwon't guess\b",
+                 text, re.I):
+        return ()
+    verified = ticker_identity_evidence(request, result)
+    if verified is None or not re.search(rf'(?<![A-Za-z0-9]){re.escape(symbol)}(?![A-Za-z0-9])',
+                                         text, re.I):
+        return ('identity_claim_unsupported',)
+    supported = set()
+    for item in verified.evidence:
+        for terms in _ticker_relation_entities(item.content, symbol):
+            supported.update(terms)
+        for terms in _ticker_relation_entities(item.source, symbol):
+            supported.update(terms)
+    if not (_terms(text) & supported):
+        return ('identity_claim_unsupported',)
+    return ()
+
+
 _EVIDENCE_STOPWORDS = frozenset({
     'about', 'after', 'again', 'also', 'been', 'before', 'being', 'could', 'from',
     'have', 'into', 'more', 'next', 'only', 'other', 'their', 'there', 'these',

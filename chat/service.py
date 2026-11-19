@@ -18,7 +18,9 @@ from .observations import (ObservationState, infer, observation_contract,
 from .worker_protocol import CONTEXT_BUDGET, context_cost
 from .capabilities import (CapabilityDenied, CapabilityRegistry, PUBLIC_LOOKUP,
                            evidence_instruction, validate_evidence_answer,
-                           public_search_query, EXTERNAL_IDENTITY_EVIDENCE_CHARS)
+                           public_search_query, EXTERNAL_IDENTITY_EVIDENCE_CHARS,
+                           ticker_identity_symbol, ticker_identity_evidence,
+                           validate_ticker_identity_answer)
 from .localization import DEFAULT_LOCALE, deterministic_response, response_language_instruction
 from .clarification import ClarificationAnalyzer
 
@@ -212,6 +214,9 @@ class ChatService:
                      'duration_ms=%s reason=%s', request_id, PUBLIC_LOOKUP, success,
                      duration_ms, reason)
             lookup_succeeded = result is not None and result.success
+            if lookup_succeeded and external_identity and ticker_identity_symbol(lookup_request):
+                result = ticker_identity_evidence(lookup_request, result)
+                lookup_succeeded = result is not None
             if lookup_succeeded:
                 evidence_packet = (evidence_instruction(
                     result, EXTERNAL_IDENTITY_EVIDENCE_CHARS, balanced=True)
@@ -310,7 +315,9 @@ class ChatService:
                     candidate = provider_candidate(messages, active_attempt)
                     hard_failures = (*validate_character_safety(
                                          candidate, allow_evidence_quantities=True),
-                                     *validate_evidence_answer(candidate, result, lookup_request))
+                                     *validate_evidence_answer(candidate, result, lookup_request),
+                                     *validate_ticker_identity_answer(
+                                         candidate, lookup_request, result))
                     if not hard_failures:
                         next_token = (continuity_store.issue(
                             public_search_query(lookup_request), locale)
@@ -330,9 +337,16 @@ class ChatService:
                         correction = (
                             '\nRegenerate once. Answer every material part of the request. Use the '
                             'provided evidence for the current part, retain ordinary reasoning for '
-                            'stable parts, and do not redirect the user or deny lookup capability.'
+                            'stable parts, and do not redirect the user or deny lookup capability. '
+                            'For a ticker identity, assert a company only when the evidence explicitly '
+                            'binds that exact ticker to it; otherwise say you could not verify it.'
                         )
                         messages = fit_messages(instruction + correction, model_history, message)
+                    elif (external_identity and set(hard_failures).issubset(
+                            {'identity_claim_unsupported', 'evidence_not_used'})):
+                        yield from emit(deterministic_response('lookup_limitation', locale),
+                                        done_data={'history': 'exclude_exchange'})
+                        return
                 raise ServiceFailure('response_validation_exhausted')
 
             if state.response_action in ('playful_reply', 'character_reply'):

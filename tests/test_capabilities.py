@@ -7,7 +7,8 @@ from chat.capabilities import (CapabilityRegistry, CapabilityResult, CapabilityS
                                MAX_EVIDENCE_TEXT, MAX_RESULTS, TAVILY_API_BASE,
                                eyeball_capabilities, public_search_query,
                                LookupContinuityStore, evidence_instruction,
-                               EXTERNAL_IDENTITY_EVIDENCE_CHARS)
+                               EXTERNAL_IDENTITY_EVIDENCE_CHARS,
+                               ticker_identity_evidence)
 from chat.providers import ChatEvent
 from chat.service import ChatService
 from chat.situation import SituationAnalyzer, conversational_history
@@ -230,6 +231,102 @@ class CapabilityTests(unittest.TestCase):
         self.assertEqual(len(provider.calls), 2)
         self.assertIn('SK Telecom', text)
         self.assertNotIn('Apple', text)
+
+    def test_ticker_identity_evidence_requires_explicit_same_source_relationship(self):
+        positive_cases = (
+            ('What company trades under ticker SKM?',
+             evidence('SKM is the NYSE ticker for SK Telecom Co., Ltd.')),
+            ('What company trades under ticker AAPL?',
+             evidence('Apple Inc. trades on Nasdaq under the ticker symbol AAPL.')),
+            ('What company trades under ticker THRX?',
+             evidence('Theravance, Inc., now Innoviva, formerly traded under ticker THRX.')),
+            ('What company trades under ticker META?',
+             evidence('Facebook rebranded as Meta Platforms, Inc. and trades under ticker META.')),
+            ('What company traded under ticker FB?',
+             evidence('Meta Platforms changed its ticker from FB to META after its rebrand.')),
+        )
+        for request, result in positive_cases:
+            with self.subTest(request=request):
+                verified = ticker_identity_evidence(request, result)
+                self.assertIsNotNone(verified)
+                self.assertTrue(verified.success)
+
+        negative_cases = (
+            ('What company trades under ticker ZXQVT?',
+             evidence('Synthetic Biologics, Inc. is now Theriva Biologics, Inc.')),
+            ('What company trades under ticker ZXQVT?',
+             CapabilityResult(True, (Evidence(
+                 'ZXQVT market search', 'https://example.com/ZXQVT',
+                 '2026-11-19T13:00:00Z',
+                 'Synthetic Biologics, Inc. is now Theriva Biologics, Inc.'),), 'ok')),
+            ('What company trades under ticker ZXQVT?',
+             evidence('Theriva Biologics is a publicly traded company.')),
+            ('What company trades under ticker ZXQVT?',
+             CapabilityResult(True, (
+                 Evidence('Ticker glossary', 'https://example.com/ticker',
+                          '2026-11-19T13:00:00Z', 'ZXQVT is a ticker-like identifier.'),
+                 Evidence('Company profile', 'https://example.com/company',
+                          '2026-11-19T13:00:00Z', 'Theriva Biologics is a company.'),
+             ), 'ok')),
+            ('What company trades under ticker AAPX?',
+             evidence('Apple Inc. trades under ticker AAPL.')),
+            ('What company trades under ticker AAP?',
+             evidence('Did you mean AAPL? Apple Inc. trades under ticker AAPL.')),
+        )
+        for request, result in negative_cases:
+            with self.subTest(request=request):
+                self.assertIsNone(ticker_identity_evidence(request, result))
+
+    def test_synthetic_ticker_with_unrelated_tavily_evidence_fails_closed(self):
+        unrelated = CapabilityResult(True, (Evidence(
+            'Synthetic Biologics changes name to Theriva Biologics',
+            'https://example.com/news/theriva', '2026-11-19T13:00:00Z',
+            'Synthetic Biologics, Inc. changed its name to Theriva Biologics, Inc. '
+            'and its common stock trades on NYSE American under ticker TOVX.'),), 'ok')
+        lookup = PublicLookup(unrelated)
+        provider = DraftProvider(
+            'ZXQVT is Synthetic Biologics, now Theriva Biologics, Inc.')
+        events = list(ChatService(provider, capabilities=registry(lookup)).stream(
+            'What company trades under ticker ZXQVT?', [], {}))
+        text = ''.join(event.data.get('text', '') for event in events)
+        self.assertEqual(lookup.requests, ['What company trades under ticker ZXQVT?'])
+        self.assertEqual(provider.calls, [])
+        self.assertIn("couldn't verify", text)
+        self.assertNotIn('Synthetic Biologics', text)
+        self.assertNotIn('Theriva', text)
+
+    def test_conflicting_ticker_identity_evidence_fails_closed(self):
+        conflicting = CapabilityResult(True, (
+            Evidence('First market profile', 'https://example.com/one',
+                     '2026-11-19T13:00:00Z',
+                     'ZZZZ is the Nasdaq ticker for Alpha Holdings Inc.'),
+            Evidence('Second market profile', 'https://example.com/two',
+                     '2026-11-19T13:00:00Z',
+                     'ZZZZ is the NYSE ticker for Beta Systems Corp.'),
+        ), 'ok')
+        self.assertIsNone(ticker_identity_evidence(
+            'What company trades under ticker ZZZZ?', conflicting))
+
+    def test_unsupported_generated_ticker_mapping_gets_one_correction_then_limitation(self):
+        lookup = PublicLookup(evidence(
+            'SKM is the NYSE ticker for SK Telecom Co., Ltd. '
+            'Synthetic Biologics is now Theriva Biologics.'))
+        provider = DraftProvider([
+            'SKM represents Synthetic Biologics.',
+            'SKM represents Theriva Biologics.',
+        ])
+        telemetry = []
+        events = list(ChatService(
+            provider, capabilities=registry(lookup),
+            telemetry=lambda kind, **fields: telemetry.append((kind, fields))).stream(
+                'What company trades under ticker SKM?', [], {}))
+        text = ''.join(event.data.get('text', '') for event in events)
+        self.assertEqual(len(provider.calls), 2)
+        self.assertEqual(sum(kind == 'correction_attempted' for kind, _ in telemetry), 1)
+        self.assertIn("couldn't verify", text)
+        self.assertNotIn('Synthetic Biologics', text)
+        self.assertNotIn('Theriva', text)
+        self.assertEqual(events[-1].kind, 'done')
 
     def test_known_ticker_company_and_current_market_questions_use_one_lookup(self):
         cases = (
