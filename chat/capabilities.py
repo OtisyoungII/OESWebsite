@@ -237,7 +237,9 @@ _TICKER_QUERY_FILLER = frozenset({
 _ENTITY_FILLER = frozenset({
     'and', 'company', 'corporation', 'corp', 'inc', 'incorporated', 'limited', 'ltd',
     'plc', 'the', 'ticker', 'symbol', 'stock', 'shares', 'common', 'currently',
-    'formerly', 'now', 'trades', 'traded', 'listed', 'under', 'on', 'as',
+    'formerly', 'now', 'trades', 'traded', 'listed', 'under', 'on', 'as', 'group',
+    'holdings', 'holding', 'systems', 'system', 'technologies', 'technology',
+    'resources', 'resource', 'international',
 })
 
 
@@ -268,31 +270,109 @@ def _entity_terms(value, symbol):
                      and term not in _ENTITY_FILLER)
 
 
-def _ticker_relation_entities(text, symbol):
-    """Return entity anchors only from explicit, local ticker relationships."""
+_EXCHANGE_PATTERN = r'(?:NYSE(?:\s+American)?|NASDAQ|AMEX|OTC(?:QX|QB)?|LSE|TSX|ASX)'
+_MARKET_TITLE_WORDS = re.compile(
+    r'\b(?:stock(?:\s+price)?|share(?:s)?|quote|market|equity|analysis|live|today|'
+    r'news|history)\b', re.I)
+
+
+@dataclass(frozen=True)
+class _TickerRelationship:
+    entity_terms: frozenset[str]
+    exchange: str | None = None
+
+
+def _normalize_exchange(value):
+    if not value:
+        return None
+    return re.sub(r'\s+', ' ', value).strip().upper()
+
+
+def _clean_market_entity(value):
+    value = re.sub(r'^\s*stock\s+analysis\s+for\s+', '', value, flags=re.I)
+    value = re.sub(
+        r'\s+(?:stock(?:\s+price)?(?:\s+today)?|stock\s+quote|share\s+price|'
+        r'market\s+data|quote)(?:\s+today)?\s*$', '', value, flags=re.I)
+    return value.strip(' \t|,;:-()[]')
+
+
+def _ticker_relationships(text, symbol, title=False):
+    """Extract explicit local ticker/entity relationships from snippets or titles."""
     escaped = re.escape(symbol)
-    exchange = r'(?:NYSE(?:\s+American)?|NASDAQ|AMEX|OTC(?:QX|QB)?|LSE|TSX|ASX)'
-    entity = r'(?P<entity>[A-Z][^!?\n]{1,120}?)'
+    entity = r'(?P<entity>[A-Z][^!?\n]{1,140}?)'
     patterns = (
-        rf'\b{escaped}\b\s+(?:is|was|remains|became)\s+(?:the\s+)?'
-        rf'(?:(?:{exchange})[ -])?(?:ticker(?:\s+symbol)?|stock symbol|trading symbol)'
-        rf'\s+(?:for|of)\s+{entity}(?=$|[.;!?])',
-        rf'{entity}\s+(?:currently\s+)?(?:trades|traded|is listed|was listed|listed)'
-        rf'(?:\s+on\s+(?:the\s+)?{exchange})?\s+(?:under|as)\s+(?:the\s+)?'
-        rf'(?:ticker(?:\s+symbol)?\s*)?\b{escaped}\b',
-        rf'{entity}\s+(?:formerly\s+)?traded\s+under\s+(?:the\s+)?'
-        rf'(?:ticker(?:\s+symbol)?\s*)?\b{escaped}\b',
-        rf'{entity}\s+changed\s+(?:its\s+)?ticker\s+from\s+\b{escaped}\b'
-        rf'\s+to\s+\b[A-Z0-9.-]{{1,10}}\b',
-        rf'{entity}\s*[\[(]\s*{exchange}\s*:\s*{escaped}\s*[\])]',
+        (rf'\b{escaped}\b\s+(?:is|was|remains|became)\s+(?:the\s+)?'
+         rf'(?:(?P<exchange>{_EXCHANGE_PATTERN})[ -])?'
+         rf'(?:ticker(?:\s+symbol)?|stock symbol|trading symbol)'
+         rf'\s+(?:for|of)\s+{entity}(?=$|[.;!?])'),
+        (rf'(?:the\s+)?(?:stock\s+)?(?:ticker|stock)\s+symbol\s+for\s+{entity}'
+         rf'\s+is\s+["\']?\$?\b{escaped}\b["\']?'),
+        (rf'{entity}\s+(?:currently\s+)?(?:trades|traded|is listed|was listed|listed)'
+         rf'(?:\s+on\s+(?:the\s+)?(?P<exchange>{_EXCHANGE_PATTERN}))?'
+         rf'\s+(?:under|as)\s+(?:the\s+)?'
+         rf'(?:ticker(?:\s+symbol)?\s*)?\b{escaped}\b'),
+        (rf'{entity}\s+(?:formerly\s+)?traded\s+under\s+(?:the\s+)?'
+         rf'(?:ticker(?:\s+symbol)?\s*)?\b{escaped}\b'),
+        (rf'{entity}\s+changed\s+(?:its\s+)?ticker\s+from\s+\b{escaped}\b'
+         rf'\s+to\s+\b[A-Z0-9.-]{{1,10}}\b'),
+        (rf'{entity}\s*[\[(]\s*(?P<exchange>{_EXCHANGE_PATTERN})\s*:\s*'
+         rf'{escaped}\s*[\])]'),
     )
-    entities = []
+    relationships = []
     for pattern in patterns:
         for match in re.finditer(pattern, text, re.I):
-            terms = _entity_terms(match.group('entity').strip(' ,:-'), symbol)
+            name = _clean_market_entity(match.group('entity'))
+            terms = _entity_terms(name, symbol)
             if terms:
-                entities.append(terms)
-    return tuple(entities)
+                relationships.append(_TickerRelationship(
+                    terms, _normalize_exchange(match.groupdict().get('exchange'))))
+
+    exchange_symbol = re.search(
+        rf'\b{_EXCHANGE_PATTERN}\s*:\s*{escaped}\b', text, re.I)
+    if title and (_MARKET_TITLE_WORDS.search(text) or exchange_symbol):
+        title_patterns = (
+            rf'^(?P<entity>.+?)\s*\|\s*(?P<exchange>{_EXCHANGE_PATTERN})\s*:\s*'
+            rf'{escaped}\b',
+            rf'^(?P<entity>.+?)\s*[\[(]\s*{escaped}\s*[\])]',
+            rf'^(?P<entity>.+?)\s+-\s+{escaped}\b',
+            rf'^{escaped}\s*\|\s*(?P<entity>.+)$',
+            rf'^{escaped}\s+(?:stock\s+price|stock\s+quote|quote)\s*\|\s*'
+            rf'(?P<entity>.+)$',
+        )
+        for pattern in title_patterns:
+            match = re.search(pattern, text, re.I)
+            if match:
+                terms = _entity_terms(_clean_market_entity(match.group('entity')), symbol)
+                if terms:
+                    relationships.append(_TickerRelationship(
+                        terms, _normalize_exchange(match.groupdict().get('exchange'))))
+    return tuple(relationships)
+
+
+def _relationship_groups(relationships):
+    groups = []
+    for relationship in relationships:
+        matching = [group for group in groups
+                    if group['terms'] & set(relationship.entity_terms)]
+        if not matching:
+            groups.append({'terms': set(relationship.entity_terms),
+                           'exchanges': ({relationship.exchange}
+                                         if relationship.exchange else set())})
+            continue
+        target = matching[0]
+        target['terms'].update(relationship.entity_terms)
+        if relationship.exchange:
+            target['exchanges'].add(relationship.exchange)
+        for extra in matching[1:]:
+            target['terms'].update(extra['terms'])
+            target['exchanges'].update(extra['exchanges'])
+            groups.remove(extra)
+    return groups
+
+
+def _ticker_relation_entities(text, symbol):
+    """Compatibility helper returning entity anchors from explicit relationships."""
+    return tuple(item.entity_terms for item in _ticker_relationships(text, symbol))
 
 
 def ticker_identity_evidence(request, result):
@@ -306,21 +386,23 @@ def ticker_identity_evidence(request, result):
     if symbol is None or not isinstance(result, CapabilityResult) or not result.success:
         return None
     accepted = []
-    anchors = []
+    relationships = []
     for item in result.evidence:
-        relations = _ticker_relation_entities(item.content, symbol)
-        if not relations:
-            relations = _ticker_relation_entities(item.source, symbol)
+        relations = (*_ticker_relationships(item.content, symbol),
+                     *_ticker_relationships(item.source, symbol, title=True))
         if relations:
             accepted.append(item)
-            anchors.extend(relations)
+            relationships.extend(relations)
     if not accepted:
         return None
-    common = set(anchors[0])
-    for terms in anchors[1:]:
-        common.intersection_update(terms)
-    if len(anchors) > 1 and not common:
-        return None
+    groups = _relationship_groups(relationships)
+    if len(groups) > 1:
+        exchanges = [group['exchanges'] for group in groups]
+        if any(len(values) != 1 for values in exchanges):
+            return None
+        labels = [next(iter(values)) for values in exchanges]
+        if len(set(labels)) != len(labels):
+            return None
     return CapabilityResult(True, tuple(accepted), 'ok')
 
 
@@ -336,14 +418,22 @@ def validate_ticker_identity_answer(text, request, result):
     if verified is None or not re.search(rf'(?<![A-Za-z0-9]){re.escape(symbol)}(?![A-Za-z0-9])',
                                          text, re.I):
         return ('identity_claim_unsupported',)
-    supported = set()
+    relationships = []
     for item in verified.evidence:
-        for terms in _ticker_relation_entities(item.content, symbol):
-            supported.update(terms)
-        for terms in _ticker_relation_entities(item.source, symbol):
-            supported.update(terms)
-    if not (_terms(text) & supported):
+        relationships.extend(_ticker_relationships(item.content, symbol))
+        relationships.extend(_ticker_relationships(item.source, symbol, title=True))
+    groups = _relationship_groups(relationships)
+    answer_terms = _terms(text)
+    if not groups or any(not (answer_terms & group['terms']) for group in groups):
         return ('identity_claim_unsupported',)
+    if len(groups) > 1:
+        if not re.search(r'\b(?:multiple|can refer to|depending on|both|while|whereas)\b',
+                         text, re.I):
+            return ('identity_claim_unsupported',)
+        for group in groups:
+            if not all(re.search(rf'\b{re.escape(exchange)}\b', text, re.I)
+                       for exchange in group['exchanges']):
+                return ('identity_claim_unsupported',)
     return ()
 
 
