@@ -74,6 +74,12 @@ LOOKUP_FOLLOWUP = re.compile(
     r'(?:oui|allez-y|montrez-moi|vérifiez cela|et\s+[^.!?]{1,80})|'
     r'(?:نعم|تفضل|أرني|تحقق من ذلك|و\s*[^.!?]{1,80})|'
     r'(?:好的|是的|继续|查一下|给我看看|还有[^.!?]{1,80}))\s*[?.!]*\s*$', re.I)
+EXTERNAL_ENTITY_IDENTITY = re.compile(
+    r'\b(?:ticker|stock symbol|trading symbol)\b'
+    r'|\b(?:who|what|which)\b.{0,60}\b(?:company|corporation|business)\b.{0,60}'
+    r'\b(?:trad(?:e|es|ing)|stock|market|shares?)\b'
+    r'|\b(?:who|what)\b.{0,40}\b[A-Za-z]{1,10}\b.{0,30}\b(?:in trading|on the stock market)\b'
+    r'|^\s*what\s+is\s+\$?(?-i:[A-Z]{1,5})\s*[?.!]*\s*$', re.I)
 
 
 def bounded_history(history):
@@ -154,6 +160,10 @@ class SituationAnalyzer:
         elif OES_FACTS.search(message) or (context.get('project') and CONTEXT_PRODUCT.search(message)):
             state = SituationState('oes_question', False, 'informative', False, True,
                                    'approved_public_context', 'concise', False, 'answer', 'high')
+        elif EXTERNAL_ENTITY_IDENTITY.search(message):
+            state = SituationState('external_entity_identity', False, 'informative', False, False,
+                                   'public_evidence', 'concise', False,
+                                   'answer_with_public_evidence', 'high')
         elif LOCATION_REQUIRED.search(message):
             state = SituationState('location_required', False, 'neutral', False, False,
                                    'authorized_location_required', 'one_short_sentence', False,
@@ -225,6 +235,11 @@ def response_contract(state, continuity):
                      'organize ideas, and discuss how it could be built. Clearly distinguish the '
                      'proposal from actual OES customers, contracts, products, deployments, completed '
                      'work, pricing, certifications, tools, actions, and private information.')
+    elif state.interaction_kind == 'external_entity_identity':
+        contract += ('\nTreat the external company or ticker identity as evidence-dependent. '
+                     'Do not invent a company, industry, ticker mapping, or association with an '
+                     'OES product. Retrieved evidence controls over model memory; if the evidence '
+                     'is ambiguous, qualify the answer.')
     return contract
 
 

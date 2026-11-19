@@ -245,7 +245,8 @@ def _terms(text):
 def validate_evidence_answer(text, result, request=''):
     """Hard public-evidence boundary; presentation remains model-controlled."""
     failures = []
-    if re.search(r'\b(?:oes|otis execution systems)\b', text, re.I):
+    if re.search(r'\b(?:oes|otis execution systems|chaseingreen|lottovate|sportfolio|'
+                 r'drinks with friendz)\b', text, re.I):
         failures.append('oes_authority')
     if re.search(r'\b(?:system prompt|developer message|api key|credential|private data|'
                  r'internal document|administrator access)\b', text, re.I):
