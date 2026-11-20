@@ -437,6 +437,70 @@ def validate_ticker_identity_answer(text, request, result):
     return ()
 
 
+_IDENTITY_RESPONSE_GLUE = frozenset({
+    'access', 'according', 'across', 'answer', 'ambiguous', 'ambiguity', 'available', 'both',
+    'company', 'companies', 'different', 'evidence', 'exchange', 'exchanges',
+    'identifies', 'identity', 'indicate', 'indicates', 'listing', 'listings',
+    'multiple', 'provided', 'refer', 'refers', 'relationship', 'represents',
+    'reports', 'retrieved', 'shows', 'source', 'sources', 'states', 'supported',
+    'symbol', 'ticker', 'while', 'whereas',
+})
+
+
+def _word_sequence(value):
+    return tuple(re.findall(r'[a-z0-9]+', value.lower()))
+
+
+def _contains_sequence(haystack, needle):
+    if not needle or len(needle) > len(haystack):
+        return False
+    return any(haystack[index:index + len(needle)] == needle
+               for index in range(len(haystack) - len(needle) + 1))
+
+
+def _definition_supported(acronym, expansion, result):
+    expansion_words = _word_sequence(expansion)
+    if not expansion_words:
+        return False
+    for item in result.evidence:
+        for value in (item.source, item.content):
+            words = _word_sequence(value)
+            acronym_indexes = [index for index, word in enumerate(words)
+                               if word == acronym.lower()]
+            for index in acronym_indexes:
+                local = words[max(0, index - 16):index + 17]
+                if _contains_sequence(local, expansion_words):
+                    return True
+    return False
+
+
+def validate_external_identity_scope(text, result, request=''):
+    """Reject substantive external facts that were not present in the evidence.
+
+    This is deliberately conservative. External-identity answers should identify
+    the entity, symbol, exchange and evidence-supported qualifier, not elaborate
+    from model memory. Normal connective language remains presentation-controlled.
+    """
+    evidence_terms = set()
+    for item in result.evidence:
+        evidence_terms.update(_terms(item.source))
+        evidence_terms.update(_terms(item.content))
+    allowed = evidence_terms | _terms(request) | _IDENTITY_RESPONSE_GLUE
+    if _terms(text) - allowed:
+        return ('unsupported_evidence_claim',)
+
+    definitions = re.finditer(
+        r'\b(?P<acronym>[A-Z]{2,10})\b\s*(?:'
+        r'\((?P<parenthetical>[^)\n]{2,100})\)|'
+        r'(?:means|stands\s+for|is\s+short\s+for)\s+'
+        r'(?P<definition>[^.;!?\n]{2,100}))', text)
+    for match in definitions:
+        expansion = match.group('parenthetical') or match.group('definition')
+        if not _definition_supported(match.group('acronym'), expansion, result):
+            return ('unsupported_evidence_claim',)
+    return ()
+
+
 _EVIDENCE_STOPWORDS = frozenset({
     'about', 'after', 'again', 'also', 'been', 'before', 'being', 'could', 'from',
     'have', 'into', 'more', 'next', 'only', 'other', 'their', 'there', 'these',
