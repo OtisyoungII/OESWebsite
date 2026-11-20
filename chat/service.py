@@ -20,7 +20,8 @@ from .capabilities import (CapabilityDenied, CapabilityRegistry, PUBLIC_LOOKUP,
                            evidence_instruction, validate_evidence_answer,
                            public_search_query, EXTERNAL_IDENTITY_EVIDENCE_CHARS,
                            ticker_identity_symbol, ticker_identity_evidence,
-                           validate_ticker_identity_answer)
+                           validate_ticker_identity_answer,
+                           validate_external_identity_scope)
 from .localization import DEFAULT_LOCALE, deterministic_response, response_language_instruction
 from .clarification import ClarificationAnalyzer
 
@@ -317,7 +318,10 @@ class ChatService:
                                          candidate, allow_evidence_quantities=True),
                                      *validate_evidence_answer(candidate, result, lookup_request),
                                      *validate_ticker_identity_answer(
-                                         candidate, lookup_request, result))
+                                         candidate, lookup_request, result),
+                                     *(validate_external_identity_scope(
+                                         candidate, result, lookup_request)
+                                       if external_identity else ()))
                     if not hard_failures:
                         next_token = (continuity_store.issue(
                             public_search_query(lookup_request), locale)
@@ -337,15 +341,24 @@ class ChatService:
                         correction = (
                             '\nRegenerate once. Answer every material part of the request. Use the '
                             'provided evidence for the current part, retain ordinary reasoning for '
-                            'stable parts, and do not redirect the user or deny lookup capability. '
-                            'For a ticker identity, assert a company only when the evidence explicitly '
-                            'binds that exact ticker to it. If the same ticker is explicitly bound to '
-                            'different companies on different exchanges, state that ambiguity and '
-                            'qualify each identity by exchange; otherwise say you could not verify it.'
+                            'stable parts, and do not redirect the user or deny lookup capability.'
                         )
+                        if external_identity:
+                            correction += (
+                                ' For a ticker identity, assert a company only when the evidence '
+                                'explicitly binds that exact ticker to it. If the same ticker is '
+                                'explicitly bound to different companies on different exchanges, '
+                                'state that ambiguity and qualify each identity by exchange; otherwise '
+                                'say you could not verify it. Keep the answer minimal. Preserve '
+                                'supported identity relationships and remove every factual addition '
+                                'not stated in the evidence. Do not define acronyms, describe industries '
+                                'or locations, or add history or corporate relationships unless that '
+                                'exact fact appears in the evidence.'
+                            )
                         messages = fit_messages(instruction + correction, model_history, message)
                     elif (external_identity and set(hard_failures).issubset(
-                            {'identity_claim_unsupported', 'evidence_not_used'})):
+                            {'identity_claim_unsupported', 'evidence_not_used',
+                             'unsupported_evidence_claim'})):
                         yield from emit(deterministic_response('lookup_limitation', locale),
                                         done_data={'history': 'exclude_exchange'})
                         return

@@ -372,6 +372,84 @@ class CapabilityTests(unittest.TestCase):
         self.assertIn('NYSE', text)
         self.assertIn('ASX', text)
 
+    def test_external_identity_removes_unsupported_factual_embellishment(self):
+        result = CapabilityResult(True, (
+            Evidence('Skylark Minerals Stock | ASX: SKM', 'https://example.com/asx-skm',
+                     '2026-11-19T16:55:00Z',
+                     'The stock ticker symbol for Skylark Minerals Ltd is SKM.'),
+            Evidence('SK Telecom ADR | NYSE: SKM', 'https://example.com/nyse-skm',
+                     '2026-11-19T16:55:00Z',
+                     'The stock ticker symbol for SK Telecom Co Ltd ADR is SKM.'),
+        ), 'ok')
+        supported = ('SKM can refer to multiple listings: ASX: SKM is Skylark Minerals '
+                     'Ltd., while NYSE: SKM is SK Telecom Co. Ltd. ADR.')
+        unsupported = (
+            supported + ' ADR means Additional Registered Deposit.',
+            supported + ' SK Telecom is a software manufacturer.',
+            supported + ' SK Telecom is headquartered in Tokyo.',
+            supported + ' NYSE is a privately owned exchange.',
+            supported + ' An ADR is a type of cryptocurrency.',
+            supported + ' Skylark Minerals was founded in 1901.',
+            supported + ' SK Telecom is owned by Apple Inc.',
+            supported + ' Both listings are connected to ChaseInGreen.',
+        )
+        for draft in unsupported:
+            with self.subTest(draft=draft):
+                provider = DraftProvider([draft, supported])
+                events = list(ChatService(
+                    provider, capabilities=registry(PublicLookup(result))).stream(
+                        'What company trades under ticker SKM?', [], {}))
+                text = ''.join(event.data.get('text', '') for event in events)
+                self.assertEqual(len(provider.calls), 2)
+                self.assertEqual(text, supported)
+
+    def test_external_identity_allows_evidence_supported_definition_and_history(self):
+        definition = CapabilityResult(True, (Evidence(
+            'Example Depositary Shares | NYSE: EXM', 'https://example.com/exm',
+            '2026-11-19T16:55:00Z',
+            'The stock ticker symbol for Example Holdings ADR is EXM. '
+            'ADR means American Depositary Receipt.'),), 'ok')
+        definition_answer = ('NYSE: EXM is Example Holdings ADR. '
+                             'ADR means American Depositary Receipt.')
+        definition_provider = DraftProvider(definition_answer)
+        definition_events = list(ChatService(
+            definition_provider, capabilities=registry(PublicLookup(definition))).stream(
+                'What company trades under ticker EXM?', [], {}))
+        self.assertEqual(len(definition_provider.calls), 1)
+        self.assertIn('American Depositary Receipt', ''.join(
+            event.data.get('text', '') for event in definition_events))
+
+        historical = CapabilityResult(True, (Evidence(
+            'Innoviva company history | NASDAQ: INVA', 'https://example.com/inva',
+            '2026-11-19T16:55:00Z',
+            'Innoviva, formerly Theravance, trades under ticker INVA.'),), 'ok')
+        historical_answer = ('NASDAQ: INVA is Innoviva, formerly Theravance.')
+        historical_provider = DraftProvider(historical_answer)
+        historical_events = list(ChatService(
+            historical_provider, capabilities=registry(PublicLookup(historical))).stream(
+                'What company trades under ticker INVA?', [], {}))
+        self.assertEqual(len(historical_provider.calls), 1)
+        self.assertIn('formerly Theravance', ''.join(
+            event.data.get('text', '') for event in historical_events))
+
+    def test_repeated_unsupported_identity_embellishment_fails_closed(self):
+        result = CapabilityResult(True, (Evidence(
+            'SK Telecom ADR | NYSE: SKM', 'https://example.com/nyse-skm',
+            '2026-11-19T16:55:00Z',
+            'The stock ticker symbol for SK Telecom Co Ltd ADR is SKM.'),), 'ok')
+        provider = DraftProvider([
+            'NYSE: SKM is SK Telecom ADR. ADR means Additional Registered Deposit.',
+            'NYSE: SKM is SK Telecom ADR, a cryptocurrency company.',
+        ])
+        events = list(ChatService(provider, capabilities=registry(PublicLookup(result))).stream(
+            'What company trades under ticker SKM?', [], {}))
+        text = ''.join(event.data.get('text', '') for event in events)
+        self.assertEqual(len(provider.calls), 2)
+        self.assertIn("couldn't verify", text)
+        self.assertNotIn('Additional Registered Deposit', text)
+        self.assertNotIn('cryptocurrency', text)
+        self.assertEqual(events[-1].kind, 'done')
+
     def test_common_public_ticker_title_formats_are_relationship_evidence(self):
         formats = (
             'Example Holdings (NYSE: EXM) Stock Price',
