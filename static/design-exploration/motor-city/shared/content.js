@@ -11,7 +11,7 @@ export const oesContent = Object.freeze({
   products: [
     {
       id: "chaseingreen", name: "ChaseInGreen", category: "Trading Companion Platform", status: "Available on the App Store",
-      description: "ChaseInGreen is an OES-built trading companion undergoing production hardening and TestFlight testing. It brings market context, planning, risk tools, journaling and trader workspace features together without acting as a brokerage, exchange, wallet or financial institution.",
+      description: "ChaseInGreen is an OES-built trading companion on the App Store. Review market context, plan risk and keep a trade journal. It is not a brokerage, exchange, wallet or financial institution.",
       features: ["Technical-analysis-driven dashboards and market state", "Position sizing, stop-loss and take-profit workflows", "Profit-protection and give-back planning tools", "Trade journaling, grouped P&L and account management", "Broker integrations, alerts and ongoing behavior analysis"],
       actions: [
         { label: "Download on the App Store", href: "https://apps.apple.com/us/app/chaseingreen/id6770096789" },

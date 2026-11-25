@@ -7,7 +7,7 @@ from uuid import uuid4
 from .policy import (SYSTEM_IDENTITY, PUBLIC_CONTEXT, SERIOUS_INSTRUCTION,
                      serious_selection_instruction, render_serious_selection,
                      public_fact_selection_instruction, render_public_fact_selection,
-                     FACTUAL_DISCIPLINE)
+                     FACTUAL_DISCIPLINE, approved_product_overview)
 from .providers import ChatEvent
 from .situation import (SituationAnalyzer, response_contract, validate_playful,
                         validate_character_style, validate_character_safety,
@@ -188,6 +188,12 @@ class ChatService:
         if state.response_action == 'request_location':
             yield from emit(deterministic_response('request_location', locale))
             return
+
+        if state.requires_oes_facts and not serious and locale == DEFAULT_LOCALE:
+            overview = approved_product_overview(message)
+            if overview:
+                yield from emit(overview)
+                return
 
         if state.response_action == 'answer_with_public_evidence':
             started = time.monotonic()
