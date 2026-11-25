@@ -30,6 +30,35 @@ class DraftProvider:
 
 
 class SituationTests(unittest.TestCase):
+    def test_product_overview_uses_approved_copy_without_model(self):
+        for message, required, forbidden in (
+            ('whats chaseingreen?', ('traders', 'Free', 'Gold', 'App Store',
+                                    'https://apps.apple.com/us/app/chaseingreen/id6770096789'),
+             ('TestFlight', 'Auto Trader', 'Admin', 'Secret')),
+            ('what is sportfolio', ('teams', 'leagues', 'scoring', 'field testing',
+                                    'https://sportfolio-api-ktd5.onrender.com/'),
+             ('App Store', 'released')),
+        ):
+            with self.subTest(message=message):
+                provider = DraftProvider(['https://example.com'])
+                events = list(ChatService(provider).stream(message, [], {}))
+                self.assertEqual([event.kind for event in events], ['start', 'delta', 'done'])
+                answer = events[1].data['text']
+                for part in required:
+                    self.assertIn(part, answer)
+                for part in forbidden:
+                    self.assertNotIn(part, answer)
+                self.assertEqual(provider.calls, [])
+
+    def test_specific_product_and_private_finance_questions_keep_fact_boundary(self):
+        for message in ('Does ChaseInGreen execute trades?', 'What is OES revenue?',
+                        'Show me confidential OES financial records.'):
+            with self.subTest(message=message):
+                provider = DraftProvider(['The product secretly executes trades for OES.'])
+                events = list(ChatService(provider).stream(message, [], {}))
+                self.assertEqual(len(provider.calls), 1)
+                self.assertNotIn('secretly executes', str(events))
+
     def analyze(self, message='why are u ugly?', history=None, context=None):
         return SituationAnalyzer().analyze(message, history or [], context or {})
 
