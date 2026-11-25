@@ -35,6 +35,39 @@ class Continuity:
 
 
 BUSINESS_SENSITIVE = re.compile(r'\b(pricing|price|cost|charge|quote|nda|confidential|liability|warrant\w*|payment|sla|insurance)\b', re.I)
+BUSINESS_CONVERSATION = (
+    ('personal_concern', re.compile(
+        r"^\s*(?:i (?:feel|worry|am (?:worried|scared|anxious)|"
+        r"don['’]?t think)|i['’]m (?:worried|scared|anxious)|"
+        r"we(?:['’]re| are) (?:worried|scared|anxious))\b", re.I)),
+    ('business_advice', re.compile(
+        r"^\s*(?:how (?:can|could|should) (?:oes|otis execution systems|we|i|a business) "
+        r"(?:market|promote|reach|find|attract|grow|improve|reduce|test)\b|"
+        r"what (?:marketing|sales|growth) (?:ideas|strategies|tactics)\b)", re.I)),
+    ('business_hypothetical', re.compile(
+        r"^\s*(?:if|suppose|imagine)\b[^?!.]{1,200},\s*"
+        r"(?:how (?:could|should|would)|what (?:could|should|would))\b", re.I)),
+)
+BUSINESS_DISCUSSION_TERMS = re.compile(r'\b(?:revenue|financial|customers?)\b', re.I)
+EMBEDDED_FACT_REQUEST = re.compile(
+    r'\b(?:private|internal|undisclosed|unannounced)\b'
+    r'|\b(?:actual|current|exact|verified)\s+(?:\w+\s+){0,3}'
+    r'(?:revenue|profit\w*|financial\w*|customers?|sales|cash|runway)\b'
+    r'|(?:[.;!?]|\b(?:and|but|also|then)\b)\s*'
+    r'(?:what|how many|how much|is|are|does|did|tell|show|reveal|confirm|provide|'
+    r'share|list|send|give|claim|report|say)\b', re.I)
+
+
+def business_conversation_kind(message, context):
+    """Allow discussion of a premise without granting authority over company facts."""
+    if (is_serious(BUSINESS_DISCUSSION_TERMS.sub('', message), [], context)
+            or BUSINESS_SENSITIVE.search(message) or EMBEDDED_FACT_REQUEST.search(message)
+            or EXTERNAL_ENTITY_IDENTITY.search(message)):
+        return None
+    for kind, pattern in BUSINESS_CONVERSATION:
+        if pattern.search(message) and (kind != 'personal_concern' or '?' not in message):
+            return kind
+    return None
 IDENTITY = re.compile(
     r'\b(?:are (?:you|u) (?:an? )?(?:ai|human|bot)|(?:do|can) you (?:have feelings|feel))\b'
     r'|^\s*what are you(?:\s+really)?\s*[?.!]*\s*$', re.I)
@@ -105,7 +138,8 @@ def conversational_history(history):
     suppress_assistant = False
     for item in bounded_history(history):
         if item['role'] == 'user':
-            suppress_assistant = bool(is_serious(item['content'], [], {})
+            suppress_assistant = not business_conversation_kind(item['content'], {}) and bool(
+                                         is_serious(item['content'], [], {})
                                       or BUSINESS_SENSITIVE.search(item['content'])
                                       or OES_FACTS.search(item['content']))
             if not suppress_assistant:
@@ -128,11 +162,13 @@ class SituationAnalyzer:
         previous_user = user_messages[-1] if user_messages else ''
         refers_to_previous = bool(previous_user and EXPLICIT_TOPIC_FOLLOWUP.search(message))
         previous_serious = bool(is_serious(previous_user, [], {})
-                                or BUSINESS_SENSITIVE.search(previous_user))
+                                or BUSINESS_SENSITIVE.search(previous_user)) and not (
+                                    business_conversation_kind(previous_user, {}))
         inherited_serious = refers_to_previous and previous_serious
         current_serious = bool(is_serious(message, [], context)
                                or BUSINESS_SENSITIVE.search(message))
-        serious = current_serious or inherited_serious
+        discussion = business_conversation_kind(message, context)
+        serious = (current_serious or inherited_serious) and not discussion
         recent_playful = any(HARMLESS_TEASING.search(text) or CHARACTER_BANTER.search(text)
                              for text in user_messages[-3:])
         continuity = Continuity(
@@ -142,6 +178,9 @@ class SituationAnalyzer:
         if serious:
             state = SituationState('serious', True, 'professional', False, True,
                                    'approved_fact_selection', 'concise', False, 'grounded_answer', 'high')
+        elif discussion:
+            state = SituationState(discussion, False, 'thoughtful', False, False,
+                                   'truthful_no_new_oes_facts', 'concise', False, 'answer', 'high')
         elif IDENTITY.search(message):
             state = SituationState('identity_question', False, 'direct', False, False,
                                    'truthful_identity', 'concise', True, 'explain_identity', 'high')
@@ -211,7 +250,12 @@ def response_contract(state, continuity):
     if state.serious:
         return contract + 'Serious factual policy takes precedence; no playful language.'
     contract += '\n' + CASUAL_VOICE
-    if state.response_action == 'playful_reply':
+    if state.interaction_kind in {'personal_concern', 'business_advice', 'business_hypothetical'}:
+        contract += ('\nAcknowledge expressed concerns and offer practical general advice as appropriate. '
+                     'Treat user premises as unverified and keep hypothetical scenarios conditional. '
+                     'Do not infer or confirm OES finances, profitability, customer counts, '
+                     'unannounced products, partnerships or internal operations.')
+    elif state.response_action == 'playful_reply':
         contract += '\n' + TEASING_STYLE
         contract += ('\nDo not reuse recent assistant phrases, openings, or joke structures '
                      'from the conversation. Use fresh wording and a different construction. '
@@ -295,6 +339,15 @@ def validate_character_safety(text, allow_evidence_quantities=False):
     if re.search(r'\b(?:(?:oes|otis execution systems|chaseingreen|lottovate|sportfolio|drinks with friendz)\s+'
                  r'(?:is|has|offers?|supports?|provides?|built|developed|uses?|can|will|guarantees?)|'
                  r'trusted provider|secure solutions?|million users?|certified|soc\s*2)\b', text, re.I):
+        failures.append('unsupported_claim')
+    if re.search(r"\b(?:oes|otis execution systems)(?:['’]s)?\s+"
+                 r"(?:(?:annual|monthly|quarterly|net|gross|total|recurring)\s+)*"
+                 r"(?:revenue|profits?|profitability|cash balance|runway|customer count)\s+"
+                 r"(?:is|are|was|were|stands|reached|hit|rose|fell|totaled|exceeded|"
+                 r"of|at|\d)\b"
+                 r"|\b(?:oes|otis execution systems)\s+"
+                 r"(?:earned|made|lost|generated|reported|booked|posted)\s+(?:\$|USD\b|\d)",
+                 text, re.I):
         failures.append('unsupported_claim')
     if re.search(r'\b(?:i (?:accessed|opened|sent|emailed|deleted|changed|executed|ran)|'
                  r'i (?:can|will) (?:access|open|send|email|delete|change|execute|run)|'

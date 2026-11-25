@@ -67,23 +67,47 @@ SYSTEM_IDENTITY += "\n" + POP_CULTURE_POLICY
 # Sources: templates/base.html (company/contact); templates/index.html
 # #products product cards and #client-work (descriptions and public testing links).
 # Deliberately excludes broad privacy-policy language as proof of implementation.
-PUBLIC_CONTEXT = """Approved public OES facts:
+# Review availability and the primary destination together at each product release.
+# ChaseInGreen: Apple listing and the homepage Free/Gold presentation.
+# Sportfolio: homepage baseball field-test and scoring demonstration.
+CHASE_APP_STORE = 'https://apps.apple.com/us/app/chaseingreen/id6770096789'
+SPORTFOLIO_FIELD_TEST = 'https://sportfolio-api-ktd5.onrender.com/'
+PRODUCT_OVERVIEWS = {
+    'chaseingreen': (
+        'ChaseInGreen helps traders review market context, plan risk and log trades. '
+        'Free covers essential context and planning. Gold adds AI market analysis, '
+        'alerts and deeper planning tools. It is not a brokerage, exchange or wallet. '
+        f'Get it on the App Store: {CHASE_APP_STORE}'
+    ),
+    'sportfolio': (
+        'Sportfolio is an OES multi-sport platform for teams and leagues. Baseball is the '
+        'first sport in field testing, with rosters, live scoring and independent '
+        'scorekeeping to help corroborate game stats and build lasting player records. '
+        f'Try the web field test on Android or desktop: {SPORTFOLIO_FIELD_TEST}'
+    ),
+}
+
+
+def approved_product_overview(message):
+    """Only serve approved copy for a standalone product overview request."""
+    match = re.fullmatch(
+        r"\s*(?:what is|what['’]?s|tell me about)\s+(chaseingreen|sportfolio)[?!.\s]*",
+        message, re.I)
+    return PRODUCT_OVERVIEWS.get(match[1].lower()) if match else None
+
+
+PUBLIC_CONTEXT = f"""Approved public OES facts:
 Company: Otis Execution Systems LLC, Detroit, Michigan.
 Eyeball is represented by the animated OES Core on the public website.
 Contact: info@otisexecutionsystems.com. Privacy: /privacy.
 Sections: products, services, government, community, research, about, contact.
-ChaseInGreen is an OES trading companion in active TestFlight testing; it is not
-a brokerage, exchange, wallet or financial institution.
-ChaseInGreen TestFlight: https://testflight.apple.com/join/nPjjyDSf
+ChaseInGreen: trading companion, Free and Gold, on the App Store: {CHASE_APP_STORE}
 ChaseInGreen community, FlareUp Profits: https://discord.gg/YjKFkdnj3
-Advanced-feature testing inquiries: info@otisexecutionsystems.com
 Lottovate is a working iOS lottery assistant in active TestFlight testing; no
 number or outcome is guaranteed.
 Lottovate TestFlight: https://testflight.apple.com/join/CD35ByXj
 Lottovate community, Lottovate_MI Server: https://discord.gg/pf6sAYD33
-Sportfolio is an OES multi-sport platform in active field testing, starting with
-baseball. Android/desktop testers can use its web app; iOS TestFlight is coming soon.
-Sportfolio Web: https://sportfolio-api-ktd5.onrender.com/
+Sportfolio is an OES multi-sport platform in baseball field testing: {SPORTFOLIO_FIELD_TEST}
 Drinks With Friendz is a client project developed by OES. Its iOS version is in
 public TestFlight testing.
 Drinks With Friendz website: https://drinkswithfriendz.com/
@@ -114,11 +138,12 @@ SERIOUS_TERMS = re.compile(
 PUBLIC_FACTS = {
     'company_overview': 'Otis Execution Systems LLC is a Detroit company developing intelligent software, trading technology, predictive products and digital platforms.',
     'services': 'OES builds AI, mobile/web apps, APIs, data systems, SaaS, automation and sports/trading technology; it also offers product consulting and digital-skills training.',
-    'chaseingreen': 'ChaseInGreen is an OES trading companion in active TestFlight testing: https://testflight.apple.com/join/nPjjyDSf. FlareUp Profits community: https://discord.gg/YjKFkdnj3. Advanced-testing contact: info@otisexecutionsystems.com.',
+    'chaseingreen': PRODUCT_OVERVIEWS['chaseingreen'],
+    'chaseingreen_community': 'FlareUp Profits community: https://discord.gg/YjKFkdnj3.',
     'chaseingreen_boundary': 'ChaseInGreen is not a brokerage, exchange, wallet, or financial institution.',
     'lottovate': 'Lottovate is a working iOS lottery assistant in active testing: https://testflight.apple.com/join/CD35ByXj. Lottovate_MI Server community: https://discord.gg/pf6sAYD33.',
     'lottovate_boundary': 'Lottovate does not guarantee any number or outcome.',
-    'sportfolio': 'Sportfolio is an OES multi-sport platform in active field testing, starting with baseball. Android/desktop: https://sportfolio-api-ktd5.onrender.com/. iOS TestFlight is coming soon.',
+    'sportfolio': PRODUCT_OVERVIEWS['sportfolio'],
     'drinks_with_friendz': 'OES developed the client iOS app Drinks With Friendz. Visit https://drinkswithfriendz.com/ or test it at https://testflight.apple.com/join/mzknJ42e.',
     'contact': 'Contact OES at info@otisexecutionsystems.com for confirmed information.',
 }
@@ -161,8 +186,7 @@ def public_fact_selection_instruction():
     return ("Select up to four relevant approved fact IDs. Return exactly this JSON schema: "
             '{"fact_ids":["one_id"]}. Use string IDs, never numbers. Return no other keys '
             "or prose. Do not copy the registry object or its values into your answer. "
-            "Available IDs: " + json.dumps(list(PUBLIC_FACTS))
-            + ". Approved reference registry: " + json.dumps(PUBLIC_FACTS))
+            "Approved reference registry (keys are fact IDs): " + json.dumps(PUBLIC_FACTS))
 
 
 def render_public_fact_selection(candidate):

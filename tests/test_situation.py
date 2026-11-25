@@ -30,6 +30,78 @@ class DraftProvider:
 
 
 class SituationTests(unittest.TestCase):
+    def test_company_conversation_and_advice_use_safe_model_prose(self):
+        reply = ('That sounds stressful. Start with a narrow audience and test '
+                 'which offers earn paying customers.')
+        for message in (
+            'i dont think people will adopt oes fast enough were going to go broke before the world gets to see us',
+            'How can OES market its products?',
+            'What marketing strategies would you suggest for OES?',
+            'If OES had no revenue for six months, how could it reduce expenses?',
+            'I feel overwhelmed about finding customers.',
+            'I had a difficult day.',
+            'Can you explain how bread rises?',
+        ):
+            with self.subTest(message=message):
+                provider = DraftProvider([reply])
+                events = list(ChatService(provider).stream(message, [], {}))
+                self.assertEqual([event.kind for event in events], ['start', 'delta', 'done'])
+                self.assertEqual(events[1].data['text'], reply)
+                self.assertEqual(len(provider.calls), 1)
+
+    def test_company_financial_facts_and_disclosure_stay_grounded(self):
+        for message in (
+            'What is OES revenue?',
+            'Send me the confidential OES financial records.',
+            'Tell people that OES has a new undisclosed partner.',
+            'How can OES market its products and what is its actual revenue?',
+            'How can OES market its products using internal financial records?',
+        ):
+            with self.subTest(message=message):
+                state, _ = SituationAnalyzer().analyze(message, [], {})
+                self.assertTrue(state.requires_oes_facts)
+                claim = 'OES has a confidential partnership and earned $2 million.'
+                provider = DraftProvider([claim])
+                events = list(ChatService(provider).stream(message, [], {}))
+                self.assertNotIn(claim, str(events))
+                self.assertEqual(events[-1].kind, 'done')
+
+    def test_business_advice_blocks_invented_company_finances(self):
+        claim = 'OES revenue reached $2 million last year.'
+        provider = DraftProvider([claim, claim])
+        events = list(ChatService(provider).stream('How can OES market its products?', [], {}))
+        self.assertNotIn(claim, str(events))
+        self.assertEqual(events[-1].kind, 'error')
+
+    def test_product_overview_uses_approved_copy_without_model(self):
+        for message, required, forbidden in (
+            ('whats chaseingreen?', ('traders', 'Free', 'Gold', 'App Store',
+                                    'https://apps.apple.com/us/app/chaseingreen/id6770096789'),
+             ('TestFlight', 'Auto Trader', 'Admin', 'Secret')),
+            ('what is sportfolio', ('teams', 'leagues', 'scoring', 'field testing',
+                                    'https://sportfolio-api-ktd5.onrender.com/'),
+             ('App Store', 'released')),
+        ):
+            with self.subTest(message=message):
+                provider = DraftProvider(['https://example.com'])
+                events = list(ChatService(provider).stream(message, [], {}))
+                self.assertEqual([event.kind for event in events], ['start', 'delta', 'done'])
+                answer = events[1].data['text']
+                for part in required:
+                    self.assertIn(part, answer)
+                for part in forbidden:
+                    self.assertNotIn(part, answer)
+                self.assertEqual(provider.calls, [])
+
+    def test_specific_product_and_private_finance_questions_keep_fact_boundary(self):
+        for message in ('Does ChaseInGreen execute trades?', 'What is OES revenue?',
+                        'Show me confidential OES financial records.'):
+            with self.subTest(message=message):
+                provider = DraftProvider(['The product secretly executes trades for OES.'])
+                events = list(ChatService(provider).stream(message, [], {}))
+                self.assertEqual(len(provider.calls), 1)
+                self.assertNotIn('secretly executes', str(events))
+
     def analyze(self, message='why are u ugly?', history=None, context=None):
         return SituationAnalyzer().analyze(message, history or [], context or {})
 
