@@ -79,7 +79,53 @@ OES_FACTS = re.compile(
 
 def needs_server_company_guidance(message, state):
     """Keep explicitly company-directed turns off unrestricted prose routes."""
-    return not state.requires_oes_facts and bool(EXPLICIT_OES_ENTITY.search(message))
+    return (not state.requires_oes_facts and bool(EXPLICIT_OES_ENTITY.search(message))
+            and not company_social_acknowledgment(message))
+
+
+def company_social_acknowledgment(message):
+    return bool(re.fullmatch(
+        rf"\s*(?:hi|hello|hey|thanks|thank you|gracias|merci|bonjour)[,\s]+"
+        rf"(?:{OES_ENTITY_NAMES})[.!?\s]*", message, re.I))
+
+
+# These patterns recognize short input intents. They never authorize a fact or
+# inspect generated text. The nearest user turn can supply a topic, not evidence.
+COMPANY_FACT_FOLLOWUP = re.compile(
+    r"(?:how much (?:did we (?:make|earn)|(?:do|did) we (?:have|owe))\b[^?!.]*"
+    r"|how many (?:customers|clients|contracts) (?:do|did) we (?:have|serve|sign)\b[^?!.]*"
+    r"|can you (?:speak for|represent) (?:us|our company)"
+    r"|our (?:revenue|profits?|sales|runway|customer count)\b[^?!.]*"
+    r"|what (?:promises|commitments|contracts) (?:have|did) we\b[^?!.]*"
+    r"|when did (?:we|our company) (?:start|begin|open|launch)\b[^?!.]*"
+    r"|¿?cuánto (?:ganó nuestra empresa|ganamos)\b[^?!.]*"
+    r"|(?:combien (?:notre entreprise a gagné|avons-nous gagné)\b[^?!.]*))"
+    r"[?!.\s]*", re.I)
+COMPANY_CONCERN_FOLLOWUP = re.compile(
+    r"(?:are we going to survive|will we survive|how long can we (?:last|keep going)|"
+    r"¿?sobreviviremos|allons-nous survivre)[?!.\s]*", re.I)
+AMBIGUOUS_COMPANY_FOLLOWUP = re.compile(
+    r"(?:what should we do|what about us|what about our company|"
+    r"le chiffre d[’']affaires d[’']otis est de combien)[?!.\s]*", re.I)
+
+
+def company_followup_response(message, history):
+    """Resolve only bounded indirect intents, never a permanent company topic."""
+    current = message.strip()
+    if (len(current) > 160 or EXPLICIT_OES_ENTITY.search(current)
+            or EXTERNAL_ENTITY_IDENTITY.search(current)):
+        return None
+    previous_user = next((item['content'] for item in reversed(bounded_history(history))
+                          if item['role'] == 'user'), '')
+    anchored = (bool(EXPLICIT_OES_ENTITY.search(previous_user))
+                and not company_social_acknowledgment(previous_user))
+    if COMPANY_FACT_FOLLOWUP.fullmatch(current):
+        return 'company_followup_limitation' if anchored else 'company_followup_clarify'
+    if COMPANY_CONCERN_FOLLOWUP.fullmatch(current):
+        return 'company_business_guidance' if anchored else 'company_followup_clarify'
+    if anchored and AMBIGUOUS_COMPANY_FOLLOWUP.fullmatch(current):
+        return 'company_followup_clarify'
+    return None
 HYPOTHETICAL_OES = re.compile(
     r'\b(?:could|would|can|should|might)\s+(?:oes|otis execution systems)\s+'
     r'(?:build|make|develop|design|create)\b|\b(?:brainstorm|design|imagine|propose)\b.{0,80}\b(?:for\s+)?(?:oes|otis execution systems)\b',
@@ -183,7 +229,10 @@ class SituationAnalyzer:
             tuple(x['content'] for x in history if x['role'] == 'assistant')[-3:],
             'professional' if serious else 'playful' if recent_playful else 'neutral',
             recent_playful, inherited_serious)
-        if serious:
+        if company_social_acknowledgment(message):
+            state = SituationState('conversation', False, 'neutral', False, False,
+                                   'truthful_no_new_oes_facts', 'concise', False, 'answer', 'high')
+        elif serious:
             state = SituationState('serious', True, 'professional', False, True,
                                    'approved_fact_selection', 'concise', False, 'grounded_answer', 'high')
         elif discussion:

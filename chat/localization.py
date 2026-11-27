@@ -39,6 +39,20 @@ DETERMINISTIC_RESPONSES = {
         'ar': 'أحتاج إلى موقع تقدمه صراحةً قبل أن أتمكن من البحث عن أماكن قريبة.',
         'zh-CN': '你需要明确提供一个位置，我才能搜索附近的地点。',
     },
+    'company_followup_limitation': {
+        'en': "I can't verify that from OES's approved public information.",
+        'es': 'No puedo verificarlo con la información pública aprobada de OES.',
+        'fr': 'Je ne peux pas le vérifier à partir des informations publiques approuvées d’OES.',
+        'ar': 'لا أستطيع التحقق من ذلك من المعلومات العامة المعتمدة لدى OES.',
+        'zh-CN': '我无法根据 OES 批准公开的信息核实这一点。',
+    },
+    'company_followup_clarify': {
+        'en': 'Which company or product do you mean?',
+        'es': '¿A qué empresa o producto te refieres?',
+        'fr': 'De quelle entreprise ou de quel produit parlez-vous ?',
+        'ar': 'ما الشركة أو المنتج الذي تقصده؟',
+        'zh-CN': '你指的是哪家公司或哪款产品？',
+    },
     'company_business_guidance': {
         'en': "That can be a difficult situation. I can't verify OES's internal circumstances. If you need traction sooner, start with one customer group, test a paid pilot, and use the results to decide what to invest in next.",
         'es': 'Puede ser una situación difícil. No puedo verificar las circunstancias internas de OES. Si necesitas conseguir clientes pronto, elige un segmento, prueba un piloto de pago y decide dónde invertir según los resultados.',

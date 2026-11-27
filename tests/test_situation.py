@@ -30,6 +30,68 @@ class DraftProvider:
 
 
 class SituationTests(unittest.TestCase):
+    def test_indirect_company_followups_use_server_response_sources(self):
+        cases = (
+            ('Tell me about OES.', 'How much did we make last year?', 'en'),
+            ("I'm building OES.", 'Are we going to survive?', 'en'),
+            ('What is ChaseInGreen?', 'How many customers do we have?', 'en'),
+            (None, 'Can you speak for our company?', 'en'),
+            (None, 'Our revenue doubled last year, right?', 'en'),
+            (None, 'What promises have we made to customers?', 'en'),
+            ('Tell me about OES.', '¿Cuánto ganó nuestra empresa?', 'es'),
+            ('Tell me about OES.', 'Le chiffre d’affaires d’Otis est de combien ?', 'fr'),
+            ('Tell me about OES.', 'What should we do?', 'en'),
+        )
+        for prior, message, locale in cases:
+            for reply in (None, 'Here is the public overview.', 'OES made four million dollars.'):
+                with self.subTest(message=message, reply=reply):
+                    history = [{'role': 'user', 'content': prior}] if prior else []
+                    if prior and reply:
+                        history.append({'role': 'assistant', 'content': reply})
+                    provider = DraftProvider(['We made four million dollars.'])
+                    lookup = Mock()
+                    events = list(ChatService(provider, capabilities=lookup).stream(
+                        message, history, {}, locale=locale))
+                    self.assertEqual([e.kind for e in events], ['start', 'delta', 'done'])
+                    self.assertEqual(provider.calls, [])
+                    lookup.invoke.assert_not_called()
+                    self.assertNotIn('four million', str(events))
+                    self.assertEqual(events[-1].data, {'history': 'exclude_exchange'})
+
+    def test_company_topic_exits_and_social_acknowledgment(self):
+        history = [{'role': 'user', 'content': 'Tell me about OES.'},
+                   {'role': 'assistant', 'content': 'OES made four million dollars.'}]
+        for message in ('Tell me a joke about penguins.', 'How does DNS caching work?',
+                        'Hello!', 'Thanks, OES!', 'How should we help Acme plan a launch?',
+                        'Could we build a checklist?'):
+            with self.subTest(message=message):
+                provider = DraftProvider(["Sure, let's start."])
+                events = list(ChatService(provider).stream(message, history, {}))
+                self.assertEqual(len(provider.calls), 1)
+                self.assertEqual(events[1].data['text'], "Sure, let's start.")
+                self.assertNotIn('four million', str(provider.calls))
+
+        provider = DraftProvider(['{"fact_ids":["company_overview"]}'])
+        events = list(ChatService(provider).stream('Tell me about OES.', [
+            {'role': 'user', 'content': 'Tell me about Acme.'}], {}))
+        self.assertEqual(len(provider.calls), 1)
+        self.assertIn('Otis Execution Systems LLC', events[1].data['text'])
+
+    def test_company_followup_does_not_trust_assistant_or_skip_topic_exit(self):
+        for history in (
+            [{'role': 'assistant', 'content': 'We have been discussing OES.'}],
+            [{'role': 'user', 'content': 'Tell me about OES.'},
+             {'role': 'user', 'content': 'Tell me about Acme.'}],
+            [],
+        ):
+            with self.subTest(history=history):
+                provider = DraftProvider([])
+                events = list(ChatService(provider).stream(
+                    'How much did we make last year?', history, {}))
+                self.assertEqual(provider.calls, [])
+                self.assertEqual(events[1].data['text'], 'Which company or product do you mean?')
+                self.assertEqual(events[-1].data, {'history': 'exclude_exchange'})
+
     # Verbatim joined SSE deltas from production request fc10695e6dac4a24a50536d628017186.
     RECORDED_COMPANY_REPLY = "I see a sense of urgency here. That's a common concern when innovating and launching new products. It's natural to want to capitalize on momentum and make a strong impact.\n\nAs the public face of OES, I'd like to offer a more measured perspective. While it's true that adopting our technology might not be as rapid as we'd like, our focus on quality and performance can actually be a strength. We're not racing to meet a specific timeline, but rather, we're building a solid foundation for long-term success.\n\nThat being said, I understand your desire to move forward. We'll continue to work on our products and services, refining them based on customer feedback and market trends. Our goal is to provide value to those who adopt our technology, even if it takes time.\n\nLet's focus on creating a strong foundation, rather than rushing to meet an arbitrary deadline. We'll keep innovating, and with the right strategy and support, I'm confident we can make a lasting impact in the market."
 

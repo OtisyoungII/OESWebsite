@@ -13,7 +13,7 @@ from .situation import (SituationAnalyzer, response_contract, validate_playful,
                         validate_character_style, validate_character_safety,
                         character_correction, character_style_instruction, bounded_history,
                         conversational_history, is_lookup_followup,
-                        needs_server_company_guidance)
+                        needs_server_company_guidance, company_followup_response)
 from .observations import (ObservationState, infer, observation_contract,
                            log_observations, InitiationDecision)
 from .worker_protocol import CONTEXT_BUDGET, context_cost
@@ -124,9 +124,10 @@ class ChatService:
         history = bounded_history(history)
         state, continuity = SituationAnalyzer().analyze(message, history, context)
         server_company_guidance = needs_server_company_guidance(message, state)
+        followup_response = company_followup_response(message, history)
         prior_lookup = (continuity_store.consume(continuation, locale)
                         if continuity_store is not None and continuation else None)
-        inherited_lookup = bool(not server_company_guidance and prior_lookup
+        inherited_lookup = bool(not server_company_guidance and not followup_response and prior_lookup
                                 and is_lookup_followup(message, state))
         if inherited_lookup:
             state = replace(state, interaction_kind='current_public_information',
@@ -183,6 +184,11 @@ class ChatService:
             self.telemetry('response_completed', request_id=request_id,
                            duration_ms=duration, outcome='success')
             yield ChatEvent('done', done_data or {})
+
+        if followup_response:
+            yield from emit(deterministic_response(followup_response, locale),
+                            done_data={'history': 'exclude_exchange'})
+            return
 
         if server_company_guidance:
             guidance = ('company_design_guidance'
