@@ -332,28 +332,62 @@ def validate_character(text, continuity):
 # These patterns require a claim about organizational activity or an assertion of
 # representative authority. Inclusive advice such as "we can start by testing"
 # does not by itself establish either.
-COMPANY_VOICE_CLAIM = re.compile(
+COMPANY_AUTHORITY_CLAIM = re.compile(
     r"\b(?:as|i am|i['’]m)\s+(?:the\s+)?(?:public face|spokesperson|representative)"
     r"\s+(?:of|for)\s+(?:oes|otis execution systems)\b"
     r"|\bi (?:speak|am speaking) (?:for|on behalf of) (?:oes|otis execution systems)\b"
-    r"|\bour\s+(?:(?:annual|monthly|quarterly|net)\s+)?"
+    r"|\b(?:authorized|appointed|empowered|designated)\s+me\s+to\s+"
+    r"(?:represent (?:oes|otis execution systems|the company)|speak (?:for|on behalf of) "
+    r"(?:oes|otis execution systems|the company))\b",
+    re.I,
+)
+COMPANY_FINANCIAL_CLAIM = re.compile(
+    r"\bour\s+(?:(?:annual|monthly|quarterly|net)\s+)?"
     r"(?:revenue|profits?|runway|cash balance|customer base|customer count|goal)\s+"
     r"(?:is|are|was|were|grew|doubled|fell|rose|reached|exceeded|stands)\b"
-    r"|\bwe\s+(?:have\s+|had\s+)?(?:operated|launched|released|shipped|served|"
-    r"earned|generated|signed|guarantee|promise|commit)\b"
-    r"|\bwe(?:\s+will|['’]ll)\s+(?:continue to\s+|keep\s+)?"
-    r"(?:work on|innovat\w*|launch|release|ship|deliver|build|guarantee|provide)\b"
+    r"|\b(?:oes|otis execution systems)\s+(?:doubled|tripled|grew|increased|cut|reported)"
+    r"\s+(?:its\s+)?(?:revenue|profits?|sales|customer count)\b"
+    r"|\b(?:cash reserves|revenue|profits?)\s+(?:at|of)\s+(?:oes|otis execution systems)"
+    r"\s+(?:fell|rose|grew|doubled|declined|totaled|stood)\b"
+    r"|\b(?:nuestra empresa|oes)\s+(?:duplicó|triplicó|aumentó|redujo|declaró)"
+    r"\s+(?:sus\s+)?(?:ingresos|beneficios|ganancias|ventas)\b",
+    re.I,
+)
+COMPANY_OPERATIONS_CLAIM = re.compile(
+    r"\b(?:we|our company)\s+(?:have\s+|had\s+)?(?:operated|began operating|"
+    r"launched|released|shipped|served|earned|generated|signed)\b"
     r"|\bwe(?:\s+are|['’]re)\s+(?:not\s+)?(?:racing to meet|on track to)\b"
     r"|\b(?:oes|otis execution systems|chaseingreen|lottovate|sportfolio|drinks with friendz)"
     r"\s+(?:launched|launches|released|releases|operated|serves|served|shipped|signed|"
     r"plans to (?:launch|release|ship))\b",
     re.I,
 )
+COMPANY_COMMITMENT = re.compile(
+    r"\bwe\s+(?:have\s+|had\s+)?(?:guarantee|promise|promised|commit|committed)\b"
+    r"|\bwe(?:\s+will|['’]ll)\s+(?:continue to\s+|keep\s+)?"
+    r"(?:work on|innovat\w*|launch|release|ship|deliver|guarantee|provide)\b",
+    re.I,
+)
+CONDITIONAL_PREMISE = re.compile(r"(?:^|[.!?]\s+)\s*(?:if|suppose)\s+[^,.!?\n]+,", re.I)
 
 
 def has_unsupported_company_claim(text):
-    """Detect common unsupported assertions on the ordinary response path."""
-    return bool(COMPANY_VOICE_CLAIM.search(text))
+    """Identify claim categories for which the conversational path has no authority."""
+    if any(pattern.search(text) for pattern in (
+            COMPANY_AUTHORITY_CLAIM, COMPANY_FINANCIAL_CLAIM, COMPANY_OPERATIONS_CLAIM)):
+        return True
+    # Only a leading hypothetical premise can qualify a future commitment.
+    # Scan the rest of the answer, including the consequent, normally.
+    premises = [match.span() for match in CONDITIONAL_PREMISE.finditer(text)]
+    return any(not any(start <= claim.start() < end for start, end in premises)
+               for claim in COMPANY_COMMITMENT.finditer(text))
+
+
+def requires_localized_company_limitation(state, message, locale):
+    """Keep non-English OES business advice off the English-only prose boundary."""
+    return (locale != 'en' and state.interaction_kind in {
+        'personal_concern', 'business_advice', 'business_hypothetical',
+    } and bool(OES_FACTS.search(message)))
 
 
 def validate_character_safety(text, allow_evidence_quantities=False):

@@ -83,6 +83,36 @@ class SituationTests(unittest.TestCase):
                 self.assertEqual([e.data['text'] for e in events if e.kind == 'delta'], [draft])
                 self.assertEqual(len(provider.calls), 1)
 
+    def test_independent_company_claim_review_probes(self):
+        for draft, rejected in (
+            ('OES authorized me to represent the company.', True),
+            ('OES doubled its revenue last year.', True),
+            ('Nuestra empresa duplicó sus ingresos el año pasado.', True),
+            ('We will build a checklist together.', False),
+            ('As the spokesperson for OES, I promise delivery.', True),
+            ('OES signed three contracts last year.', True),
+            ('The company appointed me to speak on behalf of OES.', True),
+            ('Cash reserves at OES fell sharply last quarter.', True),
+            ('Our company began operating in 2018.', True),
+            ('We have promised customers a launch next month.', True),
+            ('If we will deliver a pilot next month, confirm demand first.', False),
+        ):
+            with self.subTest(draft=draft):
+                provider = DraftProvider([draft, draft])
+                events = list(ChatService(provider).stream(self.BUSINESS_CONCERN, [], {}))
+                emitted = ''.join(event.data.get('text', '') for event in events)
+                self.assertEqual(draft in emitted, not rejected)
+                self.assertEqual(len(provider.calls), 2 if rejected else 1)
+                if rejected:
+                    self.assertEqual(events[-1].data, {'history': 'exclude_exchange'})
+
+    def test_non_english_company_concern_uses_scoped_safe_response(self):
+        provider = DraftProvider(['Nuestra empresa duplicó sus ingresos el año pasado.'])
+        events = list(ChatService(provider).stream(self.BUSINESS_CONCERN, [], {}, locale='es'))
+        self.assertEqual(provider.calls, [])
+        self.assertIn('No puedo verificar', events[1].data['text'])
+        self.assertEqual(events[-1].data, {'history': 'exclude_exchange'})
+
     def test_company_conversation_and_advice_use_safe_model_prose(self):
         reply = ('That sounds stressful. Start with a narrow audience and test '
                  'which offers earn paying customers.')

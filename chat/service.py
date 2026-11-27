@@ -13,7 +13,7 @@ from .situation import (SituationAnalyzer, response_contract, validate_playful,
                         validate_character_style, validate_character_safety,
                         character_correction, character_style_instruction, bounded_history,
                         conversational_history, is_lookup_followup,
-                        has_unsupported_company_claim)
+                        has_unsupported_company_claim, requires_localized_company_limitation)
 from .observations import (ObservationState, infer, observation_contract,
                            log_observations, InitiationDecision)
 from .worker_protocol import CONTEXT_BUDGET, context_cost
@@ -188,6 +188,11 @@ class ChatService:
 
         if state.response_action == 'request_location':
             yield from emit(deterministic_response('request_location', locale))
+            return
+
+        if requires_localized_company_limitation(state, message, locale):
+            yield from emit(deterministic_response('company_claim_limitation', locale),
+                            done_data={'history': 'exclude_exchange'})
             return
 
         if state.requires_oes_facts and not serious and locale == DEFAULT_LOCALE:
