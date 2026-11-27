@@ -39,6 +39,13 @@ DETERMINISTIC_RESPONSES = {
         'ar': 'أحتاج إلى موقع تقدمه صراحةً قبل أن أتمكن من البحث عن أماكن قريبة.',
         'zh-CN': '你需要明确提供一个位置，我才能搜索附近的地点。',
     },
+    'company_claim_limitation': {
+        'en': "I can't verify OES's internal plans or circumstances. We can talk through general options without assuming those details.",
+        'es': 'No puedo verificar los planes ni la situación interna de OES. Podemos considerar opciones generales sin dar esos detalles por ciertos.',
+        'fr': 'Je ne peux pas vérifier les projets ni la situation interne d’OES. Nous pouvons examiner des options générales sans présumer de ces détails.',
+        'ar': 'لا أستطيع التحقق من خطط OES أو ظروفها الداخلية. يمكننا مناقشة الخيارات العامة دون افتراض هذه التفاصيل.',
+        'zh-CN': '我无法核实 OES 的内部计划或情况。我们可以在不假定这些细节的前提下讨论一般选项。',
+    },
     'lookup_limitation': {
         'en': "I couldn't verify the current part right now, so I won't guess.",
         'es': 'No pude verificar ahora la parte que requiere información actual, así que no voy a adivinar.',

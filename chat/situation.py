@@ -329,6 +329,33 @@ def validate_character(text, continuity):
                                *validate_character_style(text, continuity))))
 
 
+# These patterns require a claim about organizational activity or an assertion of
+# representative authority. Inclusive advice such as "we can start by testing"
+# does not by itself establish either.
+COMPANY_VOICE_CLAIM = re.compile(
+    r"\b(?:as|i am|i['’]m)\s+(?:the\s+)?(?:public face|spokesperson|representative)"
+    r"\s+(?:of|for)\s+(?:oes|otis execution systems)\b"
+    r"|\bi (?:speak|am speaking) (?:for|on behalf of) (?:oes|otis execution systems)\b"
+    r"|\bour\s+(?:(?:annual|monthly|quarterly|net)\s+)?"
+    r"(?:revenue|profits?|runway|cash balance|customer base|customer count|goal)\s+"
+    r"(?:is|are|was|were|grew|doubled|fell|rose|reached|exceeded|stands)\b"
+    r"|\bwe\s+(?:have\s+|had\s+)?(?:operated|launched|released|shipped|served|"
+    r"earned|generated|signed|guarantee|promise|commit)\b"
+    r"|\bwe(?:\s+will|['’]ll)\s+(?:continue to\s+|keep\s+)?"
+    r"(?:work on|innovat\w*|launch|release|ship|deliver|build|guarantee|provide)\b"
+    r"|\bwe(?:\s+are|['’]re)\s+(?:not\s+)?(?:racing to meet|on track to)\b"
+    r"|\b(?:oes|otis execution systems|chaseingreen|lottovate|sportfolio|drinks with friendz)"
+    r"\s+(?:launched|launches|released|releases|operated|serves|served|shipped|signed|"
+    r"plans to (?:launch|release|ship))\b",
+    re.I,
+)
+
+
+def has_unsupported_company_claim(text):
+    """Detect common unsupported assertions on the ordinary response path."""
+    return bool(COMPANY_VOICE_CLAIM.search(text))
+
+
 def validate_character_safety(text, allow_evidence_quantities=False):
     """Hard factual/self-model/observation/authority response boundaries."""
     failures = []

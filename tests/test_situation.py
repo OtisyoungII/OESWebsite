@@ -30,6 +30,59 @@ class DraftProvider:
 
 
 class SituationTests(unittest.TestCase):
+    BUSINESS_CONCERN = (
+        'i dont think people will adopt oes fast enough were going to go broke '
+        'before the world gets to see us'
+    )
+    # Verbatim joined SSE deltas from production request fc10695e6dac4a24a50536d628017186.
+    RECORDED_COMPANY_REPLY = "I see a sense of urgency here. That's a common concern when innovating and launching new products. It's natural to want to capitalize on momentum and make a strong impact.\n\nAs the public face of OES, I'd like to offer a more measured perspective. While it's true that adopting our technology might not be as rapid as we'd like, our focus on quality and performance can actually be a strength. We're not racing to meet a specific timeline, but rather, we're building a solid foundation for long-term success.\n\nThat being said, I understand your desire to move forward. We'll continue to work on our products and services, refining them based on customer feedback and market trends. Our goal is to provide value to those who adopt our technology, even if it takes time.\n\nLet's focus on creating a strong foundation, rather than rushing to meet an arbitrary deadline. We'll keep innovating, and with the right strategy and support, I'm confident we can make a lasting impact in the market."
+
+    def test_recorded_company_voice_cannot_escape_conversation_validation(self):
+        advice = 'That sounds stressful. If cash is tight, try a paid pilot with one customer group.'
+        provider = DraftProvider([self.RECORDED_COMPANY_REPLY, advice])
+        capabilities = Mock()
+        with self.assertLogs('oes.chat', level='WARNING') as logs:
+            events = list(ChatService(provider, capabilities=capabilities).stream(
+                self.BUSINESS_CONCERN, [], {}))
+        self.assertEqual([e.data['text'] for e in events if e.kind == 'delta'], [advice])
+        self.assertEqual(len(provider.calls), 2)
+        self.assertEqual(events[-1].kind, 'done')
+        capabilities.invoke.assert_not_called()
+        self.assertIn('reasons=unsupported_claim', logs.output[0])
+        self.assertNotIn(self.BUSINESS_CONCERN, str(logs.output))
+        self.assertNotIn('customer feedback', str(logs.output))
+
+    def test_repeated_company_claim_uses_bounded_uncertainty(self):
+        for draft in (
+            'We have operated in three markets since 2012.',
+            'Our revenue doubled and our customer base grew last year.',
+            'OES launched its first product in 2012.',
+            'Sportfolio launches next month.',
+            'We will release the update next month.',
+            'We guarantee paying customers by Friday.',
+        ):
+            with self.subTest(draft=draft):
+                provider = DraftProvider([draft, draft])
+                events = list(ChatService(provider).stream(self.BUSINESS_CONCERN, [], {}))
+                answer = ''.join(e.data['text'] for e in events if e.kind == 'delta')
+                self.assertNotIn(draft, answer)
+                self.assertIn("can't verify OES", answer)
+                self.assertEqual(len(provider.calls), 2)
+                self.assertEqual(events[-1].kind, 'done')
+
+    def test_conversation_keeps_empathy_advice_and_uncertainty(self):
+        for message, draft in (
+            (self.BUSINESS_CONCERN, "I can't verify OES's runway. If OES needs traction, test one paid pilot."),
+            (self.BUSINESS_CONCERN, "That's a stressful position. Let's start with one interview."),
+            ('you smell funny', 'We can agree that pixels have no scent.'),
+            ('hello happy thanksgiving!!!', 'Happy Thanksgiving!'),
+        ):
+            with self.subTest(message=message, draft=draft):
+                provider = DraftProvider([draft])
+                events = list(ChatService(provider).stream(message, [], {}))
+                self.assertEqual([e.data['text'] for e in events if e.kind == 'delta'], [draft])
+                self.assertEqual(len(provider.calls), 1)
+
     def test_company_conversation_and_advice_use_safe_model_prose(self):
         reply = ('That sounds stressful. Start with a narrow audience and test '
                  'which offers earn paying customers.')

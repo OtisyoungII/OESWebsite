@@ -12,7 +12,8 @@ from .providers import ChatEvent
 from .situation import (SituationAnalyzer, response_contract, validate_playful,
                         validate_character_style, validate_character_safety,
                         character_correction, character_style_instruction, bounded_history,
-                        conversational_history, is_lookup_followup)
+                        conversational_history, is_lookup_followup,
+                        has_unsupported_company_claim)
 from .observations import (ObservationState, infer, observation_contract,
                            log_observations, InitiationDecision)
 from .worker_protocol import CONTEXT_BUDGET, context_cost
@@ -457,6 +458,9 @@ class ChatService:
                 active_attempt = attempt + 1
                 candidate = provider_candidate(messages, active_attempt)
                 hard_failures = validate_character_safety(candidate)
+                company_claim = has_unsupported_company_claim(candidate)
+                if company_claim and 'unsupported_claim' not in hard_failures:
+                    hard_failures += ('unsupported_claim',)
                 if not hard_failures:
                     yield from emit(candidate, last_chunks)
                     return
@@ -475,7 +479,17 @@ class ChatService:
                         'feelings, desires, independent goals, percentages, probabilities, odds, '
                         'rankings, or quantitative confidence. Preserve a natural concise answer.'
                     )
+                    if company_claim:
+                        correction += (
+                            ' Do not speak for OES or assert its operating history, finances, '
+                            'customers, roadmap or commitments. Acknowledge the user’s concern, '
+                            'offer conditional advice, or say what you cannot verify.'
+                        )
                     messages = fit_messages(instruction + correction, model_history, message)
+                elif company_claim:
+                    yield from emit(deterministic_response('company_claim_limitation', locale),
+                                    done_data={'history': 'exclude_exchange'})
+                    return
             raise ServiceFailure('response_validation_exhausted')
 
         except Exception as error:
