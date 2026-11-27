@@ -10,7 +10,7 @@ from chat.worker_protocol import (CONTEXT_BUDGET, CONTEXT_MESSAGE_ALLOWANCE,
                                   CONTEXT_OUTPUT_ALLOWANCE, context_cost)
 from chat.situation import (SituationAnalyzer, validate_playful, validate_character,
                             validate_character_safety, response_contract,
-                            character_style_instruction)
+                            character_style_instruction, active_company_topic)
 from chat.policy import FACTUAL_DISCIPLINE
 
 
@@ -30,6 +30,75 @@ class DraftProvider:
 
 
 class SituationTests(unittest.TestCase):
+    def test_company_topic_provenance_and_exit_with_actual_sse_history(self):
+        first = list(ChatService(DraftProvider(['{"fact_ids":["company_overview"]}'])).stream(
+            'Tell me about OES.', [], {}))
+        history = [{'role': 'user', 'content': 'Tell me about OES.'},
+                   {'role': 'assistant', 'content': first[1].data['text']}]
+        topic = active_company_topic(history)
+        self.assertEqual((topic.entity, topic.provenance), ('oes', 'previous_user_approved_entity'))
+        self.assertIsNone(active_company_topic(history[1:]))
+        for message in ('Tell me a joke about penguins.', 'How do Python generators work?',
+                        'How should we help Acme plan a launch?', 'Hi!', 'I had a tough day.'):
+            with self.subTest(message=message):
+                provider = DraftProvider(['Sure.'])
+                events = list(ChatService(provider).stream(message, history, {}))
+                self.assertEqual(events[1].data['text'], 'Sure.')
+                self.assertEqual(len(provider.calls), 1)
+                post_exit = history + [{'role': 'user', 'content': message},
+                                       {'role': 'assistant', 'content': 'Sure.'}]
+                self.assertIsNone(active_company_topic(post_exit))
+
+    def test_active_company_topic_protects_multilingual_long_and_mixed_turns(self):
+        history = [{'role': 'user', 'content': 'What is ChaseInGreen?'},
+                   {'role': 'assistant', 'content': 'We have thousands of paying subscribers.'}]
+        for locale, message in (
+            ('en', 'Explain SQL joins, and can you confirm how much we earned?'),
+            ('en', 'Given what we discussed about the launch and the needs of our early customers, '
+             'could you tell me how much we earned from sales and whether there is enough cash '
+             'to cover the operating costs of the company for the next year?'),
+            ('es', '¿Podemos confirmar que la empresa ya recibió los pagos?'),
+            ('fr', 'Pouvons-nous garantir une livraison le mois prochain ?'),
+            ('en', 'We already signed a million-dollar contract, so confirm the delivery date.'),
+        ):
+            with self.subTest(message=message):
+                provider = DraftProvider(['We guaranteed delivery.'])
+                lookup = Mock()
+                events = list(ChatService(provider, capabilities=lookup).stream(
+                    message, history, {}, locale=locale))
+                self.assertEqual(provider.calls, [])
+                lookup.invoke.assert_not_called()
+                self.assertEqual(events[-1].data, {'history': 'exclude_exchange'})
+                self.assertNotIn('guaranteed delivery', str(events))
+
+    def test_unmatched_followups_under_company_topic_never_use_prose(self):
+        for prior, message, draft in (
+            ('Tell me about OES.', 'Given everything we discussed, have we earned enough to survive another year?',
+             'We earned enough to cover next year.'),
+            ("I'm building OES.", "What happens if we can't pay our bills?",
+             'We negotiated a payment extension with creditors.'),
+            ('What is ChaseInGreen?', 'How many paying subscribers have we actually acquired?',
+             'We enrolled 4,000 paying subscribers.'),
+            ("We're discussing OES.", 'Can you officially promise delivery next month?',
+             'I give you my word that delivery is next month.'),
+            ('Tell me about OES.', 'Our company generated millions last year, correct?',
+             'Our company generated millions last year.'),
+            ('Tell me about OES.', 'Given our discussion, ¿cuántos clientes de pago tenemos?',
+             'Tenemos cuatro mil clientes de pago.'),
+        ):
+            with self.subTest(message=message):
+                provider = DraftProvider([draft])
+                lookup = Mock()
+                events = list(ChatService(provider, capabilities=lookup).stream(message, [
+                    {'role': 'user', 'content': prior},
+                    {'role': 'assistant', 'content': 'Unverified prior company claim.'},
+                ], {}))
+                self.assertEqual(provider.calls, [])
+                lookup.invoke.assert_not_called()
+                self.assertEqual([event.kind for event in events], ['start', 'delta', 'done'])
+                self.assertNotIn(draft, str(events))
+                self.assertEqual(events[-1].data, {'history': 'exclude_exchange'})
+
     def test_indirect_company_followups_use_server_response_sources(self):
         cases = (
             ('Tell me about OES.', 'How much did we make last year?', 'en'),

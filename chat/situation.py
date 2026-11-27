@@ -104,26 +104,53 @@ COMPANY_FACT_FOLLOWUP = re.compile(
 COMPANY_CONCERN_FOLLOWUP = re.compile(
     r"(?:are we going to survive|will we survive|how long can we (?:last|keep going)|"
     r"¿?sobreviviremos|allons-nous survivre)[?!.\s]*", re.I)
-AMBIGUOUS_COMPANY_FOLLOWUP = re.compile(
-    r"(?:what should we do|what about us|what about our company|"
-    r"le chiffre d[’']affaires d[’']otis est de combien)[?!.\s]*", re.I)
+# Positive, whole-turn exit shapes. Unknown or compound requests do not inherit
+# permission to produce company prose merely because they contain an exit cue.
+INDEPENDENT_TOPIC = re.compile(
+    r"(?:tell me (?:a |another )?joke(?: about (?:penguins|animals|cats|dogs|programmers|food))?"
+    r"|can you (?:make|bake) an? (?:apple pie|cake)"
+    r"|(?:how (?:does|do) |(?:can you )?explain )"
+    r"(?:dns(?: caching)?|(?:python|javascript) (?:lists|arrays|dictionaries|generators|promises)|"
+    r"sql (?:joins|indexes)|binary search|recursion)(?: work)?"
+    r"|(?:i had|i['’]ve had) a (?:long|difficult|tough|great|good) day"
+    r"|could we build a checklist"
+    r"|how (?:can|should) we help (?-i:[A-Z][a-z]+) plan a launch"
+    r"|lame|thanks|thank you|you smell funny)[?!.\s]*", re.I)
+
+
+@dataclass(frozen=True)
+class CompanyTopic:
+    entity: str
+    provenance: str = 'previous_user_approved_entity'
+
+
+def active_company_topic(history):
+    """A topic lasts for the next retained turn, and carries no factual authority."""
+    previous_user = next((item['content'] for item in reversed(bounded_history(history))
+                          if item['role'] == 'user'), '')
+    if company_social_acknowledgment(previous_user):
+        return None
+    names = {match.group().casefold() for match in EXPLICIT_OES_ENTITY.finditer(previous_user)}
+    if len(names) == 1:
+        return CompanyTopic(next(iter(names)))
+    if names:
+        return CompanyTopic('ambiguous')
+    return None
 
 
 def company_followup_response(message, history):
-    """Resolve only bounded indirect intents, never a permanent company topic."""
+    """Require a positive exit before resuming prose under an active topic."""
     current = message.strip()
-    if (len(current) > 160 or EXPLICIT_OES_ENTITY.search(current)
-            or EXTERNAL_ENTITY_IDENTITY.search(current)):
+    if (EXPLICIT_OES_ENTITY.search(current) or EXTERNAL_ENTITY_IDENTITY.search(current)
+            or CHARACTER_GREETING.fullmatch(current) or INDEPENDENT_TOPIC.fullmatch(current)):
         return None
-    previous_user = next((item['content'] for item in reversed(bounded_history(history))
-                          if item['role'] == 'user'), '')
-    anchored = (bool(EXPLICIT_OES_ENTITY.search(previous_user))
-                and not company_social_acknowledgment(previous_user))
-    if COMPANY_FACT_FOLLOWUP.fullmatch(current):
+    topic = active_company_topic(history)
+    anchored = topic is not None and topic.entity != 'ambiguous'
+    if len(current) <= 160 and COMPANY_FACT_FOLLOWUP.fullmatch(current):
         return 'company_followup_limitation' if anchored else 'company_followup_clarify'
-    if COMPANY_CONCERN_FOLLOWUP.fullmatch(current):
+    if len(current) <= 160 and COMPANY_CONCERN_FOLLOWUP.fullmatch(current):
         return 'company_business_guidance' if anchored else 'company_followup_clarify'
-    if anchored and AMBIGUOUS_COMPANY_FOLLOWUP.fullmatch(current):
+    if topic is not None:
         return 'company_followup_clarify'
     return None
 HYPOTHETICAL_OES = re.compile(
