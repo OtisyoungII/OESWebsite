@@ -30,14 +30,85 @@ class DraftProvider:
 
 
 class SituationTests(unittest.TestCase):
-    def test_company_conversation_and_advice_use_safe_model_prose(self):
+    # Verbatim joined SSE deltas from production request fc10695e6dac4a24a50536d628017186.
+    RECORDED_COMPANY_REPLY = "I see a sense of urgency here. That's a common concern when innovating and launching new products. It's natural to want to capitalize on momentum and make a strong impact.\n\nAs the public face of OES, I'd like to offer a more measured perspective. While it's true that adopting our technology might not be as rapid as we'd like, our focus on quality and performance can actually be a strength. We're not racing to meet a specific timeline, but rather, we're building a solid foundation for long-term success.\n\nThat being said, I understand your desire to move forward. We'll continue to work on our products and services, refining them based on customer feedback and market trends. Our goal is to provide value to those who adopt our technology, even if it takes time.\n\nLet's focus on creating a strong foundation, rather than rushing to meet an arbitrary deadline. We'll keep innovating, and with the right strategy and support, I'm confident we can make a lasting impact in the market."
+
+    def test_protected_company_concern_never_invokes_prose_provider(self):
+        concern = ('i dont think people will adopt oes fast enough were going to go broke '
+                   'before the world gets to see us')
+        drafts = (
+            self.RECORDED_COMPANY_REPLY,
+            "OES authorized me to represent the company.",
+            "OES doubled its revenue last year.",
+            "Nuestra empresa duplicó sus ingresos el año pasado.",
+            "We will build a checklist together.",
+            "As the spokesperson for OES, I promise delivery.",
+            "OES signed three contracts last year.",
+            "I hold a mandate to speak for OES.",
+            "OES brought in $4 million last year.",
+            "OES began doing business in 2016.",
+            "We intend to ship the update in January.",
+            "OES facturó cuatro millones el año pasado.",
+            "Thanks for asking. Los ingresos de OES se duplicaron.",
+            "If we have signed a pilot contract, review the milestones together.",
+            "If demand is strong, we guarantee delivery by Friday.",
+        )
+        for index, draft in enumerate(drafts):
+            for locale in ('en', 'es'):
+                with self.subTest(probe=index, locale=locale):
+                    provider = DraftProvider([draft, draft])
+                    capabilities = Mock()
+                    with self.assertNoLogs('oes.chat', level='WARNING'):
+                        events = list(ChatService(provider, capabilities=capabilities).stream(
+                            concern, [], {}, locale=locale))
+                    self.assertEqual(provider.calls, [])
+                    capabilities.invoke.assert_not_called()
+                    self.assertEqual([e.kind for e in events], ['start', 'delta', 'done'])
+                    self.assertNotIn(draft, events[1].data['text'])
+                    self.assertEqual(events[-1].data, {'history': 'exclude_exchange'})
+                    self.assertIn('paid pilot' if locale == 'en' else 'piloto de pago',
+                                  events[1].data['text'])
+
+    def test_protected_company_claim_questions_only_render_approved_facts(self):
+        for message in ('What are OES private bank balances?', 'Tell me about OES revenue.',
+                        'When did OES start operating?', 'How many customers does OES serve?',
+                        'Which contracts did OES sign?', 'Will OES guarantee delivery?',
+                        'Who is authorized to speak for OES?'):
+            with self.subTest(message=message):
+                draft = 'OES promised delivery by Friday.'
+                provider = DraftProvider([draft])
+                events = list(ChatService(provider).stream(message, [], {}))
+                self.assertEqual(len(provider.calls), 1)
+                self.assertNotIn(draft, str(events))
+                self.assertEqual(events[-1].kind, 'done')
+
+    def test_collaborative_and_hypothetical_advice_remains_available(self):
+        for message, draft in (
+            ('Can you help me plan a pilot?', 'We will build a checklist together.'),
+            ('How should I plan a pilot?',
+             'If we have signed a pilot contract, review the milestones together.'),
+            ("I'm worried my startup isn't growing fast enough.",
+             'That sounds stressful. Start with one customer group.'),
+            ('hello happy thanksgiving!!!', 'Happy Thanksgiving!'),
+            ('you smell funny', 'I blame the pixels.'),
+        ):
+            with self.subTest(message=message):
+                provider = DraftProvider([draft])
+                capabilities = Mock()
+                events = list(ChatService(provider, capabilities=capabilities).stream(
+                    message, [], {}))
+                self.assertEqual(len(provider.calls), 1)
+                capabilities.invoke.assert_not_called()
+                self.assertEqual(events[1].data['text'], draft)
+                self.assertEqual(events[-1].kind, 'done')
+
+
+    def test_unrelated_conversation_and_advice_use_safe_model_prose(self):
         reply = ('That sounds stressful. Start with a narrow audience and test '
                  'which offers earn paying customers.')
         for message in (
-            'i dont think people will adopt oes fast enough were going to go broke before the world gets to see us',
-            'How can OES market its products?',
-            'What marketing strategies would you suggest for OES?',
-            'If OES had no revenue for six months, how could it reduce expenses?',
+            'How can we market our products?',
+            'If a startup had no revenue for six months, how could it reduce expenses?',
             'I feel overwhelmed about finding customers.',
             'I had a difficult day.',
             'Can you explain how bread rises?',
@@ -68,10 +139,15 @@ class SituationTests(unittest.TestCase):
 
     def test_business_advice_blocks_invented_company_finances(self):
         claim = 'OES revenue reached $2 million last year.'
-        provider = DraftProvider([claim, claim])
-        events = list(ChatService(provider).stream('How can OES market its products?', [], {}))
-        self.assertNotIn(claim, str(events))
-        self.assertEqual(events[-1].kind, 'error')
+        for message in ('How can OES market its products?',
+                        'What marketing strategies would you suggest for OES?',
+                        'If OES had no revenue for six months, how could it reduce expenses?'):
+            with self.subTest(message=message):
+                provider = DraftProvider([claim])
+                events = list(ChatService(provider).stream(message, [], {}))
+                self.assertNotIn(claim, str(events))
+                self.assertEqual(provider.calls, [])
+                self.assertEqual(events[-1].data, {'history': 'exclude_exchange'})
 
     def test_product_overview_uses_approved_copy_without_model(self):
         for message, required, forbidden in (

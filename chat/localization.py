@@ -39,6 +39,20 @@ DETERMINISTIC_RESPONSES = {
         'ar': 'أحتاج إلى موقع تقدمه صراحةً قبل أن أتمكن من البحث عن أماكن قريبة.',
         'zh-CN': '你需要明确提供一个位置，我才能搜索附近的地点。',
     },
+    'company_business_guidance': {
+        'en': "That can be a difficult situation. I can't verify OES's internal circumstances. If you need traction sooner, start with one customer group, test a paid pilot, and use the results to decide what to invest in next.",
+        'es': 'Puede ser una situación difícil. No puedo verificar las circunstancias internas de OES. Si necesitas conseguir clientes pronto, elige un segmento, prueba un piloto de pago y decide dónde invertir según los resultados.',
+        'fr': 'La situation peut être difficile. Je ne peux pas vérifier la situation interne d’OES. Si vous devez attirer des clients rapidement, choisissez un segment, testez un pilote payant et décidez où investir selon les résultats.',
+        'ar': 'قد يكون هذا موقفًا صعبًا. لا يمكنني التحقق من ظروف OES الداخلية. إذا كنت بحاجة إلى جذب العملاء بسرعة، فاختر فئة واحدة وجرّب مشروعًا تجريبيًا مدفوعًا واستند إلى نتائجه لتحديد استثمارك التالي.',
+        'zh-CN': '这可能是个难题。我无法核实 OES 的内部情况。如果需要更快吸引客户，可以先选择一个客户群体，测试付费试点，再根据结果决定下一步投入。',
+    },
+    'company_design_guidance': {
+        'en': "I can't confirm what OES would build or deliver. To explore the idea, identify who would use it, choose one workflow for a prototype, and test it with those users before committing to a release.",
+        'es': 'No puedo confirmar qué desarrollaría o entregaría OES. Para explorar la idea, identifica a los usuarios, elige un flujo para el prototipo y pruébalo antes de comprometerte con un lanzamiento.',
+        'fr': 'Je ne peux pas confirmer ce qu’OES développerait ou livrerait. Pour explorer l’idée, identifiez les utilisateurs, choisissez un parcours à prototyper et testez-le avant de vous engager sur une sortie.',
+        'ar': 'لا يمكنني تأكيد ما قد تطوره أو تسلمه OES. لاستكشاف الفكرة، حدد المستخدمين واختر سير عمل واحدًا لنموذج أولي واختبره معهم قبل الالتزام بالإطلاق.',
+        'zh-CN': '我无法确认 OES 会开发或交付什么。要探索这个想法，可以先确定目标用户，选择一个工作流程制作原型，并在承诺上线之前与用户一起测试。',
+    },
     'lookup_limitation': {
         'en': "I couldn't verify the current part right now, so I won't guess.",
         'es': 'No pude verificar ahora la parte que requiere información actual, así que no voy a adivinar.',

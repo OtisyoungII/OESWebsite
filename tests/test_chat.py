@@ -267,7 +267,8 @@ class ChatTests(unittest.TestCase):
             ChatEvent('delta', {'text': 'OES could design it around scoring, teams, and schedules.'}),
             ChatEvent('done', {})])
         body = self.post({'message': 'Could OES build a baseball scoring platform?'}).get_data(as_text=True)
-        self.assertIn('could design', body)
+        self.assertIn('choose one workflow for a prototype', body)
+        self.assertNotIn('OES could design', body)
         instruction = self.provider.calls[0][0]['content'] if self.provider.calls else ''
         # Fake stream replacement does not record; classification is covered directly.
         self.assertNotIn('not in the approved public OES facts', body)

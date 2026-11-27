@@ -71,7 +71,15 @@ def business_conversation_kind(message, context):
 IDENTITY = re.compile(
     r'\b(?:are (?:you|u) (?:an? )?(?:ai|human|bot)|(?:do|can) you (?:have feelings|feel))\b'
     r'|^\s*what are you(?:\s+really)?\s*[?.!]*\s*$', re.I)
-OES_FACTS = re.compile(r'\b(oes|otis execution systems|chaseingreen|lottovate|sportfolio|drinks with friendz|trading companion|lottery assistant|sports platform)\b', re.I)
+OES_ENTITY_NAMES = r'oes|otis execution systems|chaseingreen|lottovate|sportfolio|drinks with friendz'
+EXPLICIT_OES_ENTITY = re.compile(rf'\b(?:{OES_ENTITY_NAMES})\b', re.I)
+OES_FACTS = re.compile(
+    rf'\b(?:{OES_ENTITY_NAMES}|trading companion|lottery assistant|sports platform)\b', re.I)
+
+
+def needs_server_company_guidance(message, state):
+    """Keep explicitly company-directed turns off unrestricted prose routes."""
+    return not state.requires_oes_facts and bool(EXPLICIT_OES_ENTITY.search(message))
 HYPOTHETICAL_OES = re.compile(
     r'\b(?:could|would|can|should|might)\s+(?:oes|otis execution systems)\s+'
     r'(?:build|make|develop|design|create)\b|\b(?:brainstorm|design|imagine|propose)\b.{0,80}\b(?:for\s+)?(?:oes|otis execution systems)\b',

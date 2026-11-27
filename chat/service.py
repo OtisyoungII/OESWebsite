@@ -12,7 +12,8 @@ from .providers import ChatEvent
 from .situation import (SituationAnalyzer, response_contract, validate_playful,
                         validate_character_style, validate_character_safety,
                         character_correction, character_style_instruction, bounded_history,
-                        conversational_history, is_lookup_followup)
+                        conversational_history, is_lookup_followup,
+                        needs_server_company_guidance)
 from .observations import (ObservationState, infer, observation_contract,
                            log_observations, InitiationDecision)
 from .worker_protocol import CONTEXT_BUDGET, context_cost
@@ -122,9 +123,11 @@ class ChatService:
                 return
         history = bounded_history(history)
         state, continuity = SituationAnalyzer().analyze(message, history, context)
+        server_company_guidance = needs_server_company_guidance(message, state)
         prior_lookup = (continuity_store.consume(continuation, locale)
                         if continuity_store is not None and continuation else None)
-        inherited_lookup = bool(prior_lookup and is_lookup_followup(message, state))
+        inherited_lookup = bool(not server_company_guidance and prior_lookup
+                                and is_lookup_followup(message, state))
         if inherited_lookup:
             state = replace(state, interaction_kind='current_public_information',
                             tone='informative', grounding_mode='public_evidence',
@@ -180,6 +183,14 @@ class ChatService:
             self.telemetry('response_completed', request_id=request_id,
                            duration_ms=duration, outcome='success')
             yield ChatEvent('done', done_data or {})
+
+        if server_company_guidance:
+            guidance = ('company_design_guidance'
+                        if state.response_action == 'reason_hypothetically'
+                        else 'company_business_guidance')
+            yield from emit(deterministic_response(guidance, locale),
+                            done_data={'history': 'exclude_exchange'})
+            return
 
         if state.interaction_kind == 'unknown_visitor_reason':
             yield from emit(deterministic_response('unknown_visitor_reason', locale))
