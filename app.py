@@ -67,6 +67,15 @@ def drinks_with_friendz_privacy():
     return render_template("drinks_with_friendz_privacy.html")
 
 
+@app.get("/previews/hamtramck-parks")
+def hamtramck_parks_preview():
+    """Independent, non-transactional procurement concept."""
+    return render_template("hamtramck_parks_preview.html"), 200, {
+        "X-Robots-Tag": "noindex, nofollow, noarchive",
+        "Cache-Control": "public, max-age=300",
+    }
+
+
 if __name__ == "__main__":
     app.run(host=os.environ.get('HOST', '127.0.0.1'), port=int(os.environ.get('PORT', '5000')),
             debug=os.environ.get('OES_DEV_DEBUG', 'true').lower() == 'true')
