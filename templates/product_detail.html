@@ -3,7 +3,7 @@
 {% block description %}{{ product[2] }}{% endblock %}
 {% block page_styles %}<link rel="stylesheet" href="{{ url_for('static', filename='css/product-guide.css') }}">{% endblock %}
 {% block content %}
-<div class="product-guide">
+<div class="product-guide" data-marketing-page="{{ slug }}">
   <p class="guide-label"><a href="{{ url_for('products') }}">{{ 'Client work' if slug == 'drinks-with-friendz' else 'OES products' }}</a></p>
   <h1>{{ product[0] }}</h1>
   <p class="guide-label">{{ product[1] }}</p>
@@ -15,6 +15,7 @@
       <a href="https://drinkswithfriendz.com/" data-product-event="external_product_link_activated" data-product-target="drinkswithfriendz">Visit the client website</a>
       <a href="{{ url_for('drinks_with_friendz_privacy') }}">Drinks With Friendz Privacy Policy</a>
     {% endif %}
+    {% if slug == 'lottovate' and community_invites.lottovate %}<a href="{{ community_invites.lottovate }}" data-marketing-click="discord">Lottovate community</a>{% endif %}
     <a href="{{ url_for('contact') }}">Contact OES</a>
   </div>
 </div>

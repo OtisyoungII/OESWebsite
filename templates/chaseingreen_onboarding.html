@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title %}ChaseInGreen Onboarding Center | OES{% endblock %}
+{% block page_styles %}<link rel="stylesheet" href="{{ url_for('static', filename='css/product-guide.css') }}">{% endblock %}
+{% block content %}
+<div class="product-guide" data-marketing-page="onboarding">
+  <p class="guide-label"><a href="{{ url_for('chaseingreen') }}">ChaseInGreen</a></p>
+  <h1>Onboarding center</h1>
+  <p class="guide-lede">Set up ChaseInGreen or learn how an independent provider works before opening an account.</p>
+  <div class="guide-actions">
+    <a class="guide-primary" href="{{ url_for('chaseingreen_getting_started') }}">Set up ChaseInGreen</a>
+    <a href="{{ url_for('android_interest.register') }}">Android availability</a>
+  </div>
+  <section aria-labelledby="provider-guides">
+    <h2 id="provider-guides">Provider guides</h2>
+    <div class="guide-grid">
+      <article>
+        <p class="guide-label">Educational guide</p>
+        <h3><a href="{{ url_for('aquafunded_onboarding') }}">AquaFunded</a></h3>
+        <p>Understand the program, review the rules, navigate checkout, and set up the platform assigned by AquaFunded.</p>
+        <p>Public ChaseInGreen connectivity is not confirmed.</p>
+      </article>
+    </div>
+    <p>Provider guides and app connection support are separate. Check the released app for account options available to you.</p>
+    <details><summary>Other providers</summary>
+      <p>Guide and integration availability are listed separately as they are verified. There is no public onboarding guide here yet for Interactive Brokers, Kraken, Coinbase, Webull, Robinhood, Fidelity, Crypto.com or Trade The Pool.</p>
+    </details>
+  </section>
+</div>
+{% endblock %}

@@ -6,6 +6,11 @@
   <p class="guide-label"><a href="{{ url_for('chaseingreen') }}">ChaseInGreen</a></p>
   <h1>Android early-access interest</h1>
   <p class="guide-lede">ChaseInGreen is not available on Android. Joining the interest list does not guarantee access or a release date.</p>
+  <div class="guide-actions">
+    <a href="{{ url_for('chaseingreen_onboarding') }}">Onboarding center</a>
+    <a href="{{ url_for('aquafunded_onboarding') }}">AquaFunded guide</a>
+    <a href="{{ url_for('chaseingreen_getting_started') }}#guide-help">Support and community</a>
+  </div>
   {% if unavailable %}
     <p>Registration is not open yet.</p>
   {% elif submitted %}

@@ -25,6 +25,13 @@
 .guide-steps li { padding: .45rem 0; }
 .product-guide details + details { margin-top: .6rem; }
 .product-guide summary { min-height: 32px; cursor: pointer; font-weight: 650; }
+.guide-step-nav ol { display: grid; grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr)); gap: .5rem 1.5rem; padding-inline-start: 1.6rem; }
+.guide-step-nav a { display: inline-flex; align-items: center; min-height: 44px; }
+.guide-step-nav + section, .guide-step-nav ~ section { scroll-margin-top: 8rem; }
+.guide-rule-list dt { margin-top: 1rem; font-weight: 700; }
+.guide-rule-list dd { margin-inline-start: 0; }
+.guide-app-reference { margin-inline: 0; }
+.guide-app-reference img { display: block; max-width: 100%; height: auto; border-radius: .5rem; }
 .guide-registration { display: grid; gap: .8rem; max-width: 36rem; margin-top: 2rem; }
 .guide-registration input[type="email"], .guide-registration button { min-height: 44px; padding: .6rem; border-radius: .4rem; }
 .guide-registration button { justify-self: start; background: #f4cf83; color: #171209; font-weight: 700; }

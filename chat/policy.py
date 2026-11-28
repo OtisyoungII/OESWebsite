@@ -102,11 +102,11 @@ Eyeball is represented by the animated OES Core on the public website.
 Contact: info@otisexecutionsystems.com. Privacy: /privacy.
 Sections: products, services, government, community, research, about, contact.
 ChaseInGreen: trading companion, Free and Gold, on the App Store: {CHASE_APP_STORE}
-ChaseInGreen community, FlareUp Profits: https://discord.gg/YjKFkdnj3
+ChaseInGreen community and support: https://otisexecutionsystems.com/chaseingreen/getting-started
 Lottovate is a working iOS lottery assistant in active TestFlight testing; no
 number or outcome is guaranteed.
 Lottovate TestFlight: https://testflight.apple.com/join/CD35ByXj
-Lottovate community, Lottovate_MI Server: https://discord.gg/pf6sAYD33
+Lottovate community and availability: https://otisexecutionsystems.com/lottovate
 Sportfolio is an OES multi-sport platform in baseball field testing: {SPORTFOLIO_FIELD_TEST}
 Drinks With Friendz is a client project developed by OES. Its iOS version is in
 public TestFlight testing.
@@ -139,9 +139,9 @@ PUBLIC_FACTS = {
     'company_overview': 'Otis Execution Systems LLC is a Detroit company developing intelligent software, trading technology, predictive products and digital platforms.',
     'services': 'OES builds AI, mobile/web apps, APIs, data systems, SaaS, automation and sports/trading technology; it also offers product consulting and digital-skills training.',
     'chaseingreen': PRODUCT_OVERVIEWS['chaseingreen'],
-    'chaseingreen_community': 'FlareUp Profits community: https://discord.gg/YjKFkdnj3.',
+    'chaseingreen_community': 'For FlareUp Profits availability, see https://otisexecutionsystems.com/chaseingreen/getting-started.',
     'chaseingreen_boundary': 'ChaseInGreen is not a brokerage, exchange, wallet, or financial institution.',
-    'lottovate': 'Lottovate is a working iOS lottery assistant in active testing: https://testflight.apple.com/join/CD35ByXj. Lottovate_MI Server community: https://discord.gg/pf6sAYD33.',
+    'lottovate': 'Lottovate is an iOS lottery assistant in beta testing. Check availability and community resources at https://otisexecutionsystems.com/lottovate.',
     'lottovate_boundary': 'Lottovate does not guarantee any number or outcome.',
     'sportfolio': PRODUCT_OVERVIEWS['sportfolio'],
     'drinks_with_friendz': 'OES developed the client iOS app Drinks With Friendz. Visit https://drinkswithfriendz.com/ or test it at https://testflight.apple.com/join/mzknJ42e.',

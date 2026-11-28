@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% from "chaseingreen_links.html" import app_store, support %}
+{% block title %}AquaFunded Setup Guide | ChaseInGreen and OES{% endblock %}
+{% block description %}An eight-step educational guide to AquaFunded simulated accounts, program rules, platform setup and ChaseInGreen.{% endblock %}
+{% block page_styles %}<link rel="stylesheet" href="{{ url_for('static', filename='css/product-guide.css') }}">{% endblock %}
+{% block content %}
+<div class="product-guide" data-marketing-page="aquafunded">
+  <header>
+    <p class="guide-label"><a href="{{ url_for('chaseingreen_onboarding') }}">ChaseInGreen onboarding center</a></p>
+    <h1>AquaFunded setup guide</h1>
+    <p class="guide-lede">Eight steps from comparing programs to setting up the platform and finding support.</p>
+    <p class="guide-note">Educational guide · Provider sources reviewed November 28, 2026</p>
+  </header>
+  <nav class="guide-step-nav" aria-label="Guide steps">
+    <ol>
+      {% for id, label in [('start','Getting started'), ('register','Registration'), ('choose','Choose a challenge'), ('checkout','Checkout'), ('dashboard','Dashboard'), ('platform','Trading platform'), ('chase','ChaseInGreen'), ('troubleshoot','Troubleshooting')] %}
+      <li><a href="#{{ id }}" data-marketing-click="step_{{ loop.index }}">{{ label }}</a></li>
+      {% endfor %}
+    </ol>
+  </nav>
+  <section id="start" aria-labelledby="step-start">
+    <h2 id="step-start">1. Understand the program</h2>
+    <p>AquaFunded operates a proprietary-trading evaluation and simulated-account program. A traditional brokerage account can route real-money trades to a market. An AquaFunded simulated account uses virtual capital. Eligible cash rewards are subject to AquaFunded’s rules, terms and review.</p>
+    <p><strong>OES may earn a commission from qualifying purchases made through affiliate links.</strong></p>
+    <div class="guide-actions"><a class="guide-primary" href="{{ affiliate_url }}" rel="sponsored noopener" data-marketing-click="affiliate">Visit AquaFunded</a></div>
+    <p>AquaFunded is an independent provider. Participation can involve fees and loss of access after a rule breach. OES does not guarantee funding, profits, rewards or discounts.</p>
+    <p><a href="https://help.aquafunded.com/en/articles/9251050-am-i-trading-real-money">AquaFunded’s simulated-account explanation</a> · <a href="https://www.aquafunded.com/tos">Provider terms</a></p>
+  </section>
+  <section id="register" aria-labelledby="step-register">
+    <h2 id="step-register">2. Create your AquaFunded account</h2>
+    <ol><li>Open AquaFunded and choose the account or registration option for the market you want.</li><li>Follow the provider’s sign-up prompts and verify your email if prompted. If a verification message does not arrive, check spam and contact AquaFunded support.</li><li>Keep your AquaFunded sign-in separate from your ChaseInGreen account and your assigned trading-platform credentials.</li></ol>
+  </section>
+  <section id="choose" aria-labelledby="step-choose">
+    <h2 id="step-choose">3. Compare programs before buying</h2>
+    <div class="guide-grid">
+      <article><h3>One step</h3><p>One evaluation stage. Read the exact target and trailing drawdown rules for your variant.</p><a href="https://help.aquafunded.com/en/articles/15281183-1-step-standard">One Step Standard rules</a></article>
+      <article><h3>Two steps</h3><p>Two evaluation phases can have different targets. The Standard model documents static drawdown.</p><a href="https://help.aquafunded.com/en/articles/15281226-2-step-standard">Two Step Standard rules</a></article>
+      <article><h3>Instant and pay-after-pass</h3><p>Instant programs skip the evaluation stage. Pay-after-pass plans use an evaluation with a separate activation fee after passing. Each has its own rules.</p><a href="https://www.aquafunded.com/instant-pro">Instant Pro</a> · <a href="https://help.aquafunded.com/en/articles/13322298-pay-after-pass-model">Pay After Pass rules</a></article>
+    </div>
+    <dl class="guide-rule-list">
+      <dt>Account size and platform</dt><dd>Compare the virtual starting balance and the platforms offered for that specific checkout. Availability can differ by program and region.</dd>
+      <dt>Profit targets and timing</dt><dd>Check the target for each stage, any minimum qualifying days and any inactivity deadline.</dd>
+      <dt>Daily and maximum drawdown</dt><dd>The daily limit governs losses over a defined day. The maximum limit applies to the account overall. Check which measures count open losses, fees and commissions, and when the daily calculation resets.</dd>
+      <dt>Static and trailing limits</dt><dd>A static floor stays anchored to a reference level. A trailing floor can rise with a new high and may use equity, including open positions. Use the provider’s exact calculation.</dd>
+      <dt>Consistency, payouts and restrictions</dt><dd>Check consistency, minimum days, the payout review and cycle, regional eligibility, and restrictions on trading methods, news, holding periods and instruments for the selected plan.</dd>
+    </dl>
+    <p><a href="https://help.aquafunded.com/en/collections/11518293-forex-models">Current program rules</a> · <a href="https://help.aquafunded.com/en/articles/15255671-are-there-minimum-trading-days">Minimum trading days</a></p>
+  </section>
+  <section id="checkout" aria-labelledby="step-checkout">
+    <h2 id="step-checkout">4. Review checkout</h2>
+    <ol><li>Verify the exact program and variant, simulated account size and assigned platform.</li><li>Review the total, currency, terms, add-ons and any activation or follow-on fee. If AquaFunded offers a promotional code, apply it on its site and check whether the total changes before paying.</li><li>Complete payment through AquaFunded and keep its confirmation. OES does not collect payment details.</li></ol>
+  </section>
+  <section id="dashboard" aria-labelledby="step-dashboard">
+    <h2 id="step-dashboard">5. Read your AquaFunded dashboard</h2>
+    <p>Open the account matching the order confirmation. Check whether it is active, inactive, under review or expired, and confirm the stage and remaining objectives. Compare balance with equity, which can change with open positions. Review daily and overall drawdown, progress toward targets, and any qualifying-day or reward conditions.</p>
+    <p>Use AquaFunded’s own dashboard or confirmation email to find assigned platform access and trading credentials. Keep those details private.</p>
+  </section>
+  <section id="platform" aria-labelledby="step-platform">
+    <h2 id="step-platform">6. Open your assigned trading platform</h2>
+    <p>Use the platform listed for your account rather than a general login link. If assigned MatchTrader, open the MatchTrader address supplied by AquaFunded and use the trading credentials it issued for that account. Check the selected account before trading. Do not enter that password on the OES website.</p>
+    <p><a href="https://help.aquafunded.com/en/articles/9686071-match-trader-your-comprehensive-guide">Official MatchTrader walkthrough</a> · <a href="https://help.aquafunded.com/en/articles/9250960-what-platforms-are-available">Available platforms</a></p>
+  </section>
+  <section id="chase" aria-labelledby="step-chase">
+    <h2 id="step-chase">7. Set up ChaseInGreen</h2>
+    <p>Install the public iPhone or iPad app, open it, and follow its sign-in and account creation prompts. Free covers essential market context and planning. Gold adds expanded AI market tools, alerts and analytics. The app supports planning and journaling and does not execute trades.</p>
+    <p>Use the released app’s account options only if it offers your provider and account type. A saved record or successful platform sign-in does not prove that synchronization works. Check the app’s actual status and use manual journaling if a connection is not offered. This guide does not confirm a released AquaFunded connection.</p>
+    {% set public_screenshot = url_for('static', filename='images/chaseingreen/app-store-01.jpg') %}
+    <figure class="guide-app-reference">
+      <a href="{{ public_screenshot }}" aria-label="Enlarge ChaseInGreen welcome screenshot"><img src="{{ public_screenshot }}" alt="Public ChaseInGreen iOS welcome screen showing the app and subscription entry points" width="222" height="480" loading="lazy"></a>
+      <figcaption>ChaseInGreen public App Store screenshot. Select the image to enlarge it.</figcaption>
+    </figure>
+    <div class="guide-actions">{{ app_store() }}<a href="{{ url_for('chaseingreen_getting_started') }}">ChaseInGreen setup and support</a><a href="{{ url_for('android_interest.register') }}">Android availability</a></div>
+  </section>
+  <section id="troubleshoot" aria-labelledby="step-troubleshoot">
+    <h2 id="step-troubleshoot">8. Troubleshoot problems</h2>
+    <details><summary>My credentials are rejected</summary><p>Check whether the screen expects your AquaFunded sign-in or the separate credentials for the assigned trading platform. Verify the account and platform before trying again.</p></details>
+    <details><summary>My account is missing, inactive or expired</summary><p>Check your order confirmation, account identifier and stage in AquaFunded. Contact AquaFunded about activation, status, rule breaches or expiration.</p></details>
+    <details><summary>My account is not syncing in ChaseInGreen</summary><p>Check whether the public app offers that connection. If it does, confirm the account is active, check any last-sync time shown and note the error message. If data is missing or delayed, use the provider dashboard as the authoritative source.</p></details>
+    <div class="guide-actions"><a href="https://help.aquafunded.com/en/">AquaFunded help</a>{{ support() }}</div>
+    <p>Never send account passwords, API keys, payment details or private screenshots to OES support.</p>
+  </section>
+</div>
+{% endblock %}

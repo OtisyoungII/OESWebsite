@@ -257,6 +257,7 @@ IMPORTANT RULES:
             Contact
         </a>
 
+        <a class="primary-navigation__link" href="{{ url_for('chaseingreen_onboarding') }}">Onboarding</a>
         <a class="primary-navigation__link" href="{{ url_for('privacy') }}">OES Privacy</a>
 
         <a class="primary-navigation__link" href="{{ url_for('drinks_with_friendz_privacy') }}">Drinks With Friendz Privacy Policy</a>
@@ -375,6 +376,7 @@ IMPORTANT RULES:
 ></script>
 
 {% block page_scripts %}{% endblock %}
+{% if config.OES_MARKETING_METRICS_DSN %}<script type="module" src="{{ url_for('static', filename='js/marketing-metrics.js') }}"></script>{% endif %}
 
 </body>
 </html>

@@ -4,14 +4,14 @@
 {% block description %}Explore ChaseInGreen, a trading research, risk planning and journaling companion for iPhone and iPad.{% endblock %}
 {% block page_styles %}<link rel="stylesheet" href="{{ url_for('static', filename='css/product-guide.css') }}">{% endblock %}
 {% block content %}
-<div class="product-guide">
+<div class="product-guide" data-marketing-page="chaseingreen">
   <header class="guide-hero">
     <div>
       <p class="guide-label">An Otis Execution Systems product</p>
       <h1>ChaseInGreen</h1>
       <p class="guide-lede">Research the market, plan your risk and review your trades in one place.</p>
       <p>For traders who want to understand the market before a trade and learn from their decisions afterward.</p>
-      <div class="guide-actions">{{ app_store() }}<a href="{{ url_for('chaseingreen_getting_started') }}">Getting started</a></div>
+      <div class="guide-actions">{{ app_store() }}<a href="{{ url_for('chaseingreen_getting_started') }}">Getting started</a><a href="{{ url_for('chaseingreen_onboarding') }}">Onboarding center</a><a href="{{ url_for('aquafunded_onboarding') }}">AquaFunded guide</a></div>
       <p>Available on iPhone and iPad. Requires iOS or iPadOS 18.5 or later.</p>
       {% if config.OES_ANDROID_INTEREST_DSN %}<p>Android is not available. <a href="{{ url_for('android_interest.register') }}">Register interest in Android early access</a>.</p>{% endif %}
     </div>

@@ -4,11 +4,14 @@ from flask import Flask, redirect, render_template, url_for
 from chat import init_chat
 from product_intelligence import init_product_intelligence
 from android_interest import init_android_interest
+from public_destinations import AQUAFUNDED_WEBSITE, active_community_invites
+from marketing_metrics import init_marketing_metrics
 
 app = Flask(__name__)
 init_chat(app)
 init_product_intelligence(app)
 init_android_interest(app)
+init_marketing_metrics(app)
 
 # Public website freshness and product endpoints live here so templates do not
 # duplicate release-sensitive values.
@@ -27,6 +30,7 @@ def inject_public_site_status():
     return {
         "site_status_updated": app.config["SITE_STATUS_UPDATED"],
         "openai_ads_pixel_id": app.config["OPENAI_ADS_PIXEL_ID"],
+        "community_invites": active_community_invites(),
     }
 
 
@@ -52,6 +56,16 @@ def chaseingreen():
 @app.get("/chaseingreen/getting-started")
 def chaseingreen_getting_started():
     return render_template("chaseingreen_getting_started.html")
+
+
+@app.get('/chaseingreen/onboarding')
+def chaseingreen_onboarding():
+    return render_template('chaseingreen_onboarding.html')
+
+
+@app.get('/chaseingreen/onboarding/aquafunded')
+def aquafunded_onboarding():
+    return render_template('aquafunded_onboarding.html', affiliate_url=AQUAFUNDED_WEBSITE)
 
 
 @app.route("/lottovate")

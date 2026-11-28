@@ -39,7 +39,7 @@ def register():
     dsn = current_app.config['OES_ANDROID_INTEREST_DSN']
     if not dsn:
         return make_response(render_template('android_interest.html', unavailable=True,
-                                             openai_ads_pixel_id=''), 503,
+                                             openai_ads_pixel_id=''), 200 if request.method == 'GET' else 503,
                              {'Cache-Control': 'no-store'})
     token = secrets.token_hex(32)
     status, result = 200, None

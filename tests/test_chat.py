@@ -300,8 +300,9 @@ class ChatTests(unittest.TestCase):
     def test_public_context_includes_official_product_communities(self):
         self.post({'message':'Where are the product communities?'}).get_data()
         instruction = self.provider.calls[0][0]['content']
-        self.assertIn('FlareUp Profits: https://discord.gg/YjKFkdnj3', instruction)
-        self.assertIn('Lottovate_MI Server: https://discord.gg/pf6sAYD33', instruction)
+        self.assertIn('https://otisexecutionsystems.com/chaseingreen/getting-started', instruction)
+        self.assertIn('https://otisexecutionsystems.com/lottovate', instruction)
+        self.assertNotIn('https://discord.gg/', instruction)
 
     def test_product_cards_do_not_advertise_expired_discord_invites(self):
         from app import app

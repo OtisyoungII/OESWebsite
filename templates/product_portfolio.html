@@ -9,7 +9,7 @@
   <section aria-labelledby="oes-products">
     <h2 id="oes-products">OES products</h2>
     <div class="guide-grid">
-      <article><h3><a href="{{ url_for('chaseingreen') }}">ChaseInGreen</a></h3><p>Trading research and planning. Available on the App Store.</p><a href="{{ url_for('chaseingreen_getting_started') }}">Getting started</a></article>
+      <article><h3><a href="{{ url_for('chaseingreen') }}">ChaseInGreen</a></h3><p>Trading research and planning. Available on the App Store.</p><a href="{{ url_for('chaseingreen_getting_started') }}">Getting started</a> · <a href="{{ url_for('chaseingreen_onboarding') }}">Onboarding center</a></article>
       {% for slug, product in products.items() if slug != 'drinks-with-friendz' %}
       <article><h3><a href="{{ url_for('product_detail', slug=slug) }}">{{ product[0] }}</a></h3><p>{{ product[1] }}</p></article>
       {% endfor %}
