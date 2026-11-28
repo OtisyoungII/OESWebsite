@@ -13,7 +13,8 @@ from .situation import (SituationAnalyzer, response_contract, validate_playful,
                         validate_character_style, validate_character_safety,
                         character_correction, character_style_instruction, bounded_history,
                         conversational_history, is_lookup_followup,
-                        needs_server_company_guidance, company_followup_response)
+                        needs_server_company_guidance, company_followup_response,
+                        active_company_topic, explicit_company_topic)
 from .observations import (ObservationState, infer, observation_contract,
                            log_observations, InitiationDecision)
 from .worker_protocol import CONTEXT_BUDGET, context_cost
@@ -85,7 +86,8 @@ class ChatService:
 
     def stream(self, message, history, context, locale=DEFAULT_LOCALE,
                continuation=None, clarification=None, continuity_store=None,
-               clarification_store=None):
+               clarification_store=None, *, conversation_id=None, company_topic=None,
+               company_topic_store=None):
         request_started = time.monotonic()
         request_id = uuid4().hex
         if clarification is not None:
@@ -124,7 +126,10 @@ class ChatService:
         history = bounded_history(history)
         state, continuity = SituationAnalyzer().analyze(message, history, context)
         server_company_guidance = needs_server_company_guidance(message, state)
-        followup_response = company_followup_response(message, history)
+        retained_topic = (company_topic_store.consume(conversation_id, company_topic)
+                          if company_topic_store is not None and company_topic is not None else None)
+        followup_response = company_followup_response(
+            message, history, retained_topic, invalid_marker=company_topic is not None and retained_topic is None)
         prior_lookup = (continuity_store.consume(continuation, locale)
                         if continuity_store is not None and continuation else None)
         inherited_lookup = bool(not server_company_guidance and not followup_response and prior_lookup
@@ -185,9 +190,17 @@ class ChatService:
                            duration_ms=duration, outcome='success')
             yield ChatEvent('done', done_data or {})
 
+        def company_completion(topic):
+            data = {'history': 'exclude_exchange'}
+            if topic and company_topic_store is not None:
+                token = company_topic_store.issue(conversation_id, topic.entity, retained_topic)
+                if token:
+                    data['company_topic'] = token
+            return data
+
         if followup_response:
             yield from emit(deterministic_response(followup_response, locale),
-                            done_data={'history': 'exclude_exchange'})
+                            done_data=company_completion(retained_topic or active_company_topic(history)))
             return
 
         if server_company_guidance:
@@ -195,7 +208,7 @@ class ChatService:
                         if state.response_action == 'reason_hypothetically'
                         else 'company_business_guidance')
             yield from emit(deterministic_response(guidance, locale),
-                            done_data={'history': 'exclude_exchange'})
+                            done_data=company_completion(explicit_company_topic(message)))
             return
 
         if state.interaction_kind == 'unknown_visitor_reason':

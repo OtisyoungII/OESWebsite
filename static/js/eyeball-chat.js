@@ -23,6 +23,9 @@ export function initializeEyeballChat() {
     let pointer = null;
     let activeRequest = null;
     let history = [];
+    const conversationId = Array.from(crypto.getRandomValues(new Uint8Array(16)),
+        value => value.toString(16).padStart(2, '0')).join('');
+    let companyTopic = null;
     let lookupContinuation = null;
     let pendingClarification = null;
     let interactionMode = 'pointer';
@@ -285,10 +288,13 @@ export function initializeEyeballChat() {
         try {
             const continuation = lookupContinuation;
             lookupContinuation = null;
+            const topic = companyTopic;
+            companyTopic = null;
             const response = await fetch(form.dataset.chatUrl, {
                 method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'text/event-stream' },
                 credentials: 'same-origin', signal: controller.signal,
                 body: JSON.stringify({ message: text, history, context: browserContext(), locale,
+                    conversation_id: conversationId, ...(topic ? { company_topic: topic } : {}),
                     ...(continuation ? { continuation } : {}),
                     ...(pendingClarification ? { clarification: pendingClarification } : {}) })
             });
@@ -341,6 +347,7 @@ export function initializeEyeballChat() {
                     } else if (kind === 'done') {
                         const directive = completionDirective(data);
                         lookupContinuation = directive.continuation;
+                        companyTopic = directive.companyTopic || null;
                         historyDisposition = directive.retainExchange ? 'include' : 'exclude_exchange';
                         complete = true;
                         break;

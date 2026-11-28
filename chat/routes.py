@@ -91,7 +91,9 @@ def health():
 
 
 def validate(payload):
-    if not isinstance(payload, dict) or set(payload) - {"message", "history", "context", "locale", "continuation", "clarification"}:
+    if not isinstance(payload, dict) or set(payload) - {
+            "message", "history", "context", "locale", "continuation", "clarification",
+            "conversation_id", "company_topic"}:
         raise ValueError("Only bounded chat fields are accepted.")
     message = payload.get("message")
     if not isinstance(message, str) or not message.strip() or len(message) > 4000:
@@ -119,7 +121,15 @@ def validate(payload):
     if clarification is not None and (not isinstance(clarification, str)
                                       or not re.fullmatch(r'[0-9a-f]{64}', clarification)):
         raise ValueError('Clarification must be a server-issued token.')
-    return message.strip(), cleaned, context, locale, continuation, clarification
+    conversation_id = payload.get('conversation_id')
+    company_topic = payload.get('company_topic')
+    if conversation_id is not None and (not isinstance(conversation_id, str)
+                                        or not re.fullmatch(r'[0-9a-f]{32}', conversation_id)):
+        raise ValueError('Invalid conversation identifier.')
+    if company_topic is not None and (not conversation_id or not isinstance(company_topic, str)
+                                      or not re.fullmatch(r'[0-9a-f]{64}', company_topic)):
+        raise ValueError('Invalid company topic marker.')
+    return message.strip(), cleaned, context, locale, continuation, clarification, conversation_id, company_topic
 
 
 @bp.route("/api/chat", methods=["POST"])
@@ -161,12 +171,16 @@ def chat():
     capabilities = current_app.extensions['chat_capabilities']
     continuity_store = current_app.extensions['chat_lookup_continuity']
     clarification_store = current_app.extensions['chat_clarifications']
+    company_topic_store = current_app.extensions['chat_company_topics']
+    *stream_args, conversation_id, company_topic = args
 
     def generate():
         stream = ChatService(provider, debug_logger=debug_logger,
                              capabilities=capabilities, telemetry=telemetry).stream(
-                                 *args, continuity_store=continuity_store,
-                                 clarification_store=clarification_store)
+                                 *stream_args, continuity_store=continuity_store,
+                                 clarification_store=clarification_store,
+                                 conversation_id=conversation_id, company_topic=company_topic,
+                                 company_topic_store=company_topic_store)
         from .outbound_provider import OutboundWorkerProvider, disconnect_aware
         if isinstance(provider, OutboundWorkerProvider):
             stream = disconnect_aware(stream, provider)
@@ -227,7 +241,7 @@ def invitation():
         payload = request.get_json()
         if not isinstance(payload, dict) or set(payload) - {'context', 'restraint', 'history', 'recent_invitations'}:
             raise ValueError('Invalid invitation request fields.')
-        _, history, context, _, _, _ = validate({'message': 'invitation eligibility',
+        _, history, context, *_ = validate({'message': 'invitation eligibility',
                                           'history': payload.get('history', []),
                                           'context': payload.get('context', {})})
         observed = ObservationState.from_context(context)

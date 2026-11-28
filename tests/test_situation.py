@@ -12,6 +12,7 @@ from chat.situation import (SituationAnalyzer, validate_playful, validate_charac
                             validate_character_safety, response_contract,
                             character_style_instruction, active_company_topic)
 from chat.policy import FACTUAL_DISCIPLINE
+from chat.company_topic import CompanyTopicStore
 
 
 class DraftProvider:
@@ -30,6 +31,66 @@ class DraftProvider:
 
 
 class SituationTests(unittest.TestCase):
+    def test_protected_topic_survives_browser_history_exclusion(self):
+        store = CompanyTopicStore()
+        kwargs = {'conversation_id': 'a' * 32, 'company_topic_store': store}
+        provider = DraftProvider(['We acquired 600 customers.'])
+        lookup = Mock()
+        service = ChatService(provider, capabilities=lookup)
+        first = list(service.stream('How can OES market its products?', [], {}, **kwargs))
+        self.assertEqual(first[-1].data['history'], 'exclude_exchange')
+        self.assertEqual(provider.calls, [])
+        # The browser forwards completion metadata without either prose message.
+        token = first[-1].data['company_topic']
+        second = list(service.stream('How many paying subscribers have we actually acquired?',
+                                     [], {}, company_topic=token, **kwargs))
+        self.assertEqual([event.kind for event in second], ['start', 'delta', 'done'])
+        self.assertEqual(second[-1].data['history'], 'exclude_exchange')
+        self.assertNotIn('600 customers', str(second))
+        self.assertEqual(provider.calls, [])
+        lookup.invoke.assert_not_called()
+        self.assertIn('approved public information', second[1].data['text'])
+        self.assertNotEqual(token, second[-1].data['company_topic'])
+
+    def test_company_marker_integrity_and_absolute_expiry(self):
+        now = [0]
+        store = CompanyTopicStore(clock=lambda: now[0])
+        first, other = 'a' * 32, 'b' * 32
+        self.assertIsNone(store.issue(first, 'unverified company'))
+        token = store.issue(first, 'oes')
+        for conversation, marker in ((other, token), (first, 'x'), (first, 'f' * 64)):
+            self.assertIsNone(store.consume(conversation, marker))
+        self.assertIsNone(CompanyTopicStore().consume(first, token))
+        now[0] = 100
+        record = store.consume(first, token)
+        self.assertEqual(record.entity, 'oes')
+        successor = store.issue(first, record.entity, record)
+        self.assertIsNone(store.consume(first, token))
+        now[0] = store.TTL_SECONDS
+        self.assertIsNone(store.consume(first, successor))
+
+    def test_company_marker_exit_restart_and_reentry(self):
+        for exit_turn in ('Hello!', 'Explain SQL indexes.',
+                          'How should we help Acme plan a launch?'):
+            with self.subTest(exit_turn=exit_turn):
+                store = CompanyTopicStore()
+                provider = DraftProvider(['Sure.'])
+                service = ChatService(provider)
+                options = {'company_topic_store': store, 'conversation_id': 'a' * 32}
+                first = list(service.stream('How can OES market its products?', [], {}, **options))
+                token = first[-1].data['company_topic']
+                exit_events = list(service.stream(exit_turn, [], {}, company_topic=token, **options))
+                self.assertEqual(exit_events[1].data['text'], 'Sure.')
+                self.assertNotIn('company_topic', exit_events[-1].data)
+                self.assertIsNone(store.consume(options['conversation_id'], token))
+                # Refresh has a new identifier and empty prose history.
+                restart = list(service.stream('How many paying subscribers have we actually acquired?',
+                                              [], {}, company_topic_store=store,
+                                              conversation_id='b' * 32))
+                self.assertEqual(restart[1].data['text'], 'Which company or product do you mean?')
+                reentry = list(service.stream('How can OES market its products?', [], {}, **options))
+                self.assertIn('company_topic', reentry[-1].data)
+                self.assertEqual(len(provider.calls), 1)
     def test_company_topic_provenance_and_exit_with_actual_sse_history(self):
         first = list(ChatService(DraftProvider(['{"fact_ids":["company_overview"]}'])).stream(
             'Tell me about OES.', [], {}))

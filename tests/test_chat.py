@@ -45,6 +45,35 @@ class ChatTests(unittest.TestCase):
     def test_missing_message(self):
         self.assertEqual(self.post({}).status_code, 400)
 
+    def test_company_topic_wire_round_trip_and_conversation_isolation(self):
+        def done(payload):
+            response = self.post(payload)
+            self.assertEqual(response.status_code, 200)
+            body = response.get_data(as_text=True)
+            return body, json.loads(body.split('event: done\ndata: ', 1)[1].strip())
+
+        conversation = 'a' * 32
+        _, first = done({'message': 'How can OES market its products?',
+                         'conversation_id': conversation})
+        token = first['company_topic']
+        message = 'How many paying subscribers have we actually acquired?'
+        for identifier, marker in (('b' * 32, token), (conversation, 'f' * 64)):
+            body, rejected = done({'message': message, 'history': [],
+                                   'conversation_id': identifier, 'company_topic': marker})
+            self.assertIn('Which company or product do you mean?', body)
+            self.assertEqual(rejected, {'history': 'exclude_exchange'})
+        body, accepted = done({'message': message, 'history': [],
+                               'conversation_id': conversation, 'company_topic': token})
+        self.assertIn('approved public information', body)
+        self.assertEqual(accepted['history'], 'exclude_exchange')
+        self.assertNotEqual(accepted['company_topic'], token)
+        _, replay = done({'message': message, 'history': [],
+                          'conversation_id': conversation, 'company_topic': token})
+        self.assertEqual(replay, {'history': 'exclude_exchange'})
+        self.assertEqual(self.post({'message': message, 'conversation_id': conversation,
+                                    'company_topic': 'oes'}).status_code, 400)
+        self.assertEqual(self.provider.calls, [])
+
     def test_empty_message(self):
         self.assertEqual(self.post({'message': '  '}).status_code, 400)
 

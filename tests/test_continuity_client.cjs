@@ -11,10 +11,13 @@ const assert = require('node:assert/strict');
         {continuation: token, retainExchange: true});
     assert.deepEqual(module.completionDirective({history: 'exclude_exchange'}),
         {continuation: null, retainExchange: false});
+    assert.deepEqual(module.completionDirective({history: 'exclude_exchange', company_topic: token}),
+        {continuation: null, companyTopic: token, retainExchange: false});
     assert.deepEqual(module.completionDirective({}),
         {continuation: null, retainExchange: true});
     for (const invalid of [null, [], {continuation: 'public_world_lookup'},
-            {history: 'include'}, {capability: 'public_world_lookup'}]) {
+            {history: 'include'}, {capability: 'public_world_lookup'},
+            {company_topic: token}, {history: 'exclude_exchange', company_topic: 'oes'}]) {
         assert.throws(() => module.completionDirective(invalid));
     }
     console.log('PASS Eyeball bounded continuity metadata assertions');

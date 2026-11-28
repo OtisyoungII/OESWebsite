@@ -3,6 +3,7 @@ from dataclasses import dataclass, asdict
 import re
 from .policy import is_serious, HARMLESS_TEASING, CASUAL_VOICE, TEASING_STYLE
 from .localization import DETERMINISTIC_RESPONSES
+from .company_topic import COMPANY_ENTITIES
 
 
 @dataclass(frozen=True)
@@ -71,7 +72,7 @@ def business_conversation_kind(message, context):
 IDENTITY = re.compile(
     r'\b(?:are (?:you|u) (?:an? )?(?:ai|human|bot)|(?:do|can) you (?:have feelings|feel))\b'
     r'|^\s*what are you(?:\s+really)?\s*[?.!]*\s*$', re.I)
-OES_ENTITY_NAMES = r'oes|otis execution systems|chaseingreen|lottovate|sportfolio|drinks with friendz'
+OES_ENTITY_NAMES = '|'.join(COMPANY_ENTITIES)
 EXPLICIT_OES_ENTITY = re.compile(rf'\b(?:{OES_ENTITY_NAMES})\b', re.I)
 OES_FACTS = re.compile(
     rf'\b(?:{OES_ENTITY_NAMES}|trading companion|lottery assistant|sports platform)\b', re.I)
@@ -124,13 +125,10 @@ class CompanyTopic:
     provenance: str = 'previous_user_approved_entity'
 
 
-def active_company_topic(history):
-    """A topic lasts for the next retained turn, and carries no factual authority."""
-    previous_user = next((item['content'] for item in reversed(bounded_history(history))
-                          if item['role'] == 'user'), '')
-    if company_social_acknowledgment(previous_user):
+def explicit_company_topic(message):
+    if company_social_acknowledgment(message):
         return None
-    names = {match.group().casefold() for match in EXPLICIT_OES_ENTITY.finditer(previous_user)}
+    names = {match.group().casefold() for match in EXPLICIT_OES_ENTITY.finditer(message)}
     if len(names) == 1:
         return CompanyTopic(next(iter(names)))
     if names:
@@ -138,19 +136,36 @@ def active_company_topic(history):
     return None
 
 
-def company_followup_response(message, history):
+def active_company_topic(history):
+    """A topic lasts for the next retained turn, and carries no factual authority."""
+    previous_user = next((item['content'] for item in reversed(bounded_history(history))
+                          if item['role'] == 'user'), '')
+    return explicit_company_topic(previous_user)
+
+
+COMPANY_SELF_REFERENCE = re.compile(r"\b(?:we|our|us|nuestra|nuestro|notre|nous)\b", re.I)
+COMPANY_FACT_CUE = re.compile(
+    r"^(?:how (?:many|much)|have we|did we|our|¿?cuánt[oa]s?|combien|notre)\b", re.I)
+COMPANY_FACT_SUBJECT = re.compile(
+    r"\b(?:revenue|runway|profits?|cash|subscribers?|customers?|contracts?|delivery|"
+    r"creditors?|ingresos|clientes|liquidités|abonnés)\b", re.I)
+
+
+def company_followup_response(message, history, topic=None, invalid_marker=False):
     """Require a positive exit before resuming prose under an active topic."""
     current = message.strip()
     if (EXPLICIT_OES_ENTITY.search(current) or EXTERNAL_ENTITY_IDENTITY.search(current)
             or CHARACTER_GREETING.fullmatch(current) or INDEPENDENT_TOPIC.fullmatch(current)):
         return None
-    topic = active_company_topic(history)
+    topic = topic or active_company_topic(history)
     anchored = topic is not None and topic.entity != 'ambiguous'
-    if len(current) <= 160 and COMPANY_FACT_FOLLOWUP.fullmatch(current):
+    sensitive_fact = (COMPANY_FACT_CUE.search(current) and COMPANY_SELF_REFERENCE.search(current)
+                      and COMPANY_FACT_SUBJECT.search(current))
+    if sensitive_fact or (len(current) <= 160 and COMPANY_FACT_FOLLOWUP.fullmatch(current)):
         return 'company_followup_limitation' if anchored else 'company_followup_clarify'
     if len(current) <= 160 and COMPANY_CONCERN_FOLLOWUP.fullmatch(current):
         return 'company_business_guidance' if anchored else 'company_followup_clarify'
-    if topic is not None:
+    if topic is not None or invalid_marker:
         return 'company_followup_clarify'
     return None
 HYPOTHETICAL_OES = re.compile(

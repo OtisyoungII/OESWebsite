@@ -6,6 +6,7 @@ from .runtime import Admission
 from .worker_relay import WorkerRelay, bp as worker_bp
 from .capabilities import eyeball_capabilities, LookupContinuityStore
 from .clarification import ClarificationStore
+from .company_topic import CompanyTopicStore
 
 
 def init_chat(app):
@@ -29,6 +30,7 @@ def init_chat(app):
     app.extensions['chat_admission'] = Admission(app.config)
     app.extensions['chat_capabilities'] = eyeball_capabilities(app.config)
     app.extensions['chat_lookup_continuity'] = LookupContinuityStore()
+    app.extensions['chat_company_topics'] = CompanyTopicStore()
     app.extensions['chat_clarifications'] = ClarificationStore()
     app.register_blueprint(bp)
     app.register_blueprint(worker_bp)
