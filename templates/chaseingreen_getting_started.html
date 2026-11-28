@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% from "chaseingreen_links.html" import app_store, support %}
+{% block title %}Getting Started with ChaseInGreen | OES{% endblock %}
+{% block description %}Install ChaseInGreen, start with Free, and find subscription, support, privacy and beta-testing information.{% endblock %}
+{% block page_styles %}<link rel="stylesheet" href="{{ url_for('static', filename='css/product-guide.css') }}">{% endblock %}
+{% block content %}
+<div class="product-guide">
+  <header>
+    <p class="guide-label"><a href="{{ url_for('chaseingreen') }}">ChaseInGreen</a></p>
+    <h1>Getting started</h1>
+    <p class="guide-lede">Install the public app and build your first research and trading journal routine.</p>
+    <div class="guide-actions">{{ app_store() }}{{ support() }}</div>
+  </header>
+  <section aria-labelledby="guide-start">
+    <h2 id="guide-start">Your first session</h2>
+    <ol class="guide-steps">
+      <li><strong>Install the public app.</strong> Use the App Store on an iPhone or iPad running version 18.5 or later.</li>
+      <li><strong>Open the app and follow the sign-in prompts.</strong> Start with Free to explore market context and planning before choosing a subscription.</li>
+      <li><strong>Try one workflow.</strong> Add a symbol to your watchlist, review its market context, then log a trade and review your decision.</li>
+      <li><strong>Connect an account only if the app offers your provider.</strong> Follow the instructions inside the app. This website does not collect broker credentials.</li>
+    </ol>
+  </section>
+  <section aria-labelledby="guide-faq">
+    <h2 id="guide-faq">Frequently asked questions</h2>
+    <details><summary>How do I choose or manage Gold?</summary><p>Open Subscriptions in the app. Gold is $29.99 monthly or $299.99 annually in the U.S. Check the price Apple shows before confirming. Manage or cancel through your Apple Account subscriptions.</p></details>
+    <details><summary>Can I trade through ChaseInGreen?</summary><p>No. It provides market context, research, journaling and risk tools. It does not execute trades or guarantee investment or funding outcomes.</p></details>
+    <details><summary>How does beta testing work?</summary><p>Use TestFlight only if OES has authorized you to participate and sent an invitation. New customers should install from the App Store. For testing inquiries, contact OES.</p></details>
+    <details><summary>What should I include in a support request?</summary><p>Tell us the app version, your device model and what you were trying to do. Do not send passwords, broker credentials or account numbers.</p></details>
+  </section>
+  <section aria-labelledby="guide-help">
+    <h2 id="guide-help">Support and privacy</h2>
+    <div class="guide-actions">{{ support() }}
+      <a href="{{ url_for('privacy') }}">Privacy policy</a>
+    </div>
+    <p>Send product feedback, account or subscription questions to support. Keep private details out of public channels.</p>
+  </section>
+  {% if config.OES_ANDROID_INTEREST_DSN %}
+  <section aria-labelledby="guide-android">
+    <h2 id="guide-android">Interested in Android?</h2>
+    <p>ChaseInGreen is not available on Android. <a href="{{ url_for('android_interest.register') }}">Register interest in early access</a>.</p>
+  </section>
+  {% endif %}
+</div>
+{% endblock %}

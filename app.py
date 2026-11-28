@@ -3,10 +3,12 @@ import os
 from flask import Flask, redirect, render_template, url_for
 from chat import init_chat
 from product_intelligence import init_product_intelligence
+from android_interest import init_android_interest
 
 app = Flask(__name__)
 init_chat(app)
 init_product_intelligence(app)
+init_android_interest(app)
 
 # Public website freshness and product endpoints live here so templates do not
 # duplicate release-sensitive values.
@@ -44,12 +46,58 @@ def home():
 
 @app.route("/chaseingreen")
 def chaseingreen():
-    return redirect(f"{url_for('home')}#products")
+    return render_template("chaseingreen.html")
+
+
+@app.get("/chaseingreen/getting-started")
+def chaseingreen_getting_started():
+    return render_template("chaseingreen_getting_started.html")
 
 
 @app.route("/lottovate")
 def lottovate():
-    return redirect(f"{url_for('home')}#products")
+    return product_detail('lottovate')
+
+
+PRODUCT_PAGES = {
+    'lottovate': ('Lottovate', 'Beta testing · Not accepting new testers',
+                  'Explore Michigan Daily 3 and Daily 4 results, compare historical patterns and organize your picks. No number or outcome is guaranteed.',
+                  'Check TestFlight availability', 'https://testflight.apple.com/join/CD35ByXj',
+                  'testflight_link_activated'),
+    'sportfolio': ('Sportfolio', 'Baseball field testing',
+                  'Keep teams, rosters, scoring and player records together. Baseball is the first sport in field testing.',
+                  'Try the web field test', None, 'web_app_link_activated'),
+    'drinks-with-friendz': ('Drinks With Friendz', 'Available on the App Store · Client work',
+                          'An iPhone app developed by OES for the Drinks With Friendz client brand. Discover nearby venues and explore them on a map.',
+                          'Download on the App Store', 'https://apps.apple.com/us/app/drinks-with-friendz/id6803617345',
+                          'external_product_link_activated'),
+    'scout': ('OES Scout', 'In development',
+              'Scout is an OES project for supervised software operations and repository analysis.',
+              None, None, None),
+    'rush-and-risk': ('Rush & Risk', 'Public availability unconfirmed',
+                      'Contact OES for confirmed product information.', None, None, None),
+    'eyeball': ('Eyeball', 'Available on the OES website',
+                'Eyeball is the public OES assistant. Ask about our technology or say hello. Do not share private information.',
+                'Meet Eyeball', '/#eyeball', None),
+}
+
+
+@app.get('/products')
+def products():
+    return render_template('product_portfolio.html', products=PRODUCT_PAGES)
+
+
+@app.get('/products/<slug>')
+def product_detail(slug):
+    if slug == 'chaseingreen':
+        return redirect(url_for('chaseingreen'))
+    if slug not in PRODUCT_PAGES:
+        return '', 404
+    product = PRODUCT_PAGES[slug]
+    destination = app.config['SPORTFOLIO_WEB_URL'] if slug == 'sportfolio' else product[4]
+    if slug == 'sportfolio' and not destination.startswith('https://'):
+        destination = None
+    return render_template('product_detail.html', slug=slug, product=product, destination=destination)
 
 
 @app.route("/contact")

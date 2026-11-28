@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}{{ product[0] }} | Otis Execution Systems{% endblock %}
+{% block description %}{{ product[2] }}{% endblock %}
+{% block page_styles %}<link rel="stylesheet" href="{{ url_for('static', filename='css/product-guide.css') }}">{% endblock %}
+{% block content %}
+<div class="product-guide">
+  <p class="guide-label"><a href="{{ url_for('products') }}">{{ 'Client work' if slug == 'drinks-with-friendz' else 'OES products' }}</a></p>
+  <h1>{{ product[0] }}</h1>
+  <p class="guide-label">{{ product[1] }}</p>
+  <p class="guide-lede">{{ product[2] }}</p>
+  <div class="guide-actions">
+    {% if destination %}<a class="guide-primary" href="{{ destination }}"{% if product[5] %}
+      data-product-event="{{ product[5] }}" data-product-target="{{ 'drinkswithfriendz' if slug == 'drinks-with-friendz' else slug }}"{% endif %}>{{ product[3] }}</a>{% endif %}
+    {% if slug == 'drinks-with-friendz' %}
+      <a href="https://drinkswithfriendz.com/" data-product-event="external_product_link_activated" data-product-target="drinkswithfriendz">Visit the client website</a>
+      <a href="{{ url_for('drinks_with_friendz_privacy') }}">Drinks With Friendz Privacy Policy</a>
+    {% endif %}
+    <a href="{{ url_for('contact') }}">Contact OES</a>
+  </div>
+</div>
+{% endblock %}

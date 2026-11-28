@@ -303,22 +303,15 @@ class ChatTests(unittest.TestCase):
         self.assertIn('FlareUp Profits: https://discord.gg/YjKFkdnj3', instruction)
         self.assertIn('Lottovate_MI Server: https://discord.gg/pf6sAYD33', instruction)
 
-    def test_product_cards_include_safe_accessible_discord_links(self):
+    def test_product_cards_do_not_advertise_expired_discord_invites(self):
         from app import app
         html = app.test_client().get('/').get_data(as_text=True)
         chase_card = html.split('data-product="chaseingreen"', 1)[1].split(
             'data-product="lottovate"', 1)[0]
         lottovate_card = html.split('data-product="lottovate"', 1)[1].split(
             'data-product="sportfolio"', 1)[0]
-        for card, url, community in [
-            (chase_card, 'https://discord.gg/YjKFkdnj3', 'FlareUp Profits'),
-            (lottovate_card, 'https://discord.gg/pf6sAYD33', 'Lottovate_MI Server'),
-        ]:
-            with self.subTest(community=community):
-                self.assertIn(f'href="{url}"', card)
-                self.assertIn('target="_blank"', card)
-                self.assertIn('rel="noopener noreferrer"', card)
-                self.assertIn(community, card)
+        self.assertNotIn('https://discord.gg/YjKFkdnj3', chase_card)
+        self.assertNotIn('https://discord.gg/pf6sAYD33', lottovate_card)
 
     def test_public_fact_model_prose_never_released(self):
         self.provider.stream = lambda messages: iter([
@@ -417,9 +410,9 @@ class ChatTests(unittest.TestCase):
     def test_page_routes_unchanged(self):
         from app import app
         client=app.test_client()
-        for path in ['/', '/privacy']:
+        for path in ['/', '/privacy', '/chaseingreen', '/lottovate']:
             self.assertEqual(client.get(path).status_code,200)
-        for path, location in [('/chaseingreen','/#products'),('/lottovate','/#products'),('/contact','/#contact')]:
+        for path, location in [('/contact','/#contact')]:
             self.assertEqual(client.get(path).location,location)
 
     def test_eyeball_locale_control_preserves_accessibility_contract(self):

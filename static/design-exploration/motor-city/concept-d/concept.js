@@ -17,7 +17,6 @@ chase.status = "Live on the App Store";
 chase.description = "See market context, plan risk and keep a clearer record of your decisions—all in one trading companion. ChaseInGreen is not a brokerage, exchange, wallet or financial institution.";
 chase.actions = [
   { label: "Get ChaseINGreen on the App Store", href: CHASE_APP_STORE_URL, primary: true },
-  { label: "Join ChaseInGreen Discord", href: "https://discord.gg/YjKFkdnj3" },
   { label: "ChaseInGreen Privacy Policy", href: "/privacy" },
 ];
 chase.note = "Trading involves risk. ChaseInGreen supports research and planning; it does not guarantee outcomes.";
@@ -29,7 +28,7 @@ sportfolio.actions = [
 ];
 
 const lottovate = baseProducts.find((product) => product.id === "lottovate");
-lottovate.status = "Public TestFlight";
+lottovate.status = "TestFlight · Closed to new testers";
 const drinks = baseProducts.find((product) => product.id === "drinkswithfriendz");
 drinks.status = "Available on the App Store";
 drinks.actions = [

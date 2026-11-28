@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}Products and Client Work | Otis Execution Systems{% endblock %}
+{% block page_styles %}<link rel="stylesheet" href="{{ url_for('static', filename='css/product-guide.css') }}">{% endblock %}
+{% block content %}
+<div class="product-guide">
+  <p class="guide-label">Otis Execution Systems LLC</p>
+  <h1>Products</h1>
+  <p class="guide-lede">Software engineering, intelligent systems, secure integrations and applications with AI-powered features. Built in Detroit for people wherever they work.</p>
+  <section aria-labelledby="oes-products">
+    <h2 id="oes-products">OES products</h2>
+    <div class="guide-grid">
+      <article><h3><a href="{{ url_for('chaseingreen') }}">ChaseInGreen</a></h3><p>Trading research and planning. Available on the App Store.</p><a href="{{ url_for('chaseingreen_getting_started') }}">Getting started</a></article>
+      {% for slug, product in products.items() if slug != 'drinks-with-friendz' %}
+      <article><h3><a href="{{ url_for('product_detail', slug=slug) }}">{{ product[0] }}</a></h3><p>{{ product[1] }}</p></article>
+      {% endfor %}
+    </div>
+  </section>
+  <section aria-labelledby="portfolio-client-work">
+    <h2 id="portfolio-client-work">Client work</h2>
+    <p><a href="{{ url_for('product_detail', slug='drinks-with-friendz') }}">Drinks With Friendz</a> is a client-owned iPhone application developed by OES.</p>
+  </section>
+</div>
+{% endblock %}

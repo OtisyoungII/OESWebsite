@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}ChaseInGreen Android Early-Access Interest | OES{% endblock %}
+{% block page_styles %}<link rel="stylesheet" href="{{ url_for('static', filename='css/product-guide.css') }}">{% endblock %}
+{% block content %}
+<div class="product-guide">
+  <p class="guide-label"><a href="{{ url_for('chaseingreen') }}">ChaseInGreen</a></p>
+  <h1>Android early-access interest</h1>
+  <p class="guide-lede">ChaseInGreen is not available on Android. Joining the interest list does not guarantee access or a release date.</p>
+  {% if unavailable %}
+    <p>Registration is not open yet.</p>
+  {% elif submitted %}
+    <p role="status">{{ result }}</p>
+  {% else %}
+    <form class="guide-registration" method="post">
+      {% if result %}<p role="alert">{{ result }}</p>{% endif %}
+      <input name="csrf" type="hidden" value="{{ csrf }}">
+      <label for="android-email">Email address</label>
+      <input id="android-email" name="email" type="email" autocomplete="email" maxlength="254" required>
+      <p>OES uses your email only for ChaseInGreen Android updates and early-access invitations. To withdraw or request deletion, <a href="mailto:info@otisexecutionsystems.com?subject=Android%20interest%20removal">contact OES</a>. See the <a href="{{ url_for('privacy') }}">OES privacy policy</a>.</p>
+      <label><input type="checkbox" name="consent" value="yes" required> I agree to receive ChaseInGreen Android updates and invitation emails.</label>
+      <button type="submit">Register interest</button>
+    </form>
+  {% endif %}
+</div>
+{% endblock %}

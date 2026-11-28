@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% from "chaseingreen_links.html" import app_store, support %}
+{% block title %}ChaseInGreen | Trading Research and Planning | OES{% endblock %}
+{% block description %}Explore ChaseInGreen, a trading research, risk planning and journaling companion for iPhone and iPad.{% endblock %}
+{% block page_styles %}<link rel="stylesheet" href="{{ url_for('static', filename='css/product-guide.css') }}">{% endblock %}
+{% block content %}
+<div class="product-guide">
+  <header class="guide-hero">
+    <div>
+      <p class="guide-label">An Otis Execution Systems product</p>
+      <h1>ChaseInGreen</h1>
+      <p class="guide-lede">Research the market, plan your risk and review your trades in one place.</p>
+      <p>For traders who want to understand the market before a trade and learn from their decisions afterward.</p>
+      <div class="guide-actions">{{ app_store() }}<a href="{{ url_for('chaseingreen_getting_started') }}">Getting started</a></div>
+      <p>Available on iPhone and iPad. Requires iOS or iPadOS 18.5 or later.</p>
+      {% if config.OES_ANDROID_INTEREST_DSN %}<p>Android is not available. <a href="{{ url_for('android_interest.register') }}">Register interest in Android early access</a>.</p>{% endif %}
+    </div>
+    <img class="guide-brand" src="{{ url_for('static', filename='images/chaseingreen/chaseingreen-bull-bear-sculpted.webp') }}" alt="ChaseInGreen gold bull and bear emblem" width="768" height="768">
+  </header>
+  <section aria-labelledby="guide-workflow">
+    <h2 id="guide-workflow">From research to review</h2>
+    <div class="guide-grid">
+      <article><h3>Research the market</h3><p>Use watchlists, charts and market context to study trade ideas and build your understanding.</p></article>
+      <article><h3>Plan your risk</h3><p>Use position-sizing and risk tools to explore how much exposure a trade would create.</p></article>
+      <article><h3>Review your decisions</h3><p>Log trades, track performance and use available account-tracking tools to keep records in view.</p></article>
+    </div>
+  </section>
+  <section aria-labelledby="guide-screens">
+    <h2 id="guide-screens">Inside the app</h2>
+    <div class="guide-grid guide-screens">
+      {% for image, caption in [('01', 'ChaseInGreen welcome screen'), ('02', 'Market chart and price context'), ('03', 'AI-assisted trade review')] %}
+      <figure><img src="{{ url_for('static', filename='images/chaseingreen/app-store-' ~ image ~ '.jpg') }}" alt="{{ caption }}" width="222" height="480" loading="lazy"><figcaption>{{ caption }}</figcaption></figure>
+      {% endfor %}
+    </div>
+    <p class="guide-note">Screenshots from the public U.S. App Store listing.</p>
+  </section>
+  <section aria-labelledby="guide-plans">
+    <h2 id="guide-plans">Free and Gold</h2>
+    <div class="guide-grid guide-plans">
+      <article><h3>Free</h3><p>Essential market context and planning tools.</p></article>
+      <article><h3>Gold</h3><p>Expanded AI market tools, additional alerts and deeper analytics.</p><p><strong>$29.99 monthly or $299.99 annually</strong> in the U.S. Confirm local pricing and terms in the App Store before subscribing.</p></article>
+    </div>
+    <p>ChaseInGreen supports research and planning. It is not a brokerage, exchange, cryptocurrency wallet or prop firm. It does not execute trades, provide personalized financial advice or guarantee results.</p>
+    <div class="guide-actions"><a href="{{ url_for('chaseingreen_getting_started') }}">See the setup guide</a>{{ support() }}</div>
+  </section>
+</div>
+{% endblock %}

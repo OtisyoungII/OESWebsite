@@ -12,10 +12,9 @@ export const oesContent = Object.freeze({
     {
       id: "chaseingreen", name: "ChaseInGreen", category: "Trading Companion Platform", status: "Available on the App Store",
       description: "ChaseInGreen is an OES-built trading companion on the App Store. Review market context, plan risk and keep a trade journal. It is not a brokerage, exchange, wallet or financial institution.",
-      features: ["Technical-analysis-driven dashboards and market state", "Position sizing, stop-loss and take-profit workflows", "Profit-protection and give-back planning tools", "Trade journaling, grouped P&L and account management", "Broker integrations, alerts and ongoing behavior analysis"],
+      features: ["Market charts, watchlists and context", "Position sizing and trading-risk planning", "Trade journaling and performance review", "Broker account tracking where supported"],
       actions: [
         { label: "Download on the App Store", href: "https://apps.apple.com/us/app/chaseingreen/id6770096789" },
-        { label: "Join ChaseInGreen Discord", href: "https://discord.gg/YjKFkdnj3" },
         { label: "ChaseInGreen Privacy Policy", href: "/privacy" }
       ],
       note: "Interested in testing advanced ChaseInGreen features? Selected testers can get early access to upcoming capabilities before release. Email info@otisexecutionsystems.com to learn more."
@@ -25,8 +24,7 @@ export const oesContent = Object.freeze({
       description: "Explore Michigan Daily 3 and Daily 4 results, compare historical patterns and keep personal picks organized in one iPhone app. No number or outcome is guaranteed.",
       features: ["Michigan Daily 3 and Daily 4 prediction lanes", "Result ingestion and historical-result handling", "Personal number tracking and Easy Picks", "Wager and winnings organization", "Expansion work for additional games, including Daily 5"],
       actions: [
-        { label: "Test on TestFlight", href: "https://testflight.apple.com/join/CD35ByXj" },
-        { label: "Join Lottovate Discord", href: "https://discord.gg/pf6sAYD33" }
+        { label: "Check TestFlight availability", href: "https://testflight.apple.com/join/CD35ByXj" }
       ]
     },
     {
@@ -97,7 +95,7 @@ export const oesContent = Object.freeze({
   },
   about: {
     title: "Building from Detroit with purpose, imagination and execution.",
-    paragraphs: ["Otis Execution Systems LLC develops testable software products, client applications, trading and sports technology, backend APIs, integrations and connected data systems.", "OES combines artificial intelligence, mobile engineering, web development, data analysis, automation, product design, technical experimentation and community-centered education.", "We believe imperfections are not reasons to stop building. They are places where better systems, stronger people and new opportunities can begin."]
+    paragraphs: ["Otis Execution Systems LLC is a Detroit-based technology company building mobile and web applications, backend services, secure integrations and connected data systems.", "We build AI-powered features where they serve a specific purpose, such as organizing information or helping people review a decision. Our work includes OES products, client applications and technology education."]
   },
   contact: {
     title: "Bring OES the idea.",

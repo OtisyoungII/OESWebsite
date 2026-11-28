@@ -1,0 +1,35 @@
+.product-entry { display: flex; flex-wrap: wrap; gap: .25rem 1rem; justify-content: center; padding: .35rem 1rem; background: #151d2b; }
+.product-entry a { display: inline-flex; align-items: center; min-height: 44px; color: #f4cf83; text-decoration: underline; text-underline-offset: .2em; }
+.product-entry a:focus-visible { outline: 3px solid #91ceff; outline-offset: 2px; }
+.product-guide { width: min(70rem, 100% - 2rem); margin-inline: auto; padding-block: clamp(2rem, 6vw, 5rem); color: #f6f4ef; line-height: 1.65; }
+.product-guide h1 { font-size: clamp(2.65rem, 8vw, 5.5rem); line-height: 1.06; margin: .2em 0 .35em; overflow-wrap: anywhere; }
+.product-guide h2 { font-size: clamp(1.6rem, 4vw, 2.4rem); margin: 0 0 .7em; }
+.product-guide h3 { font-size: 1.2rem; margin: 0 0 .35rem; }
+.product-guide p { margin: .55em 0; max-width: 70ch; }
+.product-guide section { margin-top: clamp(2.5rem, 7vw, 5rem); }
+.guide-hero { display: grid; grid-template-columns: 3fr 2fr; align-items: center; gap: clamp(1rem, 5vw, 4rem); }
+.guide-label { color: #f4cf83; font-weight: 650; }
+.guide-lede { font-size: clamp(1.15rem, 2.2vw, 1.5rem); }
+.guide-brand { width: min(100%, 22rem); height: auto; justify-self: center; }
+.guide-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1rem; }
+.guide-plans { grid-template-columns: repeat(2, minmax(0, 1fr)); margin-bottom: 1rem; }
+.guide-grid article, .product-guide details { border: 1px solid #596275; background: #151d2b; border-radius: .5rem; padding: 1rem; }
+.guide-actions { display: flex; flex-wrap: wrap; gap: .65rem; margin: 1.35rem 0; }
+.guide-actions a { display: inline-flex; align-items: center; min-height: 44px; padding: .55rem .9rem; border: 1px solid #8c96a8; border-radius: .4rem; color: #fff; text-decoration: none; }
+.guide-actions .guide-primary { background: #f4cf83; color: #171209; border-color: #f4cf83; font-weight: 700; }
+.product-guide :focus-visible { outline: 3px solid #91ceff; outline-offset: 4px; }
+.guide-screens figure { margin: 0; }
+.guide-screens img { display: block; max-width: 100%; height: auto; border-radius: .5rem; }
+.guide-screens figcaption, .guide-note { margin-top: .5rem; color: #d0d7e3; }
+.guide-steps { padding-inline-start: 1.5rem; max-width: 70ch; }
+.guide-steps li { padding: .45rem 0; }
+.product-guide details + details { margin-top: .6rem; }
+.product-guide summary { min-height: 32px; cursor: pointer; font-weight: 650; }
+.guide-registration { display: grid; gap: .8rem; max-width: 36rem; margin-top: 2rem; }
+.guide-registration input[type="email"], .guide-registration button { min-height: 44px; padding: .6rem; border-radius: .4rem; }
+.guide-registration button { justify-self: start; background: #f4cf83; color: #171209; font-weight: 700; }
+@media (max-width: 700px) {
+  .guide-hero, .guide-grid { grid-template-columns: minmax(0, 1fr); }
+  .guide-brand { width: min(55%, 14rem); justify-self: start; }
+  .guide-screens { grid-template-columns: repeat(auto-fit, minmax(min(100%, 10rem), 1fr)); }
+}
